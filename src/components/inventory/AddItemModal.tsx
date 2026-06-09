@@ -2,28 +2,31 @@ import { useState, type FormEvent } from 'react';
 import { X, Package, Loader2 } from 'lucide-react';
 import { useCreateItem, useItems } from '../../hooks/useInventory';
 import { useLPGBrands } from '../../hooks/useBrands';
-import type { CreateItemPayload, CylinderWeight, MouthSize } from '../../types/inventory';
+import type { CreateItemPayload, MouthSize } from '../../types/inventory';
 import { CYLINDER_WEIGHT_OPTIONS, MOUTH_SIZE_OPTIONS } from '../../types/inventory';
 
-interface AddItemDialogProps {
+interface AddItemModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-export const AddItemDialog = ({ open, onClose }: AddItemDialogProps) => {
+type FormState = CreateItemPayload;
+
+export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
   const createItem = useCreateItem();
   const { data: brands = [] } = useLPGBrands();
   const { data: items = [] } = useItems();
 
-  const [form, setForm] = useState<CreateItemPayload & { cylinder_weight?: CylinderWeight | null; mouth_size?: MouthSize | null }>({
+  const [form, setForm] = useState<FormState>({
     brand_id: null,
     brand: '',
     size_kg: 5,
-    type: 'filled_gas',
+    cylinder_weight: null,
     mouth_size: null,
   });
 
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,55 +37,68 @@ export const AddItemDialog = ({ open, onClose }: AddItemDialogProps) => {
       return;
     }
 
-    // Check for duplicate: same brand_id + size_kg
-    const isDuplicate = items.some(
-      (item) => item.brand_id === form.brand_id && item.size_kg === form.size_kg
-    );
+    // Check for duplicate: brand_id + size_kg
+    const exists = items.some((i) => i.brand_id === form.brand_id && i.size_kg === form.size_kg);
 
-    if (isDuplicate) {
-      setDuplicateError(`This product (${form.brand} ${form.size_kg}kg) already exists in your registry. Each product can only be added once.`);
+    if (exists) {
+      setDuplicateError(`${form.brand} ${form.size_kg}kg already exists in your registry.`);
       return;
     }
 
-    await createItem.mutateAsync(form);
-    onClose();
-    setForm({ brand_id: null, brand: '', size_kg: 5, type: 'filled_gas', mouth_size: null });
-    setDuplicateError(null);
+    setIsSubmitting(true);
+    try {
+      await createItem.mutateAsync({
+        brand_id:        form.brand_id,
+        brand:           form.brand,
+        size_kg:         form.size_kg,
+        cylinder_weight: form.cylinder_weight ?? null,
+        mouth_size:      form.mouth_size ?? null,
+      });
+
+      onClose();
+      setForm({ brand_id: null, brand: '', size_kg: 5, cylinder_weight: null, mouth_size: null });
+    } catch (err) {
+      // error displayed via createItem.isError
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!open) return null;
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        className="dialog glass-panel"
+        className="modal-content glass-panel"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Add New Item"
       >
         {/* Header */}
-        <div className="dialog-header">
+        <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="dialog-icon">
+            <div className="modal-icon">
               <Package size={18} />
             </div>
             <div>
-              <h2 className="dialog-title">Add New Item</h2>
-              <p className="dialog-subtitle">Define a product SKU for the inventory ledger</p>
+              <h2 className="modal-title">Add New Item</h2>
+              <p className="modal-subtitle">
+                Register a new cylinder SKU (tracks both filled and empty stocks)
+              </p>
             </div>
           </div>
-          <button className="dialog-close" onClick={onClose} aria-label="Close">
+          <button className="modal-close" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="dialog-body">
+          <div className="modal-body">
             {/* Brand Selection */}
             <div className="input-group">
-              <label className="input-label" htmlFor="item-brand">Brand</label>
+              <label className="input-label" htmlFor="item-brand">Brand *</label>
               {brands.length === 0 ? (
                 <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.375rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
                   No brands available. Please add a brand in Settings first.
@@ -152,21 +168,19 @@ export const AddItemDialog = ({ open, onClose }: AddItemDialogProps) => {
                 ))}
               </select>
             </div>
-
-
           </div>
 
           {/* Footer */}
-          <div className="dialog-footer">
+          <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               Cancel
             </button>
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={createItem.isPending || !form.brand_id}
+              disabled={isSubmitting || !form.brand_id}
             >
-              {createItem.isPending
+              {isSubmitting
                 ? <><Loader2 size={15} className="spin" /> Creating…</>
                 : 'Create Item'}
             </button>

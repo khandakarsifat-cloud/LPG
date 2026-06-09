@@ -1,15 +1,15 @@
 import { useState, type FormEvent } from 'react';
-import { X, Truck as TruckIcon, Loader2 } from 'lucide-react';
+import { X, Truck as TruckIcon, Loader2, MapPin } from 'lucide-react';
 import { useCreateTruck } from '../../hooks/useLogistics';
 import type { CreateTruckPayload, TruckSize } from '../../types/logistics';
 import { TRUCK_SIZE_OPTIONS, TRUCK_SIZE_LABELS, TRUCK_SIZE_DESCRIPTIONS } from '../../types/logistics';
 
-interface AddTruckDialogProps {
+interface AddTruckModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-export const AddTruckDialog = ({ open, onClose }: AddTruckDialogProps) => {
+export const AddTruckModal = ({ open, onClose }: AddTruckModalProps) => {
   const createTruck = useCreateTruck();
 
   const [form, setForm] = useState<CreateTruckPayload>({
@@ -17,6 +17,7 @@ export const AddTruckDialog = ({ open, onClose }: AddTruckDialogProps) => {
     serial_no: '',
     capacity: 20,
     size: 'medium',
+    location: '',
   });
 
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -25,7 +26,6 @@ export const AddTruckDialog = ({ open, onClose }: AddTruckDialogProps) => {
     e.preventDefault();
     setValidationError(null);
 
-    // Validation
     if (!form.name.trim()) {
       setValidationError('Truck name is required');
       return;
@@ -40,14 +40,17 @@ export const AddTruckDialog = ({ open, onClose }: AddTruckDialogProps) => {
     }
 
     try {
-      await createTruck.mutateAsync(form);
+      await createTruck.mutateAsync({
+        ...form,
+        location: form.location?.trim() || undefined,
+      });
       onClose();
-      setForm({ name: '', serial_no: '', capacity: 20, size: 'medium' });
+      setForm({ name: '', serial_no: '', capacity: 20, size: 'medium', location: '' });
       setValidationError(null);
     } catch (error) {
       const err = error as Error;
-      if (err.message.includes('unique')) {
-        setValidationError(`A truck with serial number "${form.serial_no}" already exists`);
+      if (err.message.includes('unique') || err.message.includes('duplicate')) {
+        setValidationError(`A truck with serial number "${form.serial_no}" already exists. Serial numbers must be unique.`);
       } else {
         setValidationError(err.message);
       }
@@ -57,33 +60,33 @@ export const AddTruckDialog = ({ open, onClose }: AddTruckDialogProps) => {
   if (!open) return null;
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        className="dialog glass-panel"
+        className="modal-content glass-panel"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Add New Truck"
       >
         {/* Header */}
-        <div className="dialog-header">
+        <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="dialog-icon">
+            <div className="modal-icon">
               <TruckIcon size={18} />
             </div>
             <div>
-              <h2 className="dialog-title">Add New Truck</h2>
-              <p className="dialog-subtitle">Register a vehicle for your logistics fleet</p>
+              <h2 className="modal-title">Add New Truck</h2>
+              <p className="modal-subtitle">Register a vehicle for your logistics fleet</p>
             </div>
           </div>
-          <button className="dialog-close" onClick={onClose} aria-label="Close">
+          <button className="modal-close" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="dialog-body">
+          <div className="modal-body">
             {/* Truck Name */}
             <div className="input-group">
               <label className="input-label" htmlFor="truck-name">
@@ -115,6 +118,9 @@ export const AddTruckDialog = ({ open, onClose }: AddTruckDialogProps) => {
                 onChange={(e) => setForm((p) => ({ ...p, serial_no: e.target.value }))}
                 required
               />
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                Must be unique — used as the vehicle identifier.
+              </p>
             </div>
 
             {/* Capacity */}
@@ -131,6 +137,22 @@ export const AddTruckDialog = ({ open, onClose }: AddTruckDialogProps) => {
                 value={form.capacity}
                 onChange={(e) => setForm((p) => ({ ...p, capacity: parseInt(e.target.value, 10) }))}
                 required
+              />
+            </div>
+
+            {/* Location (optional) */}
+            <div className="input-group">
+              <label className="input-label" htmlFor="truck-location">
+                <MapPin size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.3rem' }} />
+                Current Location (Optional)
+              </label>
+              <input
+                id="truck-location"
+                type="text"
+                className="input-field"
+                placeholder="e.g., Warehouse A, Depot 3"
+                value={form.location ?? ''}
+                onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
               />
             </div>
 
@@ -156,7 +178,7 @@ export const AddTruckDialog = ({ open, onClose }: AddTruckDialogProps) => {
           </div>
 
           {/* Footer */}
-          <div className="dialog-footer">
+          <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               Cancel
             </button>

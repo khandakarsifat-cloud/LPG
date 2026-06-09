@@ -1,7 +1,5 @@
 // ── Shared domain types for the Inventory module ─────────────────────────────
 
-export type ItemType = 'filled_gas' | 'cylinder_only';
-
 export type MovementType =
   | 'purchase'
   | 'sale'
@@ -13,6 +11,7 @@ export type MovementType =
 
 export type CylinderWeight = '5kg' | '12kg' | '25kg' | '35kg';
 export type MouthSize = '20mm' | '22mm';
+export type PriceType = 'refill' | 'package';
 
 export interface LPGBrand {
   tenant_id: string;
@@ -30,7 +29,8 @@ export interface Item {
   brand_id: string | null;
   brand: string; // Deprecated: use brand_id to reference LPGBrand
   size_kg: number;
-  type: ItemType;
+  filled_quantity: number;
+  empty_quantity: number;
   cylinder_weight: CylinderWeight | null;
   mouth_size: MouthSize | null;
   created_at: string;
@@ -41,26 +41,19 @@ export interface ItemWithBrand extends Item {
   lpg_brands: LPGBrand | null;
 }
 
-export interface InventoryBalance {
-  tenant_id: string;
-  item_id: string;
-  current_quantity: number;
-  last_updated: string;
-  items: ItemWithBrand | null;
-}
-
 export interface InventoryMovement {
   tenant_id: string;
   movement_id: string;
   item_id: string;
   movement_type: MovementType;
-  quantity_change: number;
+  filled_quantity_change: number;
+  empty_quantity_change: number;
   notes: string | null;
   reference_type: string | null;
   reference_id: string | null;
   created_by: string | null;
   created_at: string;
-  items: (Pick<Item, 'brand' | 'size_kg' | 'type' | 'cylinder_weight' | 'mouth_size'> & { lpg_brands: LPGBrand | null }) | null;
+  items: (Pick<Item, 'brand' | 'size_kg' | 'filled_quantity' | 'empty_quantity' | 'cylinder_weight' | 'mouth_size'> & { lpg_brands: LPGBrand | null }) | null;
   user_profiles: { full_name: string | null } | null;
 }
 
@@ -68,7 +61,6 @@ export interface CreateItemPayload {
   brand_id: string | null;
   brand?: string; // Deprecated: use brand_id
   size_kg: number;
-  type: ItemType;
   cylinder_weight?: CylinderWeight | null;
   mouth_size?: MouthSize | null;
 }
@@ -76,7 +68,8 @@ export interface CreateItemPayload {
 export interface CreateMovementPayload {
   item_id: string;
   movement_type: MovementType;
-  quantity: number;
+  filled_quantity_change: number;
+  empty_quantity_change: number;
   notes?: string;
 }
 
@@ -86,10 +79,6 @@ export interface CreateBrandPayload {
 }
 
 // Display helpers
-export const ITEM_TYPE_LABELS: Record<ItemType, string> = {
-  filled_gas:     'Filled Gas',
-  cylinder_only:  'Cylinder Asset',
-};
 
 export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
   purchase:     'Purchase',

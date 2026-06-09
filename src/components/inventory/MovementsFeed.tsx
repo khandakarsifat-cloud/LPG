@@ -28,7 +28,9 @@ export const MovementsFeed = () => {
   return (
     <div className="movements-feed">
       {movements.map((m) => {
-        const isPositive = m.quantity_change > 0;
+        const hasFilled = m.filled_quantity_change !== 0;
+        const hasEmpty  = m.empty_quantity_change !== 0;
+        const isPositive = (m.filled_quantity_change > 0) || (m.empty_quantity_change > 0);
         const color = MOVEMENT_TYPE_COLORS[m.movement_type as MovementType];
         const item = m.items;
         const actor = m.user_profiles?.full_name ?? 'System';
@@ -64,12 +66,24 @@ export const MovementsFeed = () => {
 
             {/* Quantity + time */}
             <div className="movement-right">
-              <span
-                className="movement-qty"
-                style={{ color: isPositive ? 'var(--accent)' : 'var(--danger)' }}
-              >
-                {isPositive ? '+' : ''}{m.quantity_change.toLocaleString()}
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
+                {hasFilled && (
+                  <span
+                    className="movement-qty"
+                    style={{ color: m.filled_quantity_change > 0 ? 'var(--accent)' : 'var(--danger)', fontSize: '0.85rem' }}
+                  >
+                    {m.filled_quantity_change > 0 ? '+' : ''}{m.filled_quantity_change.toLocaleString()} Filled
+                  </span>
+                )}
+                {hasEmpty && (
+                  <span
+                    className="movement-qty"
+                    style={{ color: m.empty_quantity_change > 0 ? 'var(--warning)' : 'var(--danger)', fontSize: '0.85rem' }}
+                  >
+                    {m.empty_quantity_change > 0 ? '+' : ''}{m.empty_quantity_change.toLocaleString()} Empty
+                  </span>
+                )}
+              </div>
               <span className="movement-time">
                 {formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}
               </span>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Truck } from 'lucide-react';
-import { AddTruckDialog } from '../components/logistics/AddTruckDialog';
+import { AddTruckModal } from '../components/logistics/AddTruckModal';
 import { TrucksGrid } from '../components/logistics/TrucksGrid';
 
 type Tab = 'trucks' | 'trips';
@@ -53,7 +53,7 @@ export const LogisticsPage = () => {
       </div>
 
       {/* ── Dialogs ── */}
-      <AddTruckDialog open={addTruckOpen} onClose={() => setAddTruckOpen(false)} />
+      <AddTruckModal open={addTruckOpen} onClose={() => setAddTruckOpen(false)} />
     </div>
   );
 };

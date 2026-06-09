@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import type { Truck, CreateTruckPayload, UpdateTruckPayload } from '../types/logistics';
+import type { Truck, CreateTruckPayload, UpdateTruckPayload, TruckStatus } from '../types/logistics';
 
 // ── Query Keys ────────────────────────────────────────────────────────────────
 export const logisticsKeys = {
@@ -14,12 +14,12 @@ export const logisticsKeys = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** All trucks for the current tenant */
-export const useTrucks = (activeOnly = true) =>
+export const useTrucks = () =>
   useQuery<Truck[]>({
-    queryKey: [...logisticsKeys.trucks, activeOnly],
+    queryKey: logisticsKeys.trucks,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('list_trucks', {
-        p_active_only: activeOnly,
+        p_active_only: false,
       });
       if (error) throw error;
       return (data ?? []) as Truck[];
@@ -36,10 +36,11 @@ export const useCreateTruck = () => {
   return useMutation<Truck, Error, CreateTruckPayload>({
     mutationFn: async (payload) => {
       const { data, error } = await supabase.rpc('create_truck', {
-        p_name: payload.name,
+        p_name:      payload.name,
         p_serial_no: payload.serial_no,
-        p_capacity: payload.capacity,
-        p_size: payload.size,
+        p_capacity:  payload.capacity,
+        p_size:      payload.size,
+        p_location:  payload.location ?? null,
       });
       if (error) throw error;
       return data as Truck;
@@ -50,18 +51,19 @@ export const useCreateTruck = () => {
   });
 };
 
-/** Update an existing truck */
+/** Update an existing truck (name, serial, capacity, size, location) */
 export const useUpdateTruck = () => {
   const qc = useQueryClient();
   return useMutation<unknown, Error, { truckId: string } & UpdateTruckPayload>({
     mutationFn: async ({ truckId, ...payload }) => {
       const { data, error } = await supabase.rpc('update_truck', {
-        p_truck_id: truckId,
-        p_name: payload.name ?? null,
+        p_truck_id:  truckId,
+        p_name:      payload.name ?? null,
         p_serial_no: payload.serial_no ?? null,
-        p_capacity: payload.capacity ?? null,
-        p_size: payload.size ?? null,
-        p_is_active: payload.is_active ?? null,
+        p_capacity:  payload.capacity ?? null,
+        p_size:      payload.size ?? null,
+        p_status:    payload.status ?? null,
+        p_location:  payload.location ?? null,
       });
       if (error) throw error;
       return data;
@@ -72,28 +74,20 @@ export const useUpdateTruck = () => {
   });
 };
 
-/** Deactivate a truck (soft delete) */
-export const useDeactivateTruck = () => {
+/** Quickly set a truck's operational status */
+export const useSetTruckStatus = () => {
   const updateTruck = useUpdateTruck();
-  return useMutation<unknown, Error, string>({
-    mutationFn: async (truckId) => {
-      return updateTruck.mutateAsync({
-        truckId,
-        is_active: false,
-      });
-    },
+  return useMutation<unknown, Error, { truckId: string; status: TruckStatus }>({
+    mutationFn: ({ truckId, status }) =>
+      updateTruck.mutateAsync({ truckId, status }),
   });
 };
 
-/** Activate a truck */
-export const useActivateTruck = () => {
+/** Set / clear a truck's current location */
+export const useSetTruckLocation = () => {
   const updateTruck = useUpdateTruck();
-  return useMutation<unknown, Error, string>({
-    mutationFn: async (truckId) => {
-      return updateTruck.mutateAsync({
-        truckId,
-        is_active: true,
-      });
-    },
+  return useMutation<unknown, Error, { truckId: string; location: string | null }>({
+    mutationFn: ({ truckId, location }) =>
+      updateTruck.mutateAsync({ truckId, location }),
   });
 };

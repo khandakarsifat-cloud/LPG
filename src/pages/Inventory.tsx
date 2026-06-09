@@ -1,27 +1,29 @@
 import { useState } from 'react';
-import { Plus, ShieldAlert, Package, Activity, LayoutGrid } from 'lucide-react';
-import { useInventoryBalances, useItems } from '../hooks/useInventory';
+import { Plus, Package, Activity, LayoutGrid, ShieldAlert, ShoppingCart } from 'lucide-react';
+import { useItems } from '../hooks/useInventory';
 import { BalancesGrid } from '../components/inventory/BalancesGrid';
 import { MovementsFeed } from '../components/inventory/MovementsFeed';
-import { AddItemDialog } from '../components/inventory/AddItemDialog';
-import { AdjustmentModal } from '../components/inventory/AdjustmentModal';
-import { ITEM_TYPE_LABELS, type ItemType } from '../types/inventory';
+import { AddItemModal } from '../components/inventory/AddItemModal';
+import { PurchasesList } from '../components/purchases/PurchasesList';
+import { CreatePurchaseModal } from '../components/purchases/CreatePurchaseModal';
 
-type Tab = 'balances' | 'items' | 'history';
+type Tab = 'balances' | 'history' | 'purchases';
 
 export const InventoryPage = () => {
-  const { data: balances = [] } = useInventoryBalances();
   const { data: items = [] } = useItems();
 
-  const [tab, setTab] = useState<Tab>('balances');
-  const [addItemOpen, setAddItemOpen]     = useState(false);
-  const [adjustOpen, setAdjustOpen]       = useState(false);
+  const [tab, setTab]                 = useState<Tab>('balances');
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
 
   // Summary stats
-  const totalItems    = items.length;
-  const totalUnits    = balances.reduce((s, b) => s + b.current_quantity, 0);
-  const outOfStock    = balances.filter((b) => b.current_quantity <= 0).length;
-  const lowStock      = balances.filter((b) => b.current_quantity > 0 && b.current_quantity <= 10).length;
+  const totalSkus  = items.length;
+  const totalUnits = items.reduce((s, item) => s + (item.filled_quantity || 0) + (item.empty_quantity || 0), 0);
+  const outOfStock = items.filter((item) => (item.filled_quantity || 0) + (item.empty_quantity || 0) <= 0).length;
+  const lowStock   = items.filter((item) => {
+    const total = (item.filled_quantity || 0) + (item.empty_quantity || 0);
+    return total > 0 && total <= 10;
+  }).length;
 
   return (
     <div className="inventory-page">
@@ -34,18 +36,17 @@ export const InventoryPage = () => {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button
-            className="btn btn-ghost"
-            style={{ border: '1px solid var(--warning)', color: 'var(--warning)' }}
-            onClick={() => setAdjustOpen(true)}
-          >
-            <ShieldAlert size={16} />
-            Stock Adjustment
-          </button>
-          <button className="btn btn-primary" onClick={() => setAddItemOpen(true)}>
-            <Plus size={16} />
-            Add Item
-          </button>
+          {tab === 'purchases' ? (
+            <button className="btn btn-primary" onClick={() => setPurchaseOpen(true)}>
+              <Plus size={16} />
+              New Purchase
+            </button>
+          ) : (
+            <button className="btn btn-primary" onClick={() => setAddItemOpen(true)}>
+              <Plus size={16} />
+              Add Item
+            </button>
+          )}
         </div>
       </div>
 
@@ -56,7 +57,7 @@ export const InventoryPage = () => {
             <Package size={18} />
           </div>
           <div>
-            <div className="inv-stat-value">{totalItems}</div>
+            <div className="inv-stat-value">{totalSkus}</div>
             <div className="inv-stat-label">Product SKUs</div>
           </div>
         </div>
@@ -92,9 +93,9 @@ export const InventoryPage = () => {
       {/* ── Tabs ── */}
       <div className="inv-tabs">
         {([
-          { key: 'balances', label: 'Stock Balances', icon: LayoutGrid },
-          { key: 'items',    label: 'Item Registry',  icon: Package },
-          { key: 'history',  label: 'Movement History', icon: Activity },
+          { key: 'balances', label: 'Stock Balances',    icon: LayoutGrid },
+          { key: 'history',  label: 'Movement History',  icon: Activity },
+          { key: 'purchases', label: 'Purchases', icon: ShoppingCart },
         ] as { key: Tab; label: string; icon: React.ElementType }[]).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -111,63 +112,6 @@ export const InventoryPage = () => {
       <div className="inv-tab-content">
         {tab === 'balances' && <BalancesGrid />}
 
-        {tab === 'items' && (
-          <div className="glass-panel">
-            {items.length === 0 ? (
-              <div className="empty-state" style={{ padding: '3rem' }}>
-                <Package size={36} style={{ color: 'var(--text-muted)', opacity: 0.4 }} />
-                <p style={{ color: 'var(--text-muted)' }}>No items created yet.</p>
-                <button className="btn btn-primary" onClick={() => setAddItemOpen(true)}>
-                  <Plus size={15} /> Add First Item
-                </button>
-              </div>
-            ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Brand</th>
-                    <th>Size (KG)</th>
-                    <th>Specifications</th>
-                    <th>Classification</th>
-                    <th>Current Stock</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => {
-                    const balance = balances.find((b) => b.item_id === item.item_id);
-                    const qty = balance?.current_quantity ?? 0;
-                    const specs = [];
-                    if (item.cylinder_weight) specs.push(item.cylinder_weight);
-                    if (item.mouth_size) specs.push(item.mouth_size);
-                    return (
-                      <tr key={item.item_id}>
-                        <td className="td-strong">{item.brand}</td>
-                        <td>{item.size_kg} kg</td>
-                        <td style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                          {specs.length > 0 ? specs.join(', ') : '—'}
-                        </td>
-                        <td>
-                          <span className="type-badge">
-                            {ITEM_TYPE_LABELS[item.type as ItemType]}
-                          </span>
-                        </td>
-                        <td>
-                          <span style={{
-                            fontWeight: 600,
-                            color: qty <= 0 ? 'var(--danger)' : qty <= 10 ? 'var(--warning)' : 'var(--accent)',
-                          }}>
-                            {qty.toLocaleString()} units
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
         {tab === 'history' && (
           <div className="glass-panel" style={{ padding: '1.25rem' }}>
             <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -179,11 +123,23 @@ export const InventoryPage = () => {
             <MovementsFeed />
           </div>
         )}
+
+        {tab === 'purchases' && (
+          <div className="glass-panel" style={{ padding: '1.25rem' }}>
+            <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontWeight: 600 }}>Purchase Orders</h3>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Track incoming stock from gas plants
+              </span>
+            </div>
+            <PurchasesList />
+          </div>
+        )}
       </div>
 
       {/* ── Dialogs ── */}
-      <AddItemDialog open={addItemOpen} onClose={() => setAddItemOpen(false)} />
-      <AdjustmentModal open={adjustOpen} onClose={() => setAdjustOpen(false)} />
+      <AddItemModal open={addItemOpen} onClose={() => setAddItemOpen(false)} />
+      <CreatePurchaseModal open={purchaseOpen} onClose={() => setPurchaseOpen(false)} />
     </div>
   );
 };

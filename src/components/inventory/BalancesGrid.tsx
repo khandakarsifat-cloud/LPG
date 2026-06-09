@@ -1,14 +1,70 @@
-import { Package, TrendingUp, TrendingDown, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Package, TrendingUp, TrendingDown, AlertTriangle, RefreshCw, Droplets, Box } from 'lucide-react';
 import { useInventoryBalances } from '../../hooks/useInventory';
-import { ITEM_TYPE_LABELS, type ItemType } from '../../types/inventory';
 
-const TYPE_ACCENT: Record<ItemType, string> = {
-  filled_gas:     'var(--primary)',
-  cylinder_only:  'var(--warning)',
+// ── Single quantity card ───────────────────────────────────────────────────────
+interface QtyCardProps {
+  label: string;
+  icon: React.ReactNode;
+  accent: string;
+  qty: number;
+  lastUpdated?: string;
+}
+
+const QtyCard = ({ label, icon, accent, qty, lastUpdated }: QtyCardProps) => {
+  const isLow  = qty > 0 && qty <= 10;
+  const isEmpty = qty <= 0;
+  const statusColor = isEmpty ? 'var(--danger)' : isLow ? 'var(--warning)' : accent;
+
+  return (
+    <div style={{
+      flex: 1,
+      background: `${accent}08`,
+      border: `1px solid ${statusColor}30`,
+      borderRadius: '0.625rem',
+      padding: '0.875rem 1rem',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0.5rem',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: accent, fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {icon}
+          {label}
+        </div>
+        <span style={{
+          fontSize: '0.7rem',
+          fontWeight: 600,
+          padding: '0.15rem 0.5rem',
+          borderRadius: '0.25rem',
+          background: isEmpty ? 'rgba(239,68,68,0.12)' : isLow ? 'rgba(245,158,11,0.12)' : `${accent}18`,
+          color: statusColor,
+        }}>
+          {isEmpty ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
+        <span style={{ fontSize: '2rem', fontWeight: 700, color: statusColor, lineHeight: 1 }}>
+          {qty.toLocaleString()}
+        </span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>units</span>
+      </div>
+
+      {lastUpdated && (
+        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          {qty > 0
+            ? <TrendingUp size={11} style={{ color: 'var(--accent)' }} />
+            : <TrendingDown size={11} style={{ color: 'var(--danger)' }} />}
+          Updated {new Date(lastUpdated).toLocaleTimeString()}
+        </div>
+      )}
+    </div>
+  );
 };
 
+// ── Main BalancesGrid ─────────────────────────────────────────────────────────
 export const BalancesGrid = () => {
-  const { data: balances = [], isLoading, isError, refetch, isFetching } = useInventoryBalances();
+  const { data: items = [], isLoading, isError, refetch, isFetching } = useInventoryBalances();
 
   if (isLoading) {
     return (
@@ -30,13 +86,13 @@ export const BalancesGrid = () => {
     );
   }
 
-  if (balances.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="empty-state glass-panel">
         <Package size={40} style={{ color: 'var(--text-muted)', opacity: 0.4 }} />
         <p style={{ color: 'var(--text-muted)' }}>No inventory items yet.</p>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', opacity: 0.6 }}>
-          Create items and post purchase movements to see balances here.
+          Add items to start tracking your stock.
         </p>
       </div>
     );
@@ -56,49 +112,48 @@ export const BalancesGrid = () => {
         </button>
       </div>
 
-      <div className="balances-grid">
-        {balances.map((b) => {
-          const item = b.items;
-          if (!item) return null;
-          const qty = b.current_quantity;
-          const accent = TYPE_ACCENT[item.type as ItemType];
-          const isLow = qty > 0 && qty <= 10;
-          const isEmpty = qty <= 0;
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {items.map((item) => {
+          const specs: string[] = [];
+          if (item.cylinder_weight) specs.push(item.cylinder_weight);
+          if (item.mouth_size)      specs.push(item.mouth_size);
 
           return (
             <div
-              key={b.item_id}
-              className="balance-card glass-panel"
-              style={{ borderLeft: `3px solid ${isEmpty ? 'var(--danger)' : isLow ? 'var(--warning)' : accent}` }}
+              key={item.item_id}
+              className="glass-panel"
+              style={{ padding: '1rem 1.25rem' }}
             >
-              <div className="balance-card-header">
-                <div className="balance-card-icon" style={{ background: `${accent}18`, color: accent }}>
-                  <Package size={16} />
+              {/* Group header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1rem' }}>
+                    {item.brand} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{item.size_kg}kg</span>
+                  </div>
+                  {specs.length > 0 && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                      {specs.join(', ')}
+                    </div>
+                  )}
                 </div>
-                <span className={`balance-status-badge ${isEmpty ? 'badge-danger' : isLow ? 'badge-warning' : 'badge-success'}`}>
-                  {isEmpty ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
-                </span>
               </div>
 
-              <div className="balance-card-name">
-                {item.brand} {item.size_kg}kg
-              </div>
-              <div className="balance-card-type">
-                {ITEM_TYPE_LABELS[item.type as ItemType]}
-              </div>
-
-              <div className="balance-card-qty" style={{ color: isEmpty ? 'var(--danger)' : isLow ? 'var(--warning)' : 'var(--text-main)' }}>
-                {qty.toLocaleString()}
-                <span className="balance-card-qty-unit">units</span>
-              </div>
-
-              <div className="balance-card-footer">
-                {qty > 0
-                  ? <TrendingUp size={13} style={{ color: 'var(--accent)' }} />
-                  : <TrendingDown size={13} style={{ color: 'var(--danger)' }} />}
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                  Updated {new Date(b.last_updated).toLocaleTimeString()}
-                </span>
+              {/* Side-by-side Filled + Empty cards */}
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <QtyCard
+                  label="Filled Gas"
+                  icon={<Droplets size={12} />}
+                  accent="var(--primary)"
+                  qty={item.filled_quantity || 0}
+                  lastUpdated={item.updated_at || item.created_at}
+                />
+                <QtyCard
+                  label="Empty Cylinder"
+                  icon={<Box size={12} />}
+                  accent="var(--warning)"
+                  qty={item.empty_quantity || 0}
+                  lastUpdated={item.updated_at || item.created_at}
+                />
               </div>
             </div>
           );

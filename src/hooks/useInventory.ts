@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import type { Item, InventoryBalance, InventoryMovement, CreateItemPayload, CreateMovementPayload } from '../types/inventory';
+import type { Item, ItemWithBrand, InventoryMovement, CreateItemPayload, CreateMovementPayload } from '../types/inventory';
 
 // ── Query Keys ────────────────────────────────────────────────────────────────
 export const inventoryKeys = {
@@ -17,7 +17,7 @@ export const inventoryKeys = {
 
 /** All items for the current tenant */
 export const useItems = () =>
-  useQuery<Item[]>({
+  useQuery<ItemWithBrand[]>({
     queryKey: inventoryKeys.items,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -25,23 +25,23 @@ export const useItems = () =>
         .select('*, lpg_brands(brand_id, brand_name)')
         .order('brand', { ascending: true });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as ItemWithBrand[];
     },
   });
 
-/** Inventory balances joined with item details */
+/** Inventory balances — simply fetches all items, as they now contain filled_quantity and empty_quantity */
 export const useInventoryBalances = () =>
-  useQuery<InventoryBalance[]>({
+  useQuery<ItemWithBrand[]>({
     queryKey: inventoryKeys.balances,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('inventory_balances')
-        .select('*, items(brand, size_kg, type, cylinder_weight, mouth_size, lpg_brands(brand_id, brand_name))')
-        .order('last_updated', { ascending: false });
+        .from('items')
+        .select('*, lpg_brands(brand_id, brand_name)')
+        .order('brand', { ascending: true });
       if (error) throw error;
-      return (data ?? []) as InventoryBalance[];
+      return (data ?? []) as ItemWithBrand[];
     },
-    refetchInterval: 30_000, // poll every 30s for near-real-time feel
+    refetchInterval: 30_000,
   });
 
 /** Recent inventory movements (last 100) */
@@ -51,7 +51,7 @@ export const useInventoryMovements = (limit = 100) =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inventory_movements')
-        .select('*, items(brand, size_kg, type, cylinder_weight, mouth_size, lpg_brands(brand_id, brand_name)), user_profiles(full_name)')
+        .select('*, items(brand, size_kg, filled_quantity, empty_quantity, cylinder_weight, mouth_size, lpg_brands(brand_id, brand_name)), user_profiles(full_name)')
         .order('created_at', { ascending: false })
         .limit(limit);
       if (error) throw error;
@@ -97,11 +97,12 @@ export const useCreateItem = () => {
 export const useCreateMovement = () => {
   const qc = useQueryClient();
   return useMutation<unknown, Error, CreateMovementPayload>({
-    mutationFn: async ({ item_id, movement_type, quantity, notes }) => {
+    mutationFn: async ({ item_id, movement_type, filled_quantity_change, empty_quantity_change, notes }) => {
       const { data, error } = await supabase.rpc('create_inventory_movement', {
         p_item_id:       item_id,
         p_movement_type: movement_type,
-        p_quantity:      quantity,
+        p_filled_quantity_change: filled_quantity_change,
+        p_empty_quantity_change: empty_quantity_change,
         p_notes:         notes ?? null,
       });
       if (error) throw error;

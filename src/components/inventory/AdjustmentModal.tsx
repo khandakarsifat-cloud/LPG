@@ -19,51 +19,55 @@ export const AdjustmentModal = ({ open, onClose }: AdjustmentModalProps) => {
   const [form, setForm] = useState({
     item_id:       '',
     movement_type: 'purchase' as MovementType,
-    quantity:      1,
+    filled_quantity: 0,
+    empty_quantity:  0,
     notes:         '',
   });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (form.filled_quantity === 0 && form.empty_quantity === 0) return;
+    
     await createMovement.mutateAsync({
       item_id:       form.item_id,
       movement_type: form.movement_type,
-      quantity:      form.quantity,
+      filled_quantity_change: form.filled_quantity,
+      empty_quantity_change:  form.empty_quantity,
       notes:         form.notes || undefined,
     });
     onClose();
-    setForm({ item_id: '', movement_type: 'purchase', quantity: 1, notes: '' });
+    setForm({ item_id: '', movement_type: 'purchase', filled_quantity: 0, empty_quantity: 0, notes: '' });
   };
 
   if (!open) return null;
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        className="dialog glass-panel"
+        className="modal-content glass-panel"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Stock Adjustment"
       >
         {/* Header */}
-        <div className="dialog-header">
+        <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="dialog-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)' }}>
+            <div className="modal-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)' }}>
               <ShieldAlert size={18} />
             </div>
             <div>
-              <h2 className="dialog-title">Stock Adjustment</h2>
-              <p className="dialog-subtitle">Injects an immutable entry into the inventory ledger</p>
+              <h2 className="modal-title">Stock Adjustment</h2>
+              <p className="modal-subtitle">Injects an immutable entry into the inventory ledger</p>
             </div>
           </div>
-          <button className="dialog-close" onClick={onClose} aria-label="Close">
+          <button className="modal-close" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="dialog-body">
+          <div className="modal-body">
             {/* Item selector */}
             <div className="input-group">
               <label className="input-label" htmlFor="adj-item">Select Item</label>
@@ -79,7 +83,7 @@ export const AdjustmentModal = ({ open, onClose }: AdjustmentModalProps) => {
                 </option>
                 {items.map((item) => (
                   <option key={item.item_id} value={item.item_id}>
-                    {item.brand} {item.size_kg}kg — {item.type.replace(/_/g, ' ')}
+                    {item.brand} {item.size_kg}kg
                   </option>
                 ))}
               </select>
@@ -103,22 +107,32 @@ export const AdjustmentModal = ({ open, onClose }: AdjustmentModalProps) => {
             </div>
 
             {/* Quantity */}
-            <div className="input-group">
-              <label className="input-label" htmlFor="adj-qty">
-                Quantity
-                <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.5rem', fontSize: '0.75rem' }}>
-                  (sign applied automatically by movement type)
-                </span>
-              </label>
-              <input
-                id="adj-qty"
-                type="number"
-                min="1"
-                className="input-field"
-                value={form.quantity}
-                onChange={(e) => setForm((p) => ({ ...p, quantity: parseInt(e.target.value) || 1 }))}
-                required
-              />
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <div className="input-group" style={{ flex: 1 }}>
+                <label className="input-label" htmlFor="adj-filled-qty">Filled Quantity</label>
+                <input
+                  id="adj-filled-qty"
+                  type="number"
+                  min="0"
+                  className="input-field"
+                  value={form.filled_quantity}
+                  onChange={(e) => setForm((p) => ({ ...p, filled_quantity: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+              <div className="input-group" style={{ flex: 1 }}>
+                <label className="input-label" htmlFor="adj-empty-qty">Empty Quantity</label>
+                <input
+                  id="adj-empty-qty"
+                  type="number"
+                  min="0"
+                  className="input-field"
+                  value={form.empty_quantity}
+                  onChange={(e) => setForm((p) => ({ ...p, empty_quantity: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-0.5rem', marginBottom: '1.25rem' }}>
+              (sign applied automatically by movement type)
             </div>
 
             {/* Notes */}
@@ -136,13 +150,13 @@ export const AdjustmentModal = ({ open, onClose }: AdjustmentModalProps) => {
             </div>
           </div>
 
-          <div className="dialog-footer">
+          <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
             <button
               type="submit"
               className="btn btn-primary"
               style={{ background: 'var(--warning)', boxShadow: '0 2px 10px rgba(245,158,11,0.3)' }}
-              disabled={createMovement.isPending || !form.item_id}
+              disabled={createMovement.isPending || !form.item_id || (form.filled_quantity === 0 && form.empty_quantity === 0)}
             >
               {createMovement.isPending
                 ? <><Loader2 size={15} className="spin" /> Posting…</>
