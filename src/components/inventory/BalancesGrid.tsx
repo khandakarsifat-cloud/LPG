@@ -3,9 +3,8 @@ import { useInventoryBalances } from '../../hooks/useInventory';
 import { ITEM_TYPE_LABELS, type ItemType } from '../../types/inventory';
 
 const TYPE_ACCENT: Record<ItemType, string> = {
-  package:       'var(--primary)',
-  gas_only:      'var(--accent)',
-  cylinder_only: 'var(--warning)',
+  filled_gas:     'var(--primary)',
+  cylinder_only:  'var(--warning)',
 };
 
 export const BalancesGrid = () => {

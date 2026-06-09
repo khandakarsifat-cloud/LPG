@@ -22,7 +22,7 @@ export const useItems = () =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from('items')
-        .select('*')
+        .select('*, lpg_brands(brand_id, brand_name)')
         .order('brand', { ascending: true });
       if (error) throw error;
       return data ?? [];
@@ -36,7 +36,7 @@ export const useInventoryBalances = () =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inventory_balances')
-        .select('*, items(brand, size_kg, type)')
+        .select('*, items(brand, size_kg, type, cylinder_weight, mouth_size, lpg_brands(brand_id, brand_name))')
         .order('last_updated', { ascending: false });
       if (error) throw error;
       return (data ?? []) as InventoryBalance[];
@@ -51,7 +51,7 @@ export const useInventoryMovements = (limit = 100) =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inventory_movements')
-        .select('*, items(brand, size_kg, type), user_profiles(full_name)')
+        .select('*, items(brand, size_kg, type, cylinder_weight, mouth_size, lpg_brands(brand_id, brand_name)), user_profiles(full_name)')
         .order('created_at', { ascending: false })
         .limit(limit);
       if (error) throw error;

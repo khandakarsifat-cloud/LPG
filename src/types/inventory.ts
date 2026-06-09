@@ -1,6 +1,6 @@
 // ── Shared domain types for the Inventory module ─────────────────────────────
 
-export type ItemType = 'gas_only' | 'cylinder_only' | 'package';
+export type ItemType = 'filled_gas' | 'cylinder_only';
 
 export type MovementType =
   | 'purchase'
@@ -11,13 +11,34 @@ export type MovementType =
   | 'adjust_gain'
   | 'adjust_loss';
 
+export type CylinderWeight = '5kg' | '12kg' | '25kg' | '35kg';
+export type MouthSize = '20mm' | '22mm';
+
+export interface LPGBrand {
+  tenant_id: string;
+  brand_id: string;
+  brand_name: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Item {
   tenant_id: string;
   item_id: string;
-  brand: string;
+  brand_id: string | null;
+  brand: string; // Deprecated: use brand_id to reference LPGBrand
   size_kg: number;
   type: ItemType;
+  cylinder_weight: CylinderWeight | null;
+  mouth_size: MouthSize | null;
   created_at: string;
+  updated_at?: string;
+}
+
+export interface ItemWithBrand extends Item {
+  lpg_brands: LPGBrand | null;
 }
 
 export interface InventoryBalance {
@@ -25,7 +46,7 @@ export interface InventoryBalance {
   item_id: string;
   current_quantity: number;
   last_updated: string;
-  items: Item | null;
+  items: ItemWithBrand | null;
 }
 
 export interface InventoryMovement {
@@ -39,14 +60,17 @@ export interface InventoryMovement {
   reference_id: string | null;
   created_by: string | null;
   created_at: string;
-  items: Pick<Item, 'brand' | 'size_kg' | 'type'> | null;
+  items: (Pick<Item, 'brand' | 'size_kg' | 'type' | 'cylinder_weight' | 'mouth_size'> & { lpg_brands: LPGBrand | null }) | null;
   user_profiles: { full_name: string | null } | null;
 }
 
 export interface CreateItemPayload {
-  brand: string;
+  brand_id: string | null;
+  brand?: string; // Deprecated: use brand_id
   size_kg: number;
   type: ItemType;
+  cylinder_weight?: CylinderWeight | null;
+  mouth_size?: MouthSize | null;
 }
 
 export interface CreateMovementPayload {
@@ -56,11 +80,15 @@ export interface CreateMovementPayload {
   notes?: string;
 }
 
+export interface CreateBrandPayload {
+  brand_name: string;
+  description?: string;
+}
+
 // Display helpers
 export const ITEM_TYPE_LABELS: Record<ItemType, string> = {
-  gas_only:      'Gas Only',
-  cylinder_only: 'Cylinder Asset',
-  package:       'Full Package',
+  filled_gas:     'Filled Gas',
+  cylinder_only:  'Cylinder Asset',
 };
 
 export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
@@ -81,4 +109,20 @@ export const MOVEMENT_TYPE_COLORS: Record<MovementType, string> = {
   loss:        '#ef4444', // red
   adjust_gain: '#f59e0b', // amber
   adjust_loss: '#f97316', // orange
+};
+
+export const CYLINDER_WEIGHT_OPTIONS: CylinderWeight[] = ['5kg', '12kg', '25kg', '35kg'];
+
+export const MOUTH_SIZE_OPTIONS: MouthSize[] = ['20mm', '22mm'];
+
+export const CYLINDER_WEIGHT_LABELS: Record<CylinderWeight, string> = {
+  '5kg': '5 Kg',
+  '12kg': '12 Kg',
+  '25kg': '25 Kg',
+  '35kg': '35 Kg',
+};
+
+export const MOUTH_SIZE_LABELS: Record<MouthSize, string> = {
+  '20mm': '20 mm',
+  '22mm': '22 mm',
 };

@@ -5,6 +5,8 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { InventoryPage } from './pages/Inventory';
+import { LogisticsPage } from './pages/Logistics';
+import { SettingsPage } from './pages/Settings';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 
@@ -49,8 +51,8 @@ function App() {
               <Route path="inventory"  element={<InventoryPage />} />
               <Route path="customers"  element={<Placeholder title="Customer Management" />} />
               <Route path="finance"    element={<Placeholder title="Financial Ledger" />} />
-              <Route path="logistics"  element={<Placeholder title="Trip Management" />} />
-              <Route path="settings"   element={<Placeholder title="System Settings" />} />
+              <Route path="logistics"  element={<LogisticsPage />} />
+              <Route path="settings"   element={<SettingsPage />} />
             </Route>
 
             {/* Catch-all */}

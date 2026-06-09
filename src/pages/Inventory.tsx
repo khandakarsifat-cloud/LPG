@@ -127,19 +127,25 @@ export const InventoryPage = () => {
                   <tr>
                     <th>Brand</th>
                     <th>Size (KG)</th>
+                    <th>Specifications</th>
                     <th>Classification</th>
                     <th>Current Stock</th>
-                    <th>Created</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item) => {
                     const balance = balances.find((b) => b.item_id === item.item_id);
                     const qty = balance?.current_quantity ?? 0;
+                    const specs = [];
+                    if (item.cylinder_weight) specs.push(item.cylinder_weight);
+                    if (item.mouth_size) specs.push(item.mouth_size);
                     return (
                       <tr key={item.item_id}>
                         <td className="td-strong">{item.brand}</td>
                         <td>{item.size_kg} kg</td>
+                        <td style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                          {specs.length > 0 ? specs.join(', ') : '—'}
+                        </td>
                         <td>
                           <span className="type-badge">
                             {ITEM_TYPE_LABELS[item.type as ItemType]}
@@ -152,9 +158,6 @@ export const InventoryPage = () => {
                           }}>
                             {qty.toLocaleString()} units
                           </span>
-                        </td>
-                        <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                          {new Date(item.created_at).toLocaleDateString()}
                         </td>
                       </tr>
                     );
