@@ -49,6 +49,50 @@ export const useCreatePurchase = () => {
       qc.invalidateQueries({ queryKey: ['inventory', 'balances'] });
       qc.invalidateQueries({ queryKey: ['inventory', 'movements'] });
       qc.invalidateQueries({ queryKey: ['logistics', 'trucks'] });
+      qc.invalidateQueries({ queryKey: ['logistics', 'wallets'] });
+    },
+  });
+};
+
+export const useUpdatePurchase = () => {
+  const qc = useQueryClient();
+  
+  return useMutation<unknown, Error, { purchase_id: string, transport_cost: number, labour_cost: number, notes: string, items: { item_id: string, unit_price: number, quantity: number }[] }>({
+    mutationFn: async (payload) => {
+      const { data, error } = await supabase.rpc('update_purchase', {
+        p_purchase_id:    payload.purchase_id,
+        p_transport_cost: payload.transport_cost,
+        p_labour_cost:    payload.labour_cost,
+        p_notes:          payload.notes,
+        p_items:          payload.items,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: purchaseKeys.purchases });
+      qc.invalidateQueries({ queryKey: ['logistics', 'wallets'] });
+    },
+  });
+};
+
+export const useCompletePurchase = () => {
+  const qc = useQueryClient();
+  
+  return useMutation<unknown, Error, string>({
+    mutationFn: async (purchaseId) => {
+      const { data, error } = await supabase.rpc('complete_purchase', {
+        p_purchase_id: purchaseId,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: purchaseKeys.purchases });
+      qc.invalidateQueries({ queryKey: ['inventory', 'balances'] });
+      qc.invalidateQueries({ queryKey: ['inventory', 'movements'] });
+      qc.invalidateQueries({ queryKey: ['logistics', 'wallets'] });
+      qc.invalidateQueries({ queryKey: ['logistics', 'transits'] });
     },
   });
 };

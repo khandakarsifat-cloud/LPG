@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { Truck as TruckIcon, AlertCircle, MapPin, Pencil, Check, X } from 'lucide-react';
-import { useTrucks, useSetTruckStatus, useSetTruckLocation } from '../../hooks/useLogistics';
-import type { Truck, TruckStatus } from '../../types/logistics';
+import { useTrucks, useSetTruckLocation } from '../../hooks/useLogistics';
+import type { Truck } from '../../types/logistics';
 import {
   TRUCK_SIZE_LABELS,
   TRUCK_STATUS_LABELS,
   TRUCK_STATUS_COLORS,
   TRUCK_STATUS_BG,
-  TRUCK_STATUS_OPTIONS,
 } from '../../types/logistics';
 
 // ── Inline Location Editor ─────────────────────────────────────────────────────
@@ -91,15 +90,8 @@ const LocationCell = ({ truck }: { truck: Truck }) => {
 
 // ── Status Selector ───────────────────────────────────────────────────────────
 const StatusCell = ({ truck }: { truck: Truck }) => {
-  const setStatus = useSetTruckStatus();
-
   return (
-    <select
-      value={truck.status}
-      disabled={setStatus.isPending}
-      onChange={(e) =>
-        setStatus.mutate({ truckId: truck.truck_id, status: e.target.value as TruckStatus })
-      }
+    <span
       style={{
         background: TRUCK_STATUS_BG[truck.status],
         color: TRUCK_STATUS_COLORS[truck.status],
@@ -108,16 +100,11 @@ const StatusCell = ({ truck }: { truck: Truck }) => {
         padding: '0.25rem 0.5rem',
         fontSize: '0.8rem',
         fontWeight: 600,
-        cursor: 'pointer',
-        outline: 'none',
+        display: 'inline-block'
       }}
     >
-      {TRUCK_STATUS_OPTIONS.map((s) => (
-        <option key={s} value={s} style={{ background: 'var(--bg-secondary)', color: 'var(--text-main)' }}>
-          {TRUCK_STATUS_LABELS[s]}
-        </option>
-      ))}
-    </select>
+      {TRUCK_STATUS_LABELS[truck.status]}
+    </span>
   );
 };
 

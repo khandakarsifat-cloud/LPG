@@ -1,20 +1,17 @@
 import { useState } from 'react';
-import { Plus, Package, Activity, LayoutGrid, ShieldAlert, ShoppingCart } from 'lucide-react';
+import { Plus, Package, Activity, LayoutGrid, ShieldAlert } from 'lucide-react';
 import { useItems } from '../hooks/useInventory';
 import { BalancesGrid } from '../components/inventory/BalancesGrid';
 import { MovementsFeed } from '../components/inventory/MovementsFeed';
 import { AddItemModal } from '../components/inventory/AddItemModal';
-import { PurchasesList } from '../components/purchases/PurchasesList';
-import { CreatePurchaseModal } from '../components/purchases/CreatePurchaseModal';
 
-type Tab = 'balances' | 'history' | 'purchases';
+type Tab = 'balances' | 'history';
 
 export const InventoryPage = () => {
   const { data: items = [] } = useItems();
 
   const [tab, setTab]                 = useState<Tab>('balances');
   const [addItemOpen, setAddItemOpen] = useState(false);
-  const [purchaseOpen, setPurchaseOpen] = useState(false);
 
   // Summary stats
   const totalSkus  = items.length;
@@ -36,17 +33,10 @@ export const InventoryPage = () => {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          {tab === 'purchases' ? (
-            <button className="btn btn-primary" onClick={() => setPurchaseOpen(true)}>
-              <Plus size={16} />
-              New Purchase
-            </button>
-          ) : (
-            <button className="btn btn-primary" onClick={() => setAddItemOpen(true)}>
-              <Plus size={16} />
-              Add Item
-            </button>
-          )}
+          <button className="btn btn-primary" onClick={() => setAddItemOpen(true)}>
+            <Plus size={16} />
+            Add Item
+          </button>
         </div>
       </div>
 
@@ -95,7 +85,6 @@ export const InventoryPage = () => {
         {([
           { key: 'balances', label: 'Stock Balances',    icon: LayoutGrid },
           { key: 'history',  label: 'Movement History',  icon: Activity },
-          { key: 'purchases', label: 'Purchases', icon: ShoppingCart },
         ] as { key: Tab; label: string; icon: React.ElementType }[]).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -123,23 +112,10 @@ export const InventoryPage = () => {
             <MovementsFeed />
           </div>
         )}
-
-        {tab === 'purchases' && (
-          <div className="glass-panel" style={{ padding: '1.25rem' }}>
-            <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontWeight: 600 }}>Purchase Orders</h3>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Track incoming stock from gas plants
-              </span>
-            </div>
-            <PurchasesList />
-          </div>
-        )}
       </div>
 
       {/* ── Dialogs ── */}
       <AddItemModal open={addItemOpen} onClose={() => setAddItemOpen(false)} />
-      <CreatePurchaseModal open={purchaseOpen} onClose={() => setPurchaseOpen(false)} />
     </div>
   );
 };

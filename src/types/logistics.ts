@@ -67,3 +67,51 @@ export const TRUCK_STATUS_BG: Record<TruckStatus, string> = {
   coming: 'rgba(16,185,129,0.12)',
   going:  'rgba(59,130,246,0.12)',
 };
+
+// ── Wallets & Transits ────────────────────────────────────────────────────────
+export type WalletType = 'dealership' | 'logistics';
+
+export interface Wallet {
+  tenant_id: string;
+  wallet_id: string;
+  type: WalletType;
+  balance: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WalletTransaction {
+  transaction_id: string;
+  wallet_id: string;
+  amount: number;
+  type: string;
+  reference_id: string | null;
+  description: string | null;
+  created_at: string;
+}
+
+export type TransitStatus = 'active' | 'completed' | 'cancelled';
+
+export interface AdditionalCost {
+  name: string;
+  amount: number;
+}
+
+export interface Transit {
+  tenant_id: string;
+  transit_id: string;
+  truck_id: string;
+  purchase_id: string | null;
+  status: TransitStatus;
+  transport_fee: number;
+  driver_cost: number;
+  helper_cost: number;
+  oil_cost: number;
+  additional_costs: AdditionalCost[];
+  total_cost: number;
+  created_at: string;
+  updated_at: string;
+  
+  // Joined fields for convenience
+  truck_name?: string;
+}

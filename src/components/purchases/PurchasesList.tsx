@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { Package, Truck, Calendar, MapPin, Search } from 'lucide-react';
 import { usePurchases } from '../../hooks/usePurchases';
 import { PURCHASE_STATUS_LABELS, PURCHASE_STATUS_COLORS, PURCHASE_STATUS_BG } from '../../types/purchase';
+import { UpdatePurchaseModal } from './UpdatePurchaseModal';
+import type { Purchase } from '../../types/purchase';
 
 export const PurchasesList = () => {
   const { data: purchases = [], isLoading } = usePurchases();
+  const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
 
   if (isLoading) {
     return (
@@ -43,7 +47,12 @@ export const PurchasesList = () => {
 
       <div className="purchases-grid">
         {purchases.map((purchase) => (
-          <div key={purchase.purchase_id} className="glass-panel purchase-card">
+          <div 
+            key={purchase.purchase_id} 
+            className="glass-panel purchase-card"
+            onClick={() => setSelectedPurchase(purchase)}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="purchase-card-header">
               <div className="purchase-card-id">
                 <span className="hash">#</span>
@@ -100,6 +109,12 @@ export const PurchasesList = () => {
           </div>
         ))}
       </div>
+
+      <UpdatePurchaseModal 
+        open={selectedPurchase !== null}
+        onClose={() => setSelectedPurchase(null)}
+        purchase={selectedPurchase}
+      />
     </div>
   );
 };

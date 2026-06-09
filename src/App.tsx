@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard';
 import { InventoryPage } from './pages/Inventory';
 import { LogisticsPage } from './pages/Logistics';
 import { GasPlantsPage } from './pages/GasPlants';
+import { PurchasesPage } from './pages/Purchases';
 import { SettingsPage } from './pages/Settings';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
@@ -52,6 +53,7 @@ function App() {
               <Route path="inventory"  element={<InventoryPage />} />
               <Route path="customers"  element={<Placeholder title="Customer Management" />} />
               <Route path="finance"    element={<Placeholder title="Financial Ledger" />} />
+              <Route path="purchases"  element={<PurchasesPage />} />
               <Route path="logistics"  element={<LogisticsPage />} />
               <Route path="gas-plants" element={<GasPlantsPage />} />
               <Route path="settings"   element={<SettingsPage />} />

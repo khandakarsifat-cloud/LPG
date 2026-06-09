@@ -11,6 +11,7 @@ import {
   LogOut,
   ChevronDown,
   Factory,
+  ShoppingCart
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,6 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 const navItems = [
   { path: '/',           label: 'Dashboard',  icon: LayoutDashboard, end: true },
   { path: '/inventory',  label: 'Inventory',  icon: Package },
+  { path: '/purchases',  label: 'Purchases',  icon: ShoppingCart },
   { path: '/customers',  label: 'Customers',  icon: Users },
   { path: '/finance',    label: 'Finance',    icon: CreditCard },
   { path: '/logistics',  label: 'Logistics',  icon: Truck },
