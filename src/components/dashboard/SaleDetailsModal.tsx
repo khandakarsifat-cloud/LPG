@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, CheckCircle2 } from 'lucide-react';
-import { formatBDT, formatBDNumber } from '../../lib/formatBDT';
+import { formatBDNumber } from '../../lib/formatBDT';
 import { printReceipt, type ReceiptData } from '../../lib/receiptPdf';
 import type { SaleTransaction } from '../../hooks/useDashboard';
 import { useAuth } from '../../contexts/AuthContext';

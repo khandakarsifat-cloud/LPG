@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Building2, User } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useCustomers, useAddCustomer } from '../hooks/useCustomers';
 
 export const CustomersPage = () => {

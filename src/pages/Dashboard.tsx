@@ -1,4 +1,4 @@
-import { Package, Users, DollarSign, TrendingUp, Activity, ShoppingBag } from 'lucide-react';
+import { Package, Users, DollarSign, TrendingUp, ShoppingBag } from 'lucide-react';
 import { useDashboardStats } from '../hooks/useDashboard';
 import { SalesFeed } from '../components/dashboard/SalesFeed';
 import { formatBDNumber } from '../lib/formatBDT';

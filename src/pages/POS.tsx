@@ -10,7 +10,7 @@ import { useInventoryBalances } from '../hooks/useInventory';
 import type { POSSalePayload, POSSaleResult } from '../hooks/usePOS';
 import type { MouthSize } from '../types/inventory';
 import { MOUTH_SIZE_OPTIONS } from '../types/inventory';
-import { printReceipt } from '../lib/receiptPdf';
+import { printReceipt, type ReceiptData } from '../lib/receiptPdf';
 import { useAuth } from '../contexts/AuthContext';
 
 
@@ -37,7 +37,7 @@ export const POSPage = () => {
   const [mouthSize, setMouthSize]       = useState<MouthSize>('22mm');
   const [modalOpen, setModalOpen]       = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [pendingPrint, setPendingPrint] = useState(false);
+  // pendingPrint reserved for future use
   const [saleResult, setSaleResult]     = useState<POSSaleResult | null>(null);
 
   const { data: inventoryItems } = useInventoryBalances();

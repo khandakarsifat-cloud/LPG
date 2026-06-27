@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { formatBDT, formatBDNumber } from './formatBDT';
+import { formatBDT } from './formatBDT';
 
 export interface ReceiptItem {
   name: string;
@@ -47,9 +47,9 @@ function hLine(doc: jsPDF, y: number) {
 function dashedLine(doc: jsPDF, y: number) {
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.2);
-  doc.setLineDash([1.5, 1.5]);
+  (doc as any).setLineDash([1.5, 1.5]);
   doc.line(MARGIN_LEFT, y, MARGIN_LEFT + CONTENT_W, y);
-  doc.setLineDash([]);
+  (doc as any).setLineDash([]);
 }
 
 function row(doc: jsPDF, y: number, left: string, right: string, bold = false) {

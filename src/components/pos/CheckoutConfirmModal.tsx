@@ -3,9 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Printer, CheckCircle2 } from 'lucide-react';
 import type { POSSalePayload } from '../../hooks/usePOS';
 import { useInventoryBalances } from '../../hooks/useInventory';
-import { formatBDT, formatBDNumber } from '../../lib/formatBDT';
-import { printReceipt } from '../../lib/receiptPdf';
-import type { ReceiptData } from '../../lib/receiptPdf';
+import { formatBDNumber } from '../../lib/formatBDT';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface CheckoutConfirmModalProps {
@@ -25,7 +23,7 @@ interface CheckoutConfirmModalProps {
 
 export const CheckoutConfirmModal = ({
   isOpen, onClose, onConfirm, onConfirmAndPrint, isProcessing,
-  customer, items, discount, exchangeFee, notes, saleResult,
+  customer, items, discount, exchangeFee, notes, saleResult: _saleResult,
 }: CheckoutConfirmModalProps) => {
   const { data: inventoryItems } = useInventoryBalances();
   const { profile } = useAuth();

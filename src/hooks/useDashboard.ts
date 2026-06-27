@@ -62,6 +62,7 @@ export interface SaleTransaction {
   discount_amount: number;
   exchange_fee: number;
   notes?: string;
+  customer_name?: string;
   customers?: {
     name: string;
     phone: string;
