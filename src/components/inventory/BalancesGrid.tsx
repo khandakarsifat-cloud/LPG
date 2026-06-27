@@ -1,76 +1,90 @@
-import { Package, TrendingUp, TrendingDown, AlertTriangle, RefreshCw, Droplets, Box } from 'lucide-react';
+import { useState } from 'react';
+import { Package, AlertTriangle, RefreshCw, Droplets, Box, History } from 'lucide-react';
 import { useInventoryBalances } from '../../hooks/useInventory';
+import { ProductHistoryModal } from './ProductHistoryModal';
+import type { ItemWithBrand } from '../../types/inventory';
 
-// ── Single quantity card ───────────────────────────────────────────────────────
-interface QtyCardProps {
-  label: string;
-  icon: React.ReactNode;
-  accent: string;
-  qty: number;
-  lastUpdated?: string;
+// ── Status helpers ────────────────────────────────────────────────────────────
+const getStockStatus = (filled: number, empty: number) => {
+  const total = filled + empty;
+  if (total === 0) return 'out';
+  if (filled === 0) return 'no-filled';
+  if (filled <= 5) return 'low';
+  return 'ok';
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  ok:        'var(--accent)',
+  low:       'var(--warning)',
+  'no-filled': 'var(--warning)',
+  out:       'var(--danger)',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  ok:          'In Stock',
+  low:         'Low Stock',
+  'no-filled': 'No Filled',
+  out:         'Out of Stock',
+};
+
+// ── Single compact tile ───────────────────────────────────────────────────────
+interface TileProps {
+  item: ItemWithBrand;
+  onClick: () => void;
 }
 
-const QtyCard = ({ label, icon, accent, qty, lastUpdated }: QtyCardProps) => {
-  const isLow  = qty > 0 && qty <= 10;
-  const isEmpty = qty <= 0;
-  const statusColor = isEmpty ? 'var(--danger)' : isLow ? 'var(--warning)' : accent;
+const ProductTile = ({ item, onClick }: TileProps) => {
+  const filled  = item.filled_quantity ?? 0;
+  const empty   = item.empty_quantity  ?? 0;
+  const status  = getStockStatus(filled, empty);
+  const color   = STATUS_COLOR[status];
+  const brandName = item.lpg_brands?.brand_name ?? item.brand;
 
   return (
-    <div style={{
-      flex: 1,
-      background: `${accent}08`,
-      border: `1px solid ${statusColor}30`,
-      borderRadius: '0.625rem',
-      padding: '0.875rem 1rem',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '0.5rem',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: accent, fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {icon}
-          {label}
+    <button className="inv-tile" onClick={onClick} title={`${brandName} ${item.size_kg}kg — click to view history`}>
+      {/* Status dot */}
+      <span className="inv-tile-dot" style={{ background: color }} />
+
+      {/* Brand + size */}
+      <div className="inv-tile-brand">{brandName}</div>
+      <div className="inv-tile-size">{item.size_kg} <span>kg</span></div>
+
+      {/* Stock counts */}
+      <div className="inv-tile-counts">
+        <div className="inv-tile-count inv-tile-count-filled">
+          <Droplets size={11} />
+          <span>{filled}</span>
         </div>
-        <span style={{
-          fontSize: '0.7rem',
-          fontWeight: 600,
-          padding: '0.15rem 0.5rem',
-          borderRadius: '0.25rem',
-          background: isEmpty ? 'rgba(239,68,68,0.12)' : isLow ? 'rgba(245,158,11,0.12)' : `${accent}18`,
-          color: statusColor,
-        }}>
-          {isEmpty ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
-        </span>
+        <div className="inv-tile-count inv-tile-count-empty">
+          <Box size={11} />
+          <span>{empty}</span>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
-        <span style={{ fontSize: '2rem', fontWeight: 700, color: statusColor, lineHeight: 1 }}>
-          {qty.toLocaleString()}
-        </span>
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>units</span>
+      {/* Status badge */}
+      <div className="inv-tile-status" style={{ color, background: `${color}18` }}>
+        {STATUS_LABEL[status]}
       </div>
 
-      {lastUpdated && (
-        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          {qty > 0
-            ? <TrendingUp size={11} style={{ color: 'var(--accent)' }} />
-            : <TrendingDown size={11} style={{ color: 'var(--danger)' }} />}
-          Updated {new Date(lastUpdated).toLocaleTimeString()}
-        </div>
-      )}
-    </div>
+      {/* History hint */}
+      <div className="inv-tile-history-hint">
+        <History size={11} />
+        <span>View history</span>
+      </div>
+    </button>
   );
 };
 
 // ── Main BalancesGrid ─────────────────────────────────────────────────────────
 export const BalancesGrid = () => {
   const { data: items = [], isLoading, isError, refetch, isFetching } = useInventoryBalances();
+  const [selectedItem, setSelectedItem] = useState<ItemWithBrand | null>(null);
 
   if (isLoading) {
     return (
-      <div className="balances-placeholder">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="balance-card glass-panel skeleton" />
+      <div className="inv-tiles-grid">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="inv-tile inv-tile-skeleton skeleton" />
         ))}
       </div>
     );
@@ -99,8 +113,12 @@ export const BalancesGrid = () => {
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+    <>
+      {/* Toolbar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          Click any product tile to view its full movement history.
+        </p>
         <button
           className="btn btn-ghost"
           style={{ fontSize: '0.75rem', gap: '0.375rem' }}
@@ -112,53 +130,24 @@ export const BalancesGrid = () => {
         </button>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {items.map((item) => {
-          const specs: string[] = [];
-          if (item.cylinder_weight) specs.push(item.cylinder_weight);
-          if (item.mouth_size)      specs.push(item.mouth_size);
-
-          return (
-            <div
-              key={item.item_id}
-              className="glass-panel"
-              style={{ padding: '1rem 1.25rem' }}
-            >
-              {/* Group header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem' }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '1rem' }}>
-                    {item.brand} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{item.size_kg}kg</span>
-                  </div>
-                  {specs.length > 0 && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
-                      {specs.join(', ')}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Side-by-side Filled + Empty cards */}
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <QtyCard
-                  label="Filled Gas"
-                  icon={<Droplets size={12} />}
-                  accent="var(--primary)"
-                  qty={item.filled_quantity || 0}
-                  lastUpdated={item.updated_at || item.created_at}
-                />
-                <QtyCard
-                  label="Empty Cylinder"
-                  icon={<Box size={12} />}
-                  accent="var(--warning)"
-                  qty={item.empty_quantity || 0}
-                  lastUpdated={item.updated_at || item.created_at}
-                />
-              </div>
-            </div>
-          );
-        })}
+      {/* Tile grid */}
+      <div className="inv-tiles-grid">
+        {items.map((item) => (
+          <ProductTile
+            key={item.item_id}
+            item={item}
+            onClick={() => setSelectedItem(item)}
+          />
+        ))}
       </div>
-    </div>
+
+      {/* Per-product history modal */}
+      {selectedItem && (
+        <ProductHistoryModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
+    </>
   );
 };

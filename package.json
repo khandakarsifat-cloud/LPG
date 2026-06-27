@@ -13,9 +13,12 @@
     "@supabase/supabase-js": "^2.107.0",
     "@tanstack/react-query": "^5.101.0",
     "date-fns": "^4.4.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.17.0",
+    "node-zklib": "^1.3.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.17.0"
   },
   "devDependencies": {

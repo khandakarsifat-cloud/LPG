@@ -50,6 +50,7 @@ export const useCreatePurchase = () => {
       qc.invalidateQueries({ queryKey: ['inventory', 'movements'] });
       qc.invalidateQueries({ queryKey: ['logistics', 'trucks'] });
       qc.invalidateQueries({ queryKey: ['logistics', 'wallets'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 };
@@ -93,6 +94,7 @@ export const useCompletePurchase = () => {
       qc.invalidateQueries({ queryKey: ['inventory', 'movements'] });
       qc.invalidateQueries({ queryKey: ['logistics', 'wallets'] });
       qc.invalidateQueries({ queryKey: ['logistics', 'transits'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 };

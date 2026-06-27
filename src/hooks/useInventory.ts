@@ -4,11 +4,12 @@ import type { Item, ItemWithBrand, InventoryMovement, CreateItemPayload, CreateM
 
 // ── Query Keys ────────────────────────────────────────────────────────────────
 export const inventoryKeys = {
-  all:       ['inventory']                     as const,
-  items:     ['inventory', 'items']            as const,
-  balances:  ['inventory', 'balances']         as const,
-  movements: ['inventory', 'movements']        as const,
-  movement:  (id: string) => ['inventory', 'movements', id] as const,
+  all:          ['inventory']                              as const,
+  items:        ['inventory', 'items']                     as const,
+  balances:     ['inventory', 'balances']                  as const,
+  movements:    ['inventory', 'movements']                 as const,
+  movement:     (id: string) => ['inventory', 'movements', id] as const,
+  itemMovements:(id: string) => ['inventory', 'movements', 'item', id] as const,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ export const useInventoryMovements = (limit = 100) =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inventory_movements')
-        .select('*, items(brand, size_kg, filled_quantity, empty_quantity, cylinder_weight, mouth_size, lpg_brands(brand_id, brand_name)), user_profiles(full_name)')
+        .select('*, items(brand, size_kg, filled_quantity, empty_quantity, cylinder_weight, mouth_size, lpg_brands(brand_id, brand_name)), user_profiles(email)')
         .order('created_at', { ascending: false })
         .limit(limit);
       if (error) throw error;
@@ -114,3 +115,21 @@ export const useCreateMovement = () => {
     },
   });
 };
+
+/** All movements for a single item — used by the per-product history modal */
+export const useItemMovements = (itemId: string) =>
+  useQuery<InventoryMovement[]>({
+    queryKey: inventoryKeys.itemMovements(itemId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory_movements')
+        .select('*, items(brand, size_kg, filled_quantity, empty_quantity, cylinder_weight, mouth_size, lpg_brands(brand_id, brand_name)), user_profiles(email)')
+        .eq('item_id', itemId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as InventoryMovement[];
+    },
+    enabled: !!itemId,
+    refetchInterval: 15_000,
+  });
+

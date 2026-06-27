@@ -11,6 +11,9 @@ import { PurchasesPage } from './pages/Purchases';
 import { SettingsPage } from './pages/Settings';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
+import { POSPage } from './pages/POS';
+import { CustomersPage } from './pages/Customers';
+import { Toaster } from 'react-hot-toast';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +36,7 @@ const Placeholder = ({ title }: { title: string }) => (
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <Toaster position="top-right" />
       <AuthProvider>
         <BrowserRouter>
           <Routes>
@@ -51,12 +55,13 @@ function App() {
             >
               <Route index element={<Dashboard />} />
               <Route path="inventory"  element={<InventoryPage />} />
-              <Route path="customers"  element={<Placeholder title="Customer Management" />} />
+              <Route path="customers"  element={<CustomersPage />} />
               <Route path="finance"    element={<Placeholder title="Financial Ledger" />} />
               <Route path="purchases"  element={<PurchasesPage />} />
               <Route path="logistics"  element={<LogisticsPage />} />
               <Route path="gas-plants" element={<GasPlantsPage />} />
               <Route path="settings"   element={<SettingsPage />} />
+              <Route path="pos"        element={<POSPage />} />
             </Route>
 
             {/* Catch-all */}

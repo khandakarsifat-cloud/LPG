@@ -22,7 +22,7 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
     brand: '',
     size_kg: 5,
     cylinder_weight: null,
-    mouth_size: null,
+    mouth_size: '22mm',  // default
   });
 
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
@@ -37,11 +37,20 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
       return;
     }
 
-    // Check for duplicate: brand_id + size_kg
-    const exists = items.some((i) => i.brand_id === form.brand_id && i.size_kg === form.size_kg);
+    if (!form.mouth_size) {
+      setDuplicateError('Please select a mouth size');
+      return;
+    }
+
+    // Check for duplicate: brand_id + size_kg + mouth_size (all three must match)
+    const exists = items.some(
+      (i) => i.brand_id === form.brand_id && i.size_kg === form.size_kg && i.mouth_size === form.mouth_size
+    );
 
     if (exists) {
-      setDuplicateError(`${form.brand} ${form.size_kg}kg already exists in your registry.`);
+      setDuplicateError(
+        `${form.brand} ${form.size_kg}kg (${form.mouth_size}) already exists. Same brand+weight+mouth size cannot be duplicated.`
+      );
       return;
     }
 
@@ -52,11 +61,11 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
         brand:           form.brand,
         size_kg:         form.size_kg,
         cylinder_weight: form.cylinder_weight ?? null,
-        mouth_size:      form.mouth_size ?? null,
+        mouth_size:      form.mouth_size,
       });
 
       onClose();
-      setForm({ brand_id: null, brand: '', size_kg: 5, cylinder_weight: null, mouth_size: null });
+      setForm({ brand_id: null, brand: '', size_kg: 5, cylinder_weight: null, mouth_size: '22mm' });
     } catch (err) {
       // error displayed via createItem.isError
     } finally {
@@ -151,14 +160,15 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
               </select>
             </div>
 
-            {/* Mouth Size (Optional) */}
+            {/* Mouth Size — required */}
             <div className="input-group">
-              <label className="input-label" htmlFor="mouth-size">Mouth Size (Optional)</label>
+              <label className="input-label" htmlFor="mouth-size">Mouth Size *</label>
               <select
                 id="mouth-size"
                 className="input-field"
                 value={form.mouth_size || ''}
                 onChange={(e) => setForm((p) => ({ ...p, mouth_size: (e.target.value || null) as MouthSize | null }))}
+                required
               >
                 <option value="">Select size...</option>
                 {MOUTH_SIZE_OPTIONS.map((size) => (
