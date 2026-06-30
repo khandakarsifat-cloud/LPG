@@ -39,7 +39,7 @@ export const PurchasesList = () => {
   return (
     <div className="purchases-list">
       <div className="purchases-toolbar">
-        <div className="topbar-search" style={{ width: '300px' }}>
+        <div className="topbar-search" style={{ width: 'min(100%, clamp(13rem, 24vw, 18.75rem))' }}>
           <Search size={16} className="topbar-search-icon" />
           <input type="text" placeholder="Search purchases..." className="input-field topbar-search-input" />
         </div>

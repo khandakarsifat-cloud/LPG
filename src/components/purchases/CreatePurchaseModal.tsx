@@ -94,7 +94,7 @@ export const CreatePurchaseModal = ({ open, onClose }: CreatePurchaseModalProps)
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content glass-panel" style={{ maxWidth: '900px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="modal-content glass-panel" style={{ maxWidth: 'min(94vw, 56.25rem)', width: '100%', maxHeight: 'min(90dvh, 56rem)', display: 'flex', flexDirection: 'column' }}>
         <div className="modal-header">
           <h2 className="modal-title">Create Purchase Order</h2>
           <button className="modal-close" onClick={onClose}>

@@ -26,10 +26,10 @@ const queryClient = new QueryClient({
 
 // Placeholder pages for modules not yet built
 const Placeholder = ({ title }: { title: string }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '60vh', gap: '1rem' }}>
-    <div style={{ fontSize: '3rem' }}>🚧</div>
+  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 'min(60dvh, 32rem)', gap: 'var(--space-md)' }}>
+    <div style={{ fontSize: 'var(--font-2xl)' }}>🚧</div>
     <h2 style={{ color: 'var(--text-muted)' }}>{title}</h2>
-    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>This module is coming soon.</p>
+    <p style={{ color: 'var(--text-muted)', fontSize: 'var(--font-sm)' }}>This module is coming soon.</p>
   </div>
 );
 

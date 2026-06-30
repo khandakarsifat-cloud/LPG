@@ -147,10 +147,10 @@ export const POSPage = () => {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
       {/* 2-column layout */}
-      <div style={{ display: 'flex', gap: '1rem', flex: 1, minHeight: 0 }}>
+      <div className="pos-workspace" style={{ display: 'flex', gap: 'var(--space-md)', flex: 1, minHeight: 0 }}>
 
         {/* LEFT: Products Grid */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)', minHeight: 0, minWidth: 0 }}>
           {/* Title + Mouth Size toggle row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0, flexWrap: 'wrap' }}>
             <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>🧾 Point of Sale</h1>
@@ -215,17 +215,17 @@ export const POSPage = () => {
         </div>
 
         {/* RIGHT: Customer + Cart stacked */}
-        <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: 0 }}>
+        <div className="pos-side-panel" style={{ width: 'clamp(16.5rem, 22vw, 18.75rem)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)', minHeight: 0 }}>
 
           {/* Customer Details */}
           <div className="card" style={{
             flexShrink: 0,
             background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)',
-            padding: '0.875rem 1rem',
+            padding: 'var(--space-sm) var(--space-md)',
             border: !hasPhone && items.length > 0 ? '1.5px solid rgba(239,68,68,0.45)' : '1px solid var(--border-color)',
             transition: 'border-color 0.2s',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.6rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', marginBottom: 'var(--space-sm)' }}>
               <span style={{ fontSize: '0.8rem' }}>👤</span>
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Customer</span>
               {!hasPhone && (
@@ -245,7 +245,7 @@ export const POSPage = () => {
             padding: 0, overflow: 'hidden',
           }}>
             {/* Cart header */}
-            <div style={{ padding: '0.6rem 0.875rem 0.45rem', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
+            <div style={{ padding: 'var(--space-sm) var(--space-md)', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>🛒 Current Sale</span>
             </div>
 
@@ -264,12 +264,12 @@ export const POSPage = () => {
             </div>
 
             {/* Checkout button */}
-            <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border-color)', flexShrink: 0 }}>
+            <div style={{ padding: 'var(--space-sm)', borderTop: '1px solid var(--border-color)', flexShrink: 0 }}>
               <button
                 className="btn btn-primary"
                 style={{
-                  width: '100%', padding: '0.75rem',
-                  fontSize: '0.95rem', fontWeight: 700, borderRadius: 10,
+                  width: '100%', padding: 'var(--space-sm)',
+                  fontSize: 'var(--font-sm)', fontWeight: 700, borderRadius: 'var(--radius-md)',
                   opacity: canCheckout ? 1 : 0.5,
                   cursor: canCheckout ? 'pointer' : 'not-allowed',
                   transition: 'opacity 0.2s',

@@ -43,7 +43,7 @@ export const CreateCustomTransitModal = ({ open, onClose }: CreateCustomTransitM
       <div 
         className="modal-content glass-panel" 
         onClick={e => e.stopPropagation()}
-        style={{ maxWidth: '450px' }}
+        style={{ maxWidth: 'min(92vw, 28.125rem)' }}
       >
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

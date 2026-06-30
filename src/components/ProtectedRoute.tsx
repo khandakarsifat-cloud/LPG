@@ -16,16 +16,16 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   if (isLoading) {
     return (
       <div style={{
-        height: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '1rem',
+        gap: 'var(--space-md)',
         background: 'var(--bg-base)',
       }}>
         <div className="loader-ring" />
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+        <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-sm)' }}>
           Loading your workspace…
         </span>
       </div>

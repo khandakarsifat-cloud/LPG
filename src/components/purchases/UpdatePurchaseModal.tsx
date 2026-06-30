@@ -87,7 +87,7 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
       <div 
         className="modal-content glass-panel" 
         onClick={e => e.stopPropagation()}
-        style={{ maxWidth: '600px' }}
+        style={{ maxWidth: 'min(92vw, 37.5rem)' }}
       >
         <div className="modal-header">
           <h2 className="modal-title">Purchase #{purchase.purchase_id.slice(0, 8).toUpperCase()}</h2>
@@ -143,7 +143,7 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
                         <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{item.brand_name} {item.size_kg}kg ({item.type})</div>
                       </div>
                       
-                      <div style={{ width: '100px' }}>
+                      <div style={{ width: 'clamp(5rem, 8vw, 6.25rem)' }}>
                         <div className="input-icon-wrapper">
                           <input 
                             type="number"
@@ -157,7 +157,7 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
                         </div>
                       </div>
 
-                      <div style={{ width: '120px' }}>
+                      <div style={{ width: 'clamp(5.5rem, 9vw, 7.5rem)' }}>
                         <div className="input-icon-wrapper">
                           <span className="input-icon" style={{ padding: '0 0.5rem' }}>৳</span>
                           <input 
@@ -173,7 +173,7 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
                         </div>
                       </div>
 
-                      <div style={{ width: '100px', textAlign: 'right', fontWeight: 600 }}>
+                      <div style={{ width: 'clamp(5rem, 8vw, 6.25rem)', textAlign: 'right', fontWeight: 600 }}>
                         ৳ {(currentPrice * currentQty).toLocaleString()}
                       </div>
                     </div>

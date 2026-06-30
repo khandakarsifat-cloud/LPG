@@ -118,7 +118,7 @@ export const TransitsView = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Top Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div className="search-bar" style={{ width: '300px' }}>
+        <div className="search-bar" style={{ width: 'min(100%, clamp(13rem, 24vw, 18.75rem))' }}>
           <Search size={18} className="search-icon" />
           <input
             type="text"

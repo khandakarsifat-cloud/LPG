@@ -80,8 +80,8 @@ export const CheckoutConfirmModal = ({
         borderRadius: 'var(--radius-xl, 16px)',
         boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
         width: '100%',
-        maxWidth: 540,
-        maxHeight: '92vh',
+        maxWidth: 'min(92vw, 33.75rem)',
+        maxHeight: 'min(92dvh, 56rem)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -144,7 +144,7 @@ export const CheckoutConfirmModal = ({
             fontSize: '0.78rem',
             lineHeight: 1.55,
             boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-            maxWidth: 320,
+            maxWidth: 'min(100%, 20rem)',
             margin: '0 auto',
           }}>
             {/* Header */}

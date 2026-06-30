@@ -78,7 +78,7 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
       <div 
         className="modal-content glass-panel" 
         onClick={e => e.stopPropagation()}
-        style={{ maxWidth: '600px' }}
+        style={{ maxWidth: 'min(92vw, 37.5rem)' }}
       >
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -189,7 +189,7 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
                         className="input-field" 
                         value={cost.amount || ''}
                         onChange={(e) => handleUpdateCost(idx, 'amount', parseInt(e.target.value) || 0)}
-                        style={{ width: '120px' }}
+                        style={{ width: 'clamp(5.5rem, 9vw, 7.5rem)' }}
                         disabled={isLocked}
                       />
                       {!isLocked && (

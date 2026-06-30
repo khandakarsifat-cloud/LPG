@@ -151,7 +151,7 @@ const AddCustomerModal = ({ onClose }: { onClose: () => void }) => {
       backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
     }}>
-      <div className="card glass-panel" style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column' }}>
+      <div className="card glass-panel" style={{ width: '100%', maxWidth: 'min(92vw, 31.25rem)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Add New Customer</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem' }}>&times;</button>

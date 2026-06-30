@@ -70,7 +70,7 @@ export const AreaOfficerModal = ({ open, onClose, plant }: AreaOfficerModalProps
         role="dialog"
         aria-modal="true"
         aria-label="Area Officer"
-        style={{ maxWidth: '460px' }}
+        style={{ maxWidth: 'min(92vw, 28.75rem)' }}
       >
         {/* Header */}
         <div className="modal-header">
@@ -80,7 +80,7 @@ export const AreaOfficerModal = ({ open, onClose, plant }: AreaOfficerModalProps
             </div>
             <div>
               <h2 className="modal-title">{hasOfficer ? 'Edit Area Officer' : 'Assign Area Officer'}</h2>
-              <p className="modal-subtitle" style={{ maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <p className="modal-subtitle" style={{ maxWidth: 'min(60vw, 17.5rem)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {plant.plant_name}
               </p>
             </div>

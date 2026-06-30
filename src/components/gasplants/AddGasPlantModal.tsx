@@ -136,7 +136,7 @@ export const AddGasPlantModal = ({ open, onClose, editingPlant }: AddGasPlantMod
         role="dialog"
         aria-modal="true"
         aria-label={isEditing ? 'Edit Gas Plant' : 'Add Gas Plant'}
-        style={{ maxWidth: '520px' }}
+        style={{ maxWidth: 'min(92vw, 32.5rem)' }}
       >
         {/* Header */}
         <div className="modal-header">
