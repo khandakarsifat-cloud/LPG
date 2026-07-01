@@ -1616,6 +1616,47 @@ a:hover {
   background: rgba(15, 23, 42, 0.3);
 }
 
+.gas-plant-modal {
+  max-height: calc(100dvh - (var(--space-md) * 2));
+}
+
+.gas-plant-form {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.gas-plant-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-md);
+}
+
+.gas-plant-modal-body .input-group {
+  margin-bottom: 0;
+  gap: 0.35rem;
+}
+
+.gas-plant-modal-body .input-field {
+  padding-top: 0.62rem;
+  padding-bottom: 0.62rem;
+}
+
+.gas-plant-modal-body textarea.input-field {
+  min-height: 4rem;
+}
+
+.gas-plant-modal-body h3 {
+  margin: 0 0 0.15rem;
+}
+
+.gas-plant-modal-body p {
+  margin: 0;
+}
+
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }

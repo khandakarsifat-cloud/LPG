@@ -3,10 +3,22 @@ import toast from 'react-hot-toast';
 import { Edit2, Phone, Save, Store, User } from 'lucide-react';
 import { useAddCustomer, useCustomers } from '../../hooks/useCustomers';
 import type { Customer } from '../../hooks/useCustomers';
+import {
+  BD_MOBILE_PHONE_ERROR,
+  getPhoneSearchTerms,
+  normalizePhoneInput,
+  validateBDMobilePhone,
+} from '../../lib/bdPhone';
+
+export type POSCustomerDraft = Partial<Omit<Customer, 'tier' | 'name' | 'phone'>> & {
+  name?: string | null;
+  phone?: string | null;
+  tier?: 'retail' | 'wholesale';
+};
 
 interface CustomerSelectionProps {
-  customer: any;
-  onChange: (customer: any) => void;
+  customer: POSCustomerDraft | null;
+  onChange: (customer: POSCustomerDraft | null) => void;
 }
 
 export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps) => {
@@ -19,16 +31,21 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
   const { data: customers } = useCustomers(searchTerm);
   const addCustomer = useAddCustomer();
 
+  const currentCustomer = customer ?? {};
   const phone = customer?.phone?.trim() || '';
   const hasPhone = Boolean(phone);
-  const isSelectedCustomer = Boolean(customer?.customer_id) && selectedCustomerId === customer.customer_id && isCollapsed;
-  const exactPhoneMatch = Boolean(phone && customers?.some(c => c.phone === phone));
-  const isNewCustomer = Boolean(phone && customers && !exactPhoneMatch);
-  const requiredName = tier === 'retail' ? customer?.name?.trim() : customer?.shop_name?.trim();
-  const canSaveCustomer = Boolean(phone && requiredName) && isNewCustomer && !addCustomer.isPending;
+  const phoneError = hasPhone && !validateBDMobilePhone(phone) ? BD_MOBILE_PHONE_ERROR : '';
+  const isSelectedCustomer = Boolean(currentCustomer.customer_id) && selectedCustomerId === currentCustomer.customer_id && isCollapsed;
+  const phoneSearchTerms = getPhoneSearchTerms(phone);
+  const exactPhoneMatch = Boolean(phone && customers?.some(c => phoneSearchTerms.includes(c.phone)));
+  const isNewCustomer = Boolean(phone && !phoneError && customers && !exactPhoneMatch);
+  const requiredName = tier === 'retail' ? currentCustomer.name?.trim() : currentCustomer.shop_name?.trim();
+  const canSaveCustomer = Boolean(phone && !phoneError && requiredName) && isNewCustomer && !addCustomer.isPending;
 
   useEffect(() => {
+    // State mirrors the selected customer so the compact POS panel can expand back into an editable draft.
     if (!customer) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsCollapsed(false);
       setSelectedCustomerId(null);
       setSearchTerm('');
@@ -42,8 +59,9 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
   }, [customer]);
 
   const handleSelectCustomer = (c: Customer) => {
-    onChange({ ...c, tier: c.tier || tier });
-    setTier((c.tier as 'retail' | 'wholesale') || tier);
+    const selectedTier = c.tier === 'wholesale' ? 'wholesale' : 'retail';
+    onChange({ ...c, tier: selectedTier });
+    setTier(selectedTier);
     setSearchTerm(c.phone || '');
     setShowDropdown(false);
     setSelectedCustomerId(c.customer_id);
@@ -51,14 +69,15 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
   };
 
   const handleChange = (field: string, value: string) => {
+    const nextValue = field === 'phone' ? normalizePhoneInput(value) : value;
     if (field === 'phone') {
-      setSearchTerm(value);
+      setSearchTerm(nextValue);
       setShowDropdown(true);
     }
     setIsCollapsed(false);
     setSelectedCustomerId(null);
 
-    const draftCustomer = { ...customer, [field]: value, tier };
+    const draftCustomer = { ...currentCustomer, [field]: nextValue, tier };
     delete draftCustomer.customer_id;
     delete draftCustomer.tenant_id;
     delete draftCustomer.created_at;
@@ -70,7 +89,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
     setIsCollapsed(false);
     setSelectedCustomerId(null);
 
-    const draftCustomer = { ...customer, tier: newTier };
+    const draftCustomer = { ...currentCustomer, tier: newTier };
     delete draftCustomer.customer_id;
     delete draftCustomer.tenant_id;
     delete draftCustomer.created_at;
@@ -81,21 +100,23 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
     if (!canSaveCustomer) return;
 
     try {
+      const customerName = currentCustomer.name?.trim() || '';
+      const shopName = currentCustomer.shop_name?.trim() || '';
       const saved = await addCustomer.mutateAsync({
-        name: tier === 'retail' ? customer.name.trim() : (customer.name?.trim() || customer.shop_name.trim()),
+        name: tier === 'retail' ? customerName : (customerName || shopName),
         phone,
-        shop_name: tier === 'wholesale' ? customer.shop_name.trim() : null,
-        address: customer?.address?.trim() || null,
+        shop_name: tier === 'wholesale' ? shopName : null,
+        address: currentCustomer.address?.trim() || null,
         tier,
       });
       toast.success('Customer saved and selected');
       handleSelectCustomer(saved);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to save customer');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save customer');
     }
   };
 
-  if (isSelectedCustomer) {
+  if (isSelectedCustomer && customer) {
     const title = customer.name || customer.shop_name || 'Saved customer';
     const subtitle = customer.tier === 'wholesale'
       ? customer.shop_name || 'Wholesale customer'
@@ -192,16 +213,23 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
               flex: 1,
               padding: '0.4rem 0.55rem',
               fontSize: '0.8rem',
-              borderColor: !hasPhone ? 'rgba(248,113,113,0.5)' : undefined,
+              borderColor: !hasPhone || phoneError ? 'rgba(248,113,113,0.5)' : undefined,
               transition: 'border-color 0.2s',
             }}
-            placeholder="Required *"
+            placeholder="01712345678 or +8801712345678"
             value={customer?.phone || ''}
-            onChange={(e) => handleChange('phone', e.target.value.replace(/\D/g, ''))}
+            onChange={(e) => handleChange('phone', e.target.value)}
             onFocus={() => setShowDropdown(true)}
             onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+            required
           />
         </div>
+
+        {phoneError && (
+          <div style={{ marginLeft: 42, marginTop: '0.25rem', fontSize: '0.68rem', color: '#fca5a5' }}>
+            {phoneError}
+          </div>
+        )}
 
         {showDropdown && customers && customers.length > 0 && (
           <div style={{
@@ -255,6 +283,20 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
         />
       </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <label style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-muted)', width: 42, flexShrink: 0 }}>
+          Address
+        </label>
+        <input
+          type="text"
+          className="input-field"
+          style={{ flex: 1, padding: '0.4rem 0.55rem', fontSize: '0.8rem' }}
+          placeholder="Optional address..."
+          value={customer?.address || ''}
+          onChange={(e) => handleChange('address', e.target.value)}
+        />
+      </div>
+
       {isNewCustomer && (
         <button
           type="button"
@@ -262,7 +304,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
           style={{ width: '100%', padding: '0.45rem 0.6rem', fontSize: '0.78rem', fontWeight: 700 }}
           onClick={handleSaveCustomer}
           disabled={!canSaveCustomer}
-          title={!requiredName ? `Enter ${tier === 'wholesale' ? 'shop name' : 'customer name'} to save` : undefined}
+          title={phoneError || (!requiredName ? `Enter ${tier === 'wholesale' ? 'shop name' : 'customer name'} to save` : undefined)}
         >
           <Save size={14} />
           {addCustomer.isPending ? 'Saving...' : 'Save and Select Customer'}

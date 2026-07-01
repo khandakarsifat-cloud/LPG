@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { assertBDMobilePhone } from '../lib/bdPhone';
 
 export interface PriceBook {
   tenant_id: string;
@@ -57,8 +58,10 @@ export const useCreatePOSSale = () => {
   const qc = useQueryClient();
   return useMutation<POSSaleResult, Error, POSSalePayload>({
     mutationFn: async (payload) => {
+      const customerPhone = assertBDMobilePhone(payload.customerPhone);
+
       const { data, error } = await supabase.rpc('create_pos_sale', {
-        p_customer_phone:      payload.customerPhone,
+        p_customer_phone:      customerPhone,
         p_customer_name:       payload.customerName ?? null,
         p_customer_shop_name:  payload.customerShopName ?? null,
         p_customer_address:    payload.customerAddress ?? null,

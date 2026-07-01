@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { useCustomers, useAddCustomer } from '../hooks/useCustomers';
+import { BD_MOBILE_PHONE_ERROR, normalizePhoneInput, validateBDMobilePhone } from '../lib/bdPhone';
 
 export const CustomersPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -130,18 +131,28 @@ const AddCustomerModal = ({ onClose }: { onClose: () => void }) => {
       setErrorMsg('Shop name is required for wholesale customers.');
       return;
     }
+
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone) {
+      setErrorMsg('Phone number is required.');
+      return;
+    }
+    if (!validateBDMobilePhone(trimmedPhone)) {
+      setErrorMsg(BD_MOBILE_PHONE_ERROR);
+      return;
+    }
     
     try {
       await addCustomerMutation.mutateAsync({
         tier,
-        phone: phone || null,
+        phone: trimmedPhone,
         name: name || 'Unknown',
         shop_name: shopName || null,
         address: address || null
       });
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to add customer.');
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to add customer.');
     }
   };
 
@@ -184,14 +195,14 @@ const AddCustomerModal = ({ onClose }: { onClose: () => void }) => {
           </div>
 
           <div className="input-group">
-            <label className="input-label">Phone Number {tier === 'wholesale' && '*'}</label>
+            <label className="input-label">Phone Number *</label>
             <input 
               type="tel" 
               className="input-field" 
-              placeholder="Enter phone..."
+              placeholder="01712345678 or +8801712345678"
               value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-              required={tier === 'wholesale'}
+              onChange={(e) => setPhone(normalizePhoneInput(e.target.value))}
+              required
             />
           </div>
 

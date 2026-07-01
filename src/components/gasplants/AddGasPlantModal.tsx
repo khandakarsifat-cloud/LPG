@@ -131,7 +131,7 @@ export const AddGasPlantModal = ({ open, onClose, editingPlant }: AddGasPlantMod
   return (
     <div className="modal-overlay" onClick={handleClose}>
       <div
-        className="modal-content glass-panel"
+        className="modal-content glass-panel gas-plant-modal"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -156,8 +156,8 @@ export const AddGasPlantModal = ({ open, onClose, editingPlant }: AddGasPlantMod
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+        <form className="gas-plant-form" onSubmit={handleSubmit}>
+          <div className="modal-body gas-plant-modal-body">
 
             {/* Plant Name */}
             <div className="input-group">
@@ -217,7 +217,7 @@ export const AddGasPlantModal = ({ open, onClose, editingPlant }: AddGasPlantMod
                 value={form.location}
                 onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
                 rows={3}
-                style={{ resize: 'vertical', minHeight: '80px' }}
+                style={{ resize: 'vertical', minHeight: '64px' }}
               />
             </div>
 

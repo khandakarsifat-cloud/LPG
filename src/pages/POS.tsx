@@ -5,6 +5,7 @@ import { POSItemsGrid } from '../components/pos/POSItemsGrid';
 import { POSCart } from '../components/pos/POSCart';
 import { CustomerSelection } from '../components/pos/CustomerSelection';
 import { CheckoutConfirmModal } from '../components/pos/CheckoutConfirmModal';
+import type { POSCustomerDraft } from '../components/pos/CustomerSelection';
 import { useCreatePOSSale } from '../hooks/usePOS';
 import { useInventoryBalances } from '../hooks/useInventory';
 import type { POSSalePayload, POSSaleResult } from '../hooks/usePOS';
@@ -12,11 +13,11 @@ import type { MouthSize } from '../types/inventory';
 import { MOUTH_SIZE_OPTIONS } from '../types/inventory';
 import { printReceipt, type ReceiptData } from '../lib/receiptPdf';
 import { useAuth } from '../contexts/AuthContext';
-
+import { BD_MOBILE_PHONE_ERROR, validateBDMobilePhone } from '../lib/bdPhone';
 
 const resetForm = (
   setItems: React.Dispatch<React.SetStateAction<POSSalePayload['items']>>,
-  setCustomer: React.Dispatch<React.SetStateAction<any>>,
+  setCustomer: React.Dispatch<React.SetStateAction<POSCustomerDraft | null>>,
   setDiscount: React.Dispatch<React.SetStateAction<number>>,
   setExchangeFee: React.Dispatch<React.SetStateAction<number>>,
   setNotes: React.Dispatch<React.SetStateAction<string>>,
@@ -30,7 +31,7 @@ const resetForm = (
 
 export const POSPage = () => {
   const [items, setItems]               = useState<POSSalePayload['items']>([]);
-  const [customer, setCustomer]         = useState<any>(null);
+  const [customer, setCustomer]         = useState<POSCustomerDraft | null>(null);
   const [discount, setDiscount]         = useState(0);
   const [exchangeFee, setExchangeFee]   = useState(0);
   const [notes, setNotes]               = useState('');
@@ -45,14 +46,17 @@ export const POSPage = () => {
   const { profile } = useAuth();
 
   const hasPhone        = Boolean(customer?.phone?.trim());
+  const customerPhone   = customer?.phone?.trim() || '';
+  const hasValidPhone   = hasPhone && validateBDMobilePhone(customerPhone);
   const refillCount     = items.filter(i => i.type === 'refill').reduce((a, i) => a + i.quantity, 0);
   const emptyCount      = items.filter(i => i.type === 'empty_return').reduce((a, i) => a + i.quantity, 0);
   const parityOk        = refillCount === emptyCount;
-  const canCheckout     = items.length > 0 && hasPhone && parityOk;
+  const canCheckout     = items.length > 0 && hasValidPhone && parityOk;
 
   const getCheckoutBlockReason = () => {
     if (items.length === 0)  return 'Cart is empty';
     if (!hasPhone)           return 'Customer phone number is required';
+    if (!hasValidPhone)      return BD_MOBILE_PHONE_ERROR;
     if (!parityOk)           return `Refills (${refillCount}) must equal empty returns (${emptyCount})`;
     return null;
   };
@@ -69,8 +73,12 @@ export const POSPage = () => {
 
   // Executes the sale against Supabase
   const executeSale = useCallback(async () => {
+    if (!customer || !customerPhone) {
+      throw new Error('Customer phone number is required');
+    }
+
     const payload: POSSalePayload = {
-      customerPhone:     customer.phone.trim(),
+      customerPhone,
       customerName:      customer.name || undefined,
       customerShopName:  customer.shop_name || undefined,
       customerAddress:   customer.address || undefined,
@@ -82,7 +90,7 @@ export const POSPage = () => {
     };
     const result = await createSale(payload);
     return result;
-  }, [customer, discount, exchangeFee, notes, items, createSale]);
+  }, [customer, customerPhone, discount, exchangeFee, notes, items, createSale]);
 
   const buildReceiptData = (result: POSSaleResult): ReceiptData => ({
     sale_id:        result.sale_id,
@@ -116,8 +124,8 @@ export const POSPage = () => {
       toast.success('Sale completed successfully! ✅');
       setModalOpen(false);
       resetForm(setItems, setCustomer, setDiscount, setExchangeFee, setNotes);
-    } catch (err: any) {
-      toast.error('Failed to complete sale: ' + (err.message || 'Unknown error'));
+    } catch (err: unknown) {
+      toast.error('Failed to complete sale: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setIsProcessing(false);
     }
@@ -134,8 +142,8 @@ export const POSPage = () => {
       // Build receipt and print
       const receiptData = buildReceiptData(result);
       setTimeout(() => printReceipt(receiptData), 300);
-    } catch (err: any) {
-      toast.error('Failed to complete sale: ' + (err.message || 'Unknown error'));
+    } catch (err: unknown) {
+      toast.error('Failed to complete sale: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setIsProcessing(false);
     }
