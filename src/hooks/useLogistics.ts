@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import type { Truck, CreateTruckPayload, UpdateTruckPayload, TruckStatus } from '../types/logistics';
+import type { AdditionalCost, Transit, Truck, CreateTruckPayload, UpdateTruckPayload, TruckStatus, Wallet } from '../types/logistics';
 
 // ── Query Keys ────────────────────────────────────────────────────────────────
 export const logisticsKeys = {
@@ -30,18 +30,18 @@ export const useTrucks = () =>
 
 /** Wallets for current tenant */
 export const useWallets = () =>
-  useQuery({
+  useQuery<Wallet[]>({
     queryKey: logisticsKeys.wallets,
     queryFn: async () => {
       const { data, error } = await supabase.from('wallets').select('*');
       if (error) throw error;
-      return data;
+      return (data ?? []) as Wallet[];
     },
   });
 
 /** Transits for current tenant */
 export const useTransits = () =>
-  useQuery({
+  useQuery<Transit[]>({
     queryKey: logisticsKeys.transits,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -53,7 +53,8 @@ export const useTransits = () =>
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data.map((t: any) => ({
+      const rows = (data ?? []) as Array<Transit & { trucks?: { name?: string } | null }>;
+      return rows.map((t) => ({
         ...t,
         truck_name: t.trucks?.name
       }));
@@ -154,7 +155,7 @@ export const useUpdateTransitCosts = () => {
     driverCost: number;
     helperCost: number;
     oilCost: number;
-    additionalCosts: any[];
+    additionalCosts: AdditionalCost[];
     status: string;
   }>({
     mutationFn: async (payload) => {

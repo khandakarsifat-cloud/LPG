@@ -47,9 +47,9 @@ function hLine(doc: jsPDF, y: number) {
 function dashedLine(doc: jsPDF, y: number) {
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.2);
-  (doc as any).setLineDash([1.5, 1.5]);
+  doc.setLineDashPattern([1.5, 1.5], 0);
   doc.line(MARGIN_LEFT, y, MARGIN_LEFT + CONTENT_W, y);
-  (doc as any).setLineDash([]);
+  doc.setLineDashPattern([], 0);
 }
 
 function row(doc: jsPDF, y: number, left: string, right: string, bold = false) {
@@ -129,13 +129,13 @@ export function generateReceiptPDF(data: ReceiptData): jsPDF {
   for (const item of data.items) {
     const typeLabel = TYPE_LABELS[item.type] ?? item.type;
     const priceStr = item.type === 'empty_return' ? 'Free' : formatBDT(item.unit_price);
-    const totalStr = item.type === 'empty_return' ? '—' : formatBDT(item.line_total);
+    const totalStr = item.type === 'empty_return' ? '-' : formatBDT(item.line_total);
 
     // Wrap long names
     const nameParts = doc.splitTextToSize(item.name, 30) as string[];
     doc.text(nameParts[0],  MARGIN_LEFT,               y);
     doc.text(typeLabel,     MARGIN_LEFT + 34,           y);
-    doc.text(`×${item.quantity}`,  MARGIN_LEFT + 50,   y, { align: 'right' });
+    doc.text(`x${item.quantity}`,  MARGIN_LEFT + 50,   y, { align: 'right' });
     doc.text(priceStr,      MARGIN_LEFT + 59,           y, { align: 'right' });
     doc.text(totalStr,      MARGIN_LEFT + CONTENT_W,   y, { align: 'right' });
     y += LINE_H;

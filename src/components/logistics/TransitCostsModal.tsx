@@ -24,6 +24,7 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
 
   useEffect(() => {
     if (transit && open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDriverCost(transit.driver_cost || 0);
       setHelperCost(transit.helper_cost || 0);
       setOilCost(transit.oil_cost || 0);
@@ -38,7 +39,7 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
     setAdditionalCosts([...additionalCosts, { name: '', amount: 0 }]);
   };
 
-  const handleUpdateCost = (index: number, field: 'name' | 'amount', value: any) => {
+  const handleUpdateCost = (index: number, field: 'name' | 'amount', value: string | number) => {
     const newCosts = [...additionalCosts];
     newCosts[index] = { ...newCosts[index], [field]: value };
     setAdditionalCosts(newCosts);
@@ -68,8 +69,8 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
         status
       });
       onClose();
-    } catch (err: any) {
-      alert(`Error updating transit: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Error updating transit: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -121,7 +122,7 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="input-group">
-                <label className="input-label">Driver Cost (৳)</label>
+                <label className="input-label">Driver Cost (Tk)</label>
                 <input 
                   type="number" 
                   className="input-field" 
@@ -132,7 +133,7 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
                 />
               </div>
               <div className="input-group">
-                <label className="input-label">Helper Cost (৳)</label>
+                <label className="input-label">Helper Cost (Tk)</label>
                 <input 
                   type="number" 
                   className="input-field" 
@@ -143,7 +144,7 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
                 />
               </div>
               <div className="input-group">
-                <label className="input-label">Oil Cost (৳)</label>
+                <label className="input-label">Oil Cost (Tk)</label>
                 <input 
                   type="number" 
                   className="input-field" 
@@ -205,7 +206,7 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
 
             <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
               <span style={{ fontWeight: 600 }}>Total Cost:</span>
-              <span style={{ fontWeight: 700, fontSize: '1.2rem', color: 'var(--danger)' }}>৳ {calculateTotal().toLocaleString()}</span>
+              <span style={{ fontWeight: 700, fontSize: '1.2rem', color: 'var(--danger)' }}>Tk {calculateTotal().toLocaleString()}</span>
             </div>
 
           </div>

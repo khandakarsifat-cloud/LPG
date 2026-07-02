@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, CheckCircle2 } from 'lucide-react';
 import type { POSSalePayload } from '../../hooks/usePOS';
+import type { POSCustomerDraft } from './CustomerSelection';
 import { useInventoryBalances } from '../../hooks/useInventory';
 import { formatBDNumber } from '../../lib/formatBDT';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,7 +13,7 @@ interface CheckoutConfirmModalProps {
   onConfirm: () => Promise<void>;
   onConfirmAndPrint: () => Promise<void>;
   isProcessing: boolean;
-  customer: any;
+  customer: POSCustomerDraft | null;
   items: POSSalePayload['items'];
   discount: number;
   exchangeFee: number;
@@ -23,7 +24,7 @@ interface CheckoutConfirmModalProps {
 
 export const CheckoutConfirmModal = ({
   isOpen, onClose, onConfirm, onConfirmAndPrint, isProcessing,
-  customer, items, discount, exchangeFee, notes, saleResult: _saleResult,
+  customer, items, discount, exchangeFee, notes, saleResult,
 }: CheckoutConfirmModalProps) => {
   const { data: inventoryItems } = useInventoryBalances();
   const { profile } = useAuth();
@@ -65,8 +66,7 @@ export const CheckoutConfirmModal = ({
       ref={overlayRef}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(0,0,0,0.72)',
-        backdropFilter: 'blur(4px)',
+        background: 'var(--overlay)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '1rem',
         animation: 'fadeIn 0.18s ease',
@@ -74,18 +74,18 @@ export const CheckoutConfirmModal = ({
       onClick={e => { if (e.target === overlayRef.current) onClose(); }}
     >
       <div style={{
-        background: '#1e293b', // solid slate-800
+        background: 'var(--surface)',
         color: 'var(--text-main)',
         border: '1px solid var(--border-color)',
-        borderRadius: 'var(--radius-xl, 16px)',
-        boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+        borderRadius: 'var(--radius-xl)',
+        boxShadow: 'var(--shadow-lg)',
         width: '100%',
         maxWidth: 'min(92vw, 33.75rem)',
         maxHeight: 'min(92dvh, 56rem)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        animation: 'slideUp 0.2s ease',
+        animation: 'slideUp 0.16s ease',
       }}>
 
         {/* ── Modal Header ── */}
@@ -155,7 +155,7 @@ export const CheckoutConfirmModal = ({
               <div style={{ fontSize: '0.65rem', color: '#555' }}>Official Sales Receipt</div>
               <div style={{ fontSize: '0.65rem', color: '#555', marginTop: '0.2rem' }}>{now}</div>
               <div style={{ fontSize: '0.65rem', color: '#777', fontStyle: 'italic' }}>
-                Ref: #{(Math.random().toString(36).slice(2, 10)).toUpperCase()}
+                Ref: #{saleResult?.sale_id.slice(0, 8).toUpperCase() ?? 'PENDING'}
               </div>
             </div>
 
@@ -187,13 +187,13 @@ export const CheckoutConfirmModal = ({
                       <div style={{ fontSize: '0.65rem', color: '#666' }}>
                         {TYPE_LABELS[item.type] || item.type}
                         {item.type !== 'empty_return' && (
-                          <span> · ৳{formatBDNumber(Number(item.unit_price))}</span>
+                          <span> - Tk {formatBDNumber(Number(item.unit_price))}</span>
                         )}
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right', fontWeight: 600, paddingTop: '0.1rem' }}>×{item.quantity}</div>
+                    <div style={{ textAlign: 'right', fontWeight: 600, paddingTop: '0.1rem' }}>x{item.quantity}</div>
                     <div style={{ textAlign: 'right', fontWeight: 700, paddingTop: '0.1rem', color: item.type === 'empty_return' ? '#888' : '#111' }}>
-                      {item.type === 'empty_return' ? '—' : `৳${formatBDNumber(item.quantity * Number(item.unit_price))}`}
+                      {item.type === 'empty_return' ? '-' : `Tk ${formatBDNumber(item.quantity * Number(item.unit_price))}`}
                     </div>
                   </div>
                 </div>
@@ -205,20 +205,20 @@ export const CheckoutConfirmModal = ({
             {/* Totals */}
             <div style={{ fontSize: '0.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#555', marginBottom: '0.15rem' }}>
-                <span>Subtotal</span><span>৳{formatBDNumber(subtotal)}</span>
+                <span>Subtotal</span><span>Tk {formatBDNumber(subtotal)}</span>
               </div>
               {discount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e53e3e', marginBottom: '0.15rem' }}>
-                  <span>Discount</span><span>-৳{formatBDNumber(discount)}</span>
+                  <span>Discount</span><span>-Tk {formatBDNumber(discount)}</span>
                 </div>
               )}
               {exchangeFee > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#555', marginBottom: '0.15rem' }}>
-                  <span>Exchange Fee</span><span>৳{formatBDNumber(exchangeFee)}</span>
+                  <span>Exchange Fee</span><span>Tk {formatBDNumber(exchangeFee)}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '0.95rem', borderTop: '1px solid #bbb', paddingTop: '0.35rem', marginTop: '0.2rem' }}>
-                <span>TOTAL</span><span style={{ color: '#1a56db' }}>৳{formatBDNumber(total)}</span>
+                <span>TOTAL</span><span style={{ color: '#1a56db' }}>Tk {formatBDNumber(total)}</span>
               </div>
             </div>
 
@@ -227,9 +227,9 @@ export const CheckoutConfirmModal = ({
               <>
                 <div style={{ borderTop: '1px dashed #999', margin: '0.5rem 0 0.35rem' }} />
                 <div style={{ fontSize: '0.65rem', color: '#666' }}>
-                  <span>🔄 {refillCount} refills</span>
-                  <span style={{ margin: '0 0.4rem' }}>·</span>
-                  <span>↩️ {emptyCount} empties returned</span>
+                  <span>{refillCount} refills</span>
+                  <span style={{ margin: '0 0.4rem' }}>|</span>
+                  <span>{emptyCount} empties returned</span>
                 </div>
               </>
             )}
@@ -277,7 +277,7 @@ export const CheckoutConfirmModal = ({
           >
             {isProcessing ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
-                <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span> Processing…
+                <span className="loader-ring" style={{ width: 15, height: 15, borderWidth: 2 }} /> Processing...
               </span>
             ) : (
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
@@ -296,10 +296,10 @@ export const CheckoutConfirmModal = ({
               padding: '0.65rem 1rem',
               fontWeight: 700,
               fontSize: '0.88rem',
-              background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+              background: 'var(--primary)',
               color: 'white',
               border: 'none',
-              borderRadius: 10,
+              borderRadius: 'var(--radius-md)',
               cursor: 'pointer',
               transition: 'opacity 0.15s, transform 0.1s',
             }}
@@ -308,7 +308,7 @@ export const CheckoutConfirmModal = ({
           >
             {isProcessing ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
-                <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span> Processing…
+                <span className="loader-ring" style={{ width: 15, height: 15, borderWidth: 2 }} /> Processing...
               </span>
             ) : (
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>

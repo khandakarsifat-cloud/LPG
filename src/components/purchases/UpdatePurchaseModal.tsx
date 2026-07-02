@@ -22,6 +22,7 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
 
   useEffect(() => {
     if (purchase && open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTransportCost(Number(purchase.transport_cost) || 0);
       setLabourCost(Number(purchase.labour_cost) || 0);
       setNotes(purchase.notes || '');
@@ -55,8 +56,8 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
         items: itemsData
       });
       onClose();
-    } catch (err: any) {
-      alert(`Error updating purchase: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Error updating purchase: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -77,8 +78,8 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
         await completePurchase.mutateAsync(purchase.purchase_id);
         onClose();
       }
-    } catch (err: any) {
-      alert(`Error completing purchase: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Error completing purchase: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -106,7 +107,7 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="input-group">
-                <label className="input-label">Transport Cost (৳)</label>
+                <label className="input-label">Transport Cost (Tk)</label>
                 <input 
                   type="number" 
                   className="input-field" 
@@ -117,7 +118,7 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
                 />
               </div>
               <div className="input-group">
-                <label className="input-label">Labour Cost (৳)</label>
+                <label className="input-label">Labour Cost (Tk)</label>
                 <input 
                   type="number" 
                   className="input-field" 
@@ -159,7 +160,7 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
 
                       <div style={{ width: 'clamp(5.5rem, 9vw, 7.5rem)' }}>
                         <div className="input-icon-wrapper">
-                          <span className="input-icon" style={{ padding: '0 0.5rem' }}>৳</span>
+                          <span className="input-icon" style={{ padding: '0 0.5rem' }}>Tk</span>
                           <input 
                             type="number"
                             className="input-field"
@@ -174,7 +175,7 @@ export const UpdatePurchaseModal = ({ open, onClose, purchase }: UpdatePurchaseM
                       </div>
 
                       <div style={{ width: 'clamp(5rem, 8vw, 6.25rem)', textAlign: 'right', fontWeight: 600 }}>
-                        ৳ {(currentPrice * currentQty).toLocaleString()}
+                        Tk {(currentPrice * currentQty).toLocaleString()}
                       </div>
                     </div>
                   );

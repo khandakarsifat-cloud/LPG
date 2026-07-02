@@ -66,7 +66,7 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
 
       onClose();
       setForm({ brand_id: null, brand: '', size_kg: 5, cylinder_weight: null, mouth_size: '22mm' });
-    } catch (err) {
+    } catch {
       // error displayed via createItem.isError
     } finally {
       setIsSubmitting(false);

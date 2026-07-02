@@ -136,10 +136,10 @@ export const useTodaySalesFeed = () =>
           .limit(50);
           
         if (fallbackError) throw fallbackError;
-        return (fallbackData as any) || [];
+        return (fallbackData as unknown as SaleTransaction[]) || [];
       }
       
-      return (data as any) || [];
+      return (data as unknown as SaleTransaction[]) || [];
     },
     refetchInterval: 30_000,
   });

@@ -1,6 +1,8 @@
-import { useInventoryBalances } from '../../hooks/useInventory';
+import { AlertTriangle, Minus, Plus, ShoppingCart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { POSSalePayload } from '../../hooks/usePOS';
+import { useInventoryBalances } from '../../hooks/useInventory';
+import { formatBDNumber } from '../../lib/formatBDT';
 
 interface POSCartProps {
   items: POSSalePayload['items'];
@@ -13,11 +15,15 @@ interface POSCartProps {
   onChangeNotes: (val: string) => void;
 }
 
-export const POSCart = ({ 
-  items, onChangeItems, 
-  discount, onChangeDiscount, 
-  exchangeFee, onChangeExchangeFee,
-  notes, onChangeNotes 
+export const POSCart = ({
+  items,
+  onChangeItems,
+  discount,
+  onChangeDiscount,
+  exchangeFee,
+  onChangeExchangeFee,
+  notes,
+  onChangeNotes,
 }: POSCartProps) => {
   const { data: inventoryItems } = useInventoryBalances();
 
@@ -37,7 +43,7 @@ export const POSCart = ({
     if (type === 'refill' || type === 'package') {
       const invItem = inventoryItems?.find(i => i.item_id === item_id);
       const maxStock = invItem?.filled_quantity || 0;
-      
+
       const currentOtherQty = items
         .filter(i => i.item_id === item_id && (i.type === 'refill' || i.type === 'package') && i.type !== type)
         .reduce((acc, curr) => acc + curr.quantity, 0);
@@ -56,12 +62,11 @@ export const POSCart = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 0 }}>
-      {/* Items List — only this section scrolls */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.5rem 0.75rem' }}>
         {items.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', opacity: 0.5 }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🛒</div>
-            <p style={{ fontSize: '0.82rem', margin: 0 }}>Cart is empty</p>
+          <div className="empty-state" style={{ height: '100%', minHeight: '12rem' }}>
+            <ShoppingCart size={28} />
+            <p style={{ margin: 0 }}>Cart is empty</p>
           </div>
         ) : (
           items.map((item, index) => {
@@ -70,24 +75,34 @@ export const POSCart = ({
 
             return (
               <div key={`${item.item_id}-${item.type}-${index}`} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '0.5rem 0.6rem', border: '1px solid var(--border-color)', borderRadius: 8,
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) auto auto',
+                gap: '0.5rem',
+                alignItems: 'center',
+                padding: '0.5rem 0.6rem',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--surface)',
               }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-                    {item.type.replace('_', ' ')} · ${Number(item.unit_price || 0).toFixed(2)}
+                    {item.type.replace('_', ' ')} - Tk {formatBDNumber(Number(item.unit_price || 0))}
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
-                  <button className="btn btn-ghost" style={{ padding: '0.15rem 0.4rem', fontSize: '0.8rem', minWidth: 24 }} onClick={() => handleQuantityChange(item.item_id, item.type, item.quantity - 1)}>−</button>
-                  <span style={{ minWidth: '1.2rem', textAlign: 'center', fontWeight: 700, fontSize: '0.82rem' }}>{item.quantity}</span>
-                  <button className="btn btn-ghost" style={{ padding: '0.15rem 0.4rem', fontSize: '0.8rem', minWidth: 24 }} onClick={() => handleQuantityChange(item.item_id, item.type, item.quantity + 1)}>+</button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <button className="btn btn-ghost" style={{ width: 28, height: 28, minHeight: 28, padding: 0 }} onClick={() => handleQuantityChange(item.item_id, item.type, item.quantity - 1)} aria-label="Decrease quantity">
+                    <Minus size={13} />
+                  </button>
+                  <span style={{ minWidth: '1.3rem', textAlign: 'center', fontWeight: 800, fontSize: '0.82rem' }}>{item.quantity}</span>
+                  <button className="btn btn-ghost" style={{ width: 28, height: 28, minHeight: 28, padding: 0 }} onClick={() => handleQuantityChange(item.item_id, item.type, item.quantity + 1)} aria-label="Increase quantity">
+                    <Plus size={13} />
+                  </button>
                 </div>
 
-                <div style={{ minWidth: '3.5rem', textAlign: 'right', fontWeight: 700, fontSize: '0.88rem', color: 'var(--primary)', flexShrink: 0 }}>
-                  ${(item.quantity * Number(item.unit_price || 0)).toFixed(2)}
+                <div style={{ minWidth: '4.5rem', textAlign: 'right', fontWeight: 800, fontSize: '0.88rem', color: 'var(--primary)' }}>
+                  Tk {formatBDNumber(item.quantity * Number(item.unit_price || 0))}
                 </div>
               </div>
             );
@@ -95,18 +110,16 @@ export const POSCart = ({
         )}
       </div>
 
-      {/* Empties Warning — pinned */}
       {refillsCount !== emptiesCount && (
-        <div style={{ margin: '0 0.75rem', padding: '0.5rem 0.7rem', background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: 8, fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-          <span>⚠️</span>
+        <div style={{ margin: '0 0.75rem', padding: '0.5rem 0.7rem', background: 'var(--danger-weak)', color: 'var(--danger)', border: '1px solid #fda29b', borderRadius: 'var(--radius-md)', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+          <AlertTriangle size={14} />
           <div><strong>Mismatch:</strong> {refillsCount} refills, {emptiesCount} empties</div>
         </div>
       )}
 
-      {/* Adjustments — pinned */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.6rem 0.75rem', borderTop: '1px solid var(--border-color)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label className="input-label" style={{ margin: 0, fontSize: '0.72rem' }}>Discount ($)</label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+          <label className="input-label" style={{ margin: 0, fontSize: '0.72rem' }}>Discount (Tk)</label>
           <input
             type="number"
             className="input-field"
@@ -116,8 +129,8 @@ export const POSCart = ({
             min="0" step="0.01"
           />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label className="input-label" style={{ margin: 0, fontSize: '0.72rem' }}>Exchange Fee ($)</label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+          <label className="input-label" style={{ margin: 0, fontSize: '0.72rem' }}>Exchange Fee (Tk)</label>
           <input
             type="number"
             className="input-field"
@@ -140,15 +153,14 @@ export const POSCart = ({
         </div>
       </div>
 
-      {/* Totals — pinned */}
       <div style={{ padding: '0.5rem 0.75rem', borderTop: '1px solid var(--border-color)', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
           <span>Subtotal</span>
-          <span>${subtotal.toFixed(2)}</span>
+          <span>Tk {formatBDNumber(subtotal)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', borderTop: '1px solid var(--border-color)', paddingTop: '0.4rem' }}>
           <span>Total</span>
-          <span style={{ color: 'var(--primary)' }}>${total.toFixed(2)}</span>
+          <span style={{ color: 'var(--primary)' }}>Tk {formatBDNumber(total)}</span>
         </div>
       </div>
     </div>

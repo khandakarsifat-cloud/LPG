@@ -26,7 +26,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       }}>
         <div className="loader-ring" />
         <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-sm)' }}>
-          Loading your workspace…
+          Loading your workspace...
         </span>
       </div>
     );

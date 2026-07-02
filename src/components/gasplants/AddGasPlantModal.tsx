@@ -36,6 +36,7 @@ export const AddGasPlantModal = ({ open, onClose, editingPlant }: AddGasPlantMod
   // Populate form when editing
   useEffect(() => {
     if (editingPlant) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
         plant_name:     editingPlant.plant_name,
         brand_id:       editingPlant.brand_id ?? '',

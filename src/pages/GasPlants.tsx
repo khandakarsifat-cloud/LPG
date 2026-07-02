@@ -108,6 +108,7 @@ export const GasPlantsPage = () => {
       </div>
 
       {/* ── Content ── */}
+      <div className="app-screen-scroll">
       {error ? (
         <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
           <Factory size={32} style={{ marginBottom: '0.75rem', opacity: 0.5 }} />
@@ -152,6 +153,7 @@ export const GasPlantsPage = () => {
           ))}
         </div>
       )}
+      </div>
 
       {/* ── Dialogs ── */}
       <AddGasPlantModal

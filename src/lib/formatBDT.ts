@@ -11,7 +11,7 @@ export function formatBDNumber(value: number): string {
   const [intPart, decPart] = abs.toFixed(2).split('.');
 
   // Bangladesh grouping: last 3 digits, then groups of 2
-  let formatted = '';
+  let formatted: string;
   if (intPart.length <= 3) {
     formatted = intPart;
   } else {
@@ -34,10 +34,10 @@ export function formatBDNumber(value: number): string {
 
 /**
  * Format a monetary value in BDT (Bangladeshi Taka).
- * e.g. 1_00_000 → "৳1,00,000.00"
+ * e.g. 1_00_000 -> "Tk 1,00,000.00"
  */
 export function formatBDT(value: number): string {
-  return `৳${formatBDNumber(value)}`;
+  return `Tk ${formatBDNumber(value)}`;
 }
 
 /**
@@ -48,7 +48,7 @@ export function formatBDQty(value: number): string {
   const abs = Math.abs(value);
   const intStr = Math.round(abs).toString();
 
-  let formatted = '';
+  let formatted: string;
   if (intStr.length <= 3) {
     formatted = intStr;
   } else {

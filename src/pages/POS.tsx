@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ReceiptText, ShoppingCart, User } from 'lucide-react';
 import { POSItemsGrid } from '../components/pos/POSItemsGrid';
 import { POSCart } from '../components/pos/POSCart';
 import { CustomerSelection } from '../components/pos/CustomerSelection';
@@ -121,7 +121,7 @@ export const POSPage = () => {
     try {
       const result = await executeSale();
       setSaleResult(result);
-      toast.success('Sale completed successfully! ✅');
+      toast.success('Sale completed successfully.');
       setModalOpen(false);
       resetForm(setItems, setCustomer, setDiscount, setExchangeFee, setNotes);
     } catch (err: unknown) {
@@ -136,7 +136,7 @@ export const POSPage = () => {
     try {
       const result = await executeSale();
       setSaleResult(result);
-      toast.success('Sale completed! Opening receipt… 🖨️');
+      toast.success('Sale completed. Opening receipt...');
       setModalOpen(false);
       resetForm(setItems, setCustomer, setDiscount, setExchangeFee, setNotes);
       // Build receipt and print
@@ -152,7 +152,7 @@ export const POSPage = () => {
   const blockReason = getCheckoutBlockReason();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+    <div className="pos-page" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
       {/* 2-column layout */}
       <div className="pos-workspace" style={{ display: 'flex', gap: 'var(--space-md)', flex: 1, minHeight: 0 }}>
@@ -161,7 +161,9 @@ export const POSPage = () => {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)', minHeight: 0, minWidth: 0 }}>
           {/* Title + Mouth Size toggle row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0, flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>🧾 Point of Sale</h1>
+            <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <ReceiptText size={20} /> Point of Sale
+            </h1>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Products</span>
 
             {/* Mouth Size Pill Toggle */}
@@ -234,7 +236,7 @@ export const POSPage = () => {
             transition: 'border-color 0.2s',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', marginBottom: 'var(--space-sm)' }}>
-              <span style={{ fontSize: '0.8rem' }}>👤</span>
+              <User size={15} />
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Customer</span>
               {!hasPhone && (
                 <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: '#fca5a5', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -254,7 +256,9 @@ export const POSPage = () => {
           }}>
             {/* Cart header */}
             <div style={{ padding: 'var(--space-sm) var(--space-md)', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>🛒 Current Sale</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <ShoppingCart size={14} /> Current Sale
+              </span>
             </div>
 
             {/* POSCart scrollable */}
@@ -286,7 +290,8 @@ export const POSPage = () => {
                 disabled={!canCheckout}
                 title={blockReason || undefined}
               >
-                ✅ Complete Checkout
+                <CheckCircle2 size={15} />
+                Complete Checkout
               </button>
 
               {/* Inline block reason */}

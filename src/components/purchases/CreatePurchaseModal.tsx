@@ -41,7 +41,11 @@ export const CreatePurchaseModal = ({ open, onClose }: CreatePurchaseModalProps)
     setLineItems(lineItems.filter((_, i) => i !== index));
   };
 
-  const handleItemChange = (index: number, field: keyof CreatePurchaseItemPayload, value: any) => {
+  const handleItemChange = <K extends keyof CreatePurchaseItemPayload>(
+    index: number,
+    field: K,
+    value: CreatePurchaseItemPayload[K],
+  ) => {
     const newItems = [...lineItems];
     newItems[index] = { ...newItems[index], [field]: value };
     setLineItems(newItems);
@@ -87,8 +91,8 @@ export const CreatePurchaseModal = ({ open, onClose }: CreatePurchaseModalProps)
         items: lineItems
       });
       onClose();
-    } catch (error: any) {
-      alert(`Error creating purchase: ${error.message}`);
+    } catch (error: unknown) {
+      alert(`Error creating purchase: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -220,7 +224,7 @@ export const CreatePurchaseModal = ({ open, onClose }: CreatePurchaseModalProps)
                         </div>
 
                         <div className="input-group" style={{ marginBottom: 0 }}>
-                          <label className="input-label">Unit Price (৳)</label>
+                          <label className="input-label">Unit Price (Tk)</label>
                           <input 
                             type="number" 
                             className="input-field" 
@@ -235,7 +239,7 @@ export const CreatePurchaseModal = ({ open, onClose }: CreatePurchaseModalProps)
                         <div className="line-item-total">
                           <label className="input-label">Line Total</label>
                           <div className="line-total-value">
-                            ৳ {((line.quantity || 0) * (line.unit_price || 0)).toLocaleString()}
+                            Tk {((line.quantity || 0) * (line.unit_price || 0)).toLocaleString()}
                           </div>
                         </div>
 
@@ -256,7 +260,7 @@ export const CreatePurchaseModal = ({ open, onClose }: CreatePurchaseModalProps)
               <div className="cost-inputs">
                 <h3 className="form-section-title">Additional Costs</h3>
                 <div className="input-group">
-                  <label className="input-label">Transport Cost (৳) - <i>Optional</i></label>
+                  <label className="input-label">Transport Cost (Tk) - <i>Optional</i></label>
                   <input 
                     type="number" 
                     className="input-field" 
@@ -267,7 +271,7 @@ export const CreatePurchaseModal = ({ open, onClose }: CreatePurchaseModalProps)
                   />
                 </div>
                 <div className="input-group">
-                  <label className="input-label">Labour Cost (৳) - <i>Optional</i></label>
+                  <label className="input-label">Labour Cost (Tk) - <i>Optional</i></label>
                   <input 
                     type="number" 
                     className="input-field" 
@@ -291,20 +295,20 @@ export const CreatePurchaseModal = ({ open, onClose }: CreatePurchaseModalProps)
               <div className="totals-display">
                 <div className="total-row">
                   <span>Subtotal (Items)</span>
-                  <span>৳ {calculateSubtotal().toLocaleString()}</span>
+                  <span>Tk {calculateSubtotal().toLocaleString()}</span>
                 </div>
                 <div className="total-row">
                   <span>Transport Cost</span>
-                  <span>৳ {(parseFloat(transportCost) || 0).toLocaleString()}</span>
+                  <span>Tk {(parseFloat(transportCost) || 0).toLocaleString()}</span>
                 </div>
                 <div className="total-row">
                   <span>Labour Cost</span>
-                  <span>৳ {(parseFloat(labourCost) || 0).toLocaleString()}</span>
+                  <span>Tk {(parseFloat(labourCost) || 0).toLocaleString()}</span>
                 </div>
                 <div className="total-divider"></div>
                 <div className="total-row grand-total">
                   <span>Grand Total</span>
-                  <span>৳ {calculateTotal().toLocaleString()}</span>
+                  <span>Tk {calculateTotal().toLocaleString()}</span>
                 </div>
               </div>
             </div>

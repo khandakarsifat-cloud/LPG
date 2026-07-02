@@ -8,7 +8,7 @@ export const PurchasesPage = () => {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const { data: wallets } = useWallets();
 
-  const dealershipWallet = wallets?.find((w: any) => w.type === 'dealership');
+  const dealershipWallet = wallets?.find((w) => w.type === 'dealership');
 
   return (
     <div className="purchases-page">
@@ -30,7 +30,7 @@ export const PurchasesPage = () => {
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Dealership Wallet</div>
                 <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--accent)' }}>
-                  ৳ {Number(dealershipWallet.balance).toLocaleString()}
+                  Tk {Number(dealershipWallet.balance).toLocaleString()}
                 </div>
               </div>
             </div>
@@ -44,7 +44,7 @@ export const PurchasesPage = () => {
       </div>
 
       {/* ── Purchases List ── */}
-      <div className="glass-panel" style={{ padding: '1.25rem' }}>
+      <div className="glass-panel app-screen-panel" style={{ padding: '1.25rem' }}>
         <PurchasesList />
       </div>
 

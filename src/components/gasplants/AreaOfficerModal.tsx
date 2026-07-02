@@ -23,6 +23,7 @@ export const AreaOfficerModal = ({ open, onClose, plant }: AreaOfficerModalProps
   // Pre-fill if officer exists
   useEffect(() => {
     if (plant && plant.officer_id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
         officer_name:   plant.officer_name   ?? '',
         whatsapp_phone: plant.whatsapp_phone ?? '',

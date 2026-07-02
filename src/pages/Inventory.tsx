@@ -29,7 +29,7 @@ export const InventoryPage = () => {
         <div>
           <h1 className="page-title">Inventory Ledger</h1>
           <p className="page-subtitle">
-            Immutable event-sourced stock tracking — every movement is permanent.
+            Immutable event-sourced stock tracking. Every movement is permanent.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -106,7 +106,7 @@ export const InventoryPage = () => {
             <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontWeight: 600 }}>Movement History</h3>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Immutable — no entries may be deleted
+                Immutable ledger. Entries may not be deleted.
               </span>
             </div>
             <MovementsFeed />

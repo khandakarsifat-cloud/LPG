@@ -56,7 +56,7 @@ export const ProductHistoryModal = ({ item, onClose }: ProductHistoryModalProps)
           {isLoading ? (
             <div className="phm-loading">
               <Loader2 size={28} className="spin" style={{ color: 'var(--primary)' }} />
-              <p>Loading history…</p>
+              <p>Loading history...</p>
             </div>
           ) : movements.length === 0 ? (
             <div className="phm-empty">
@@ -95,7 +95,7 @@ export const ProductHistoryModal = ({ item, onClose }: ProductHistoryModalProps)
                       )}
                       <div className="phm-entry-time">
                         {format(new Date(m.created_at), 'dd MMM yyyy, HH:mm')}
-                        &nbsp;·&nbsp;
+                        {' | '}
                         {formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}
                       </div>
                     </div>
@@ -135,7 +135,7 @@ export const ProductHistoryModal = ({ item, onClose }: ProductHistoryModalProps)
         {/* Footer */}
         <div className="phm-footer">
           <span className="phm-footer-note">
-            {!isLoading && `${movements.length} entr${movements.length === 1 ? 'y' : 'ies'} · Immutable ledger`}
+            {!isLoading && `${movements.length} entr${movements.length === 1 ? 'y' : 'ies'} | Immutable ledger`}
           </span>
           <button className="btn btn-ghost" style={{ fontSize: '0.8rem' }} onClick={onClose}>
             Close

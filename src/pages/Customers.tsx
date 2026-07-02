@@ -22,7 +22,7 @@ export const CustomersPage = () => {
         </button>
       </div>
 
-      <div className="card glass-panel p-4" style={{ marginBottom: '1.5rem' }}>
+      <div className="glass-panel p-4">
         <div className="input-group" style={{ margin: 0 }}>
           <div style={{ position: 'relative' }}>
             <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -38,7 +38,7 @@ export const CustomersPage = () => {
         </div>
       </div>
 
-      <div className="card glass-panel" style={{ overflow: 'hidden' }}>
+      <div className="glass-panel app-screen-panel">
         
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
@@ -75,8 +75,8 @@ export const CustomersPage = () => {
         ) : !filteredCustomers || filteredCustomers.length === 0 ? (
           <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>No {activeTab} customers found.</div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div className="table-scroll">
+            <table className="data-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
                   <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-muted)' }}>Customer Name</th>

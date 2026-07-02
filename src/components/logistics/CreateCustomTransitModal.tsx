@@ -33,8 +33,8 @@ export const CreateCustomTransitModal = ({ open, onClose }: CreateCustomTransitM
       setTruckId('');
       setFee(0);
       setNotes('');
-    } catch (err: any) {
-      alert(`Error creating transit: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Error creating transit: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -84,9 +84,9 @@ export const CreateCustomTransitModal = ({ open, onClose }: CreateCustomTransitM
             </div>
 
             <div className="input-group">
-              <label className="input-label">Transport Fee (Income) (৳)</label>
+              <label className="input-label">Transport Fee (Income) (Tk)</label>
               <div className="input-icon-wrapper">
-                <span className="input-icon" style={{ padding: '0 0.5rem', fontWeight: 600 }}>৳</span>
+                <span className="input-icon" style={{ padding: '0 0.5rem', fontWeight: 600 }}>Tk</span>
                 <input 
                   type="number"
                   className="input-field" 

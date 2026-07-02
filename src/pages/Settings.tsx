@@ -6,9 +6,9 @@ export const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState<'business' | 'brands'>('business');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="app-screen" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
       {/* Page Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="app-screen-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <div style={{ backgroundColor: 'var(--primary)', padding: '0.75rem', borderRadius: '0.5rem' }}>
           <SettingsIcon size={24} color="white" />
         </div>
@@ -21,7 +21,7 @@ export const SettingsPage = () => {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <button
           onClick={() => setActiveTab('business')}
           style={{
@@ -59,7 +59,7 @@ export const SettingsPage = () => {
       </div>
 
       {/* Tab Content */}
-      <div>
+      <div className="app-screen-scroll">
         {activeTab === 'business' && (
           <div className="card" style={{ padding: '2rem' }}>
             <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>

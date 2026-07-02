@@ -1,37 +1,47 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Package,
-  Users,
-  CreditCard,
-  Truck,
-  Settings,
   Bell,
-  Search,
-  LogOut,
   ChevronDown,
+  CreditCard,
   Factory,
-  ShoppingCart
+  LayoutDashboard,
+  LogOut,
+  Moon,
+  Package,
+  Search,
+  Settings,
+  ShoppingCart,
+  Sun,
+  Truck,
+  UserCircle,
+  Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { applyTheme, getPreferredTheme, getStoredTheme, persistTheme, type AppTheme } from '../lib/theme';
 
 const navItems = [
-  { path: '/',           label: 'Dashboard',  icon: LayoutDashboard, end: true },
-  { path: '/inventory',  label: 'Inventory',  icon: Package },
-  { path: '/purchases',  label: 'Purchases',  icon: ShoppingCart },
-  { path: '/pos',        label: 'POS',        icon: ShoppingCart },
-  { path: '/customers',  label: 'Customers',  icon: Users },
-  { path: '/finance',    label: 'Finance',    icon: CreditCard },
-  { path: '/logistics',  label: 'Logistics',  icon: Truck },
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { path: '/inventory', label: 'Inventory', icon: Package },
+  { path: '/pos', label: 'Point of Sale', icon: ShoppingCart },
+  { path: '/purchases', label: 'Purchases', icon: ShoppingCart },
+  { path: '/customers', label: 'Customers', icon: Users },
+  { path: '/finance', label: 'Finance', icon: CreditCard },
+  { path: '/logistics', label: 'Logistics', icon: Truck },
   { path: '/gas-plants', label: 'Gas Plants', icon: Factory },
-  { path: '/settings',   label: 'Settings',   icon: Settings },
+  { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export const Layout = () => {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme() ?? getPreferredTheme());
+
+  useEffect(() => {
+    applyTheme(theme);
+    persistTheme(theme);
+  }, [theme]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -44,19 +54,16 @@ export const Layout = () => {
 
   return (
     <div className="app-container">
-      {/* ── Sidebar ── */}
       <aside className="sidebar">
-        {/* Logo */}
         <div className="sidebar-logo">
           <span className="sidebar-logo-text">
             Nexus<span>LPG</span>
           </span>
-          <div className="sidebar-logo-badge">ERP</div>
+          <div className="sidebar-logo-badge">OPS</div>
         </div>
 
-        {/* Navigation */}
-        <nav className="sidebar-nav">
-          <div className="sidebar-nav-label">Main Menu</div>
+        <nav className="sidebar-nav" aria-label="Primary navigation">
+          <div className="sidebar-nav-label">Operations</div>
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -73,49 +80,58 @@ export const Layout = () => {
           })}
         </nav>
 
-        {/* Tenant Card at bottom */}
-        <div className="sidebar-tenant-card glass-panel">
+        <div className="sidebar-tenant-card">
           <div className="sidebar-tenant-info">
             <div className="sidebar-tenant-avatar">{initials}</div>
             <div>
               <div className="sidebar-tenant-name">
-                {profile?.business_name ?? 'Loading…'}
+                {profile?.business_name ?? 'Loading...'}
               </div>
-              <div className="sidebar-tenant-role">Owner</div>
+              <div className="sidebar-tenant-role">Owner workspace</div>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* ── Main Content ── */}
       <main className="main-content">
-        {/* Topbar */}
         <header className="topbar">
           <div className="topbar-search">
             <Search size={16} className="topbar-search-icon" />
             <input
               type="text"
-              placeholder="Search anything…"
+              placeholder="Search workspace"
               className="input-field topbar-search-input"
+              aria-label="Search workspace"
             />
           </div>
 
           <div className="topbar-actions">
+            <button
+              className="topbar-icon-btn"
+              type="button"
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              onClick={() => setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
             <button className="topbar-icon-btn" aria-label="Notifications">
               <Bell size={18} />
               <span className="topbar-notif-dot" />
             </button>
 
-            {/* User menu */}
             <div className="user-menu-wrapper">
               <button
                 className="user-menu-trigger"
                 onClick={() => setUserMenuOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen}
               >
-                <div className="user-avatar">{initials}</div>
+                <div className="user-avatar">{initials === '?' ? <UserCircle size={18} /> : initials}</div>
                 <div className="user-menu-info">
-                  <span className="user-menu-name">{profile?.full_name ?? '—'}</span>
-                  <span className="user-menu-email">{profile?.email ?? '—'}</span>
+                  <span className="user-menu-name">{profile?.full_name ?? 'Signed in user'}</span>
+                  <span className="user-menu-email">{profile?.email ?? 'No email'}</span>
                 </div>
                 <ChevronDown
                   size={14}
@@ -128,13 +144,15 @@ export const Layout = () => {
               </button>
 
               {userMenuOpen && (
-                <div className="user-menu-dropdown glass-panel">
+                <div className="user-menu-dropdown glass-panel" role="menu">
                   <div className="user-menu-header">
-                    <div className="user-avatar user-avatar-lg">{initials}</div>
+                    <div className="user-avatar user-avatar-lg">
+                      {initials === '?' ? <UserCircle size={20} /> : initials}
+                    </div>
                     <div>
-                      <div style={{ fontWeight: 600 }}>{profile?.full_name}</div>
+                      <div style={{ fontWeight: 700 }}>{profile?.full_name ?? 'Signed in user'}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {profile?.business_name}
+                        {profile?.business_name ?? 'Workspace'}
                       </div>
                     </div>
                   </div>
@@ -142,6 +160,7 @@ export const Layout = () => {
                   <button
                     className="user-menu-item user-menu-item-danger"
                     onClick={handleSignOut}
+                    role="menuitem"
                   >
                     <LogOut size={15} />
                     Sign Out
@@ -152,7 +171,6 @@ export const Layout = () => {
           </div>
         </header>
 
-        {/* Page content */}
         <div className="page-content">
           <Outlet />
         </div>

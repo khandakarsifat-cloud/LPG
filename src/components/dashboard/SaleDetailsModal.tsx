@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, CheckCircle2 } from 'lucide-react';
 import { formatBDNumber } from '../../lib/formatBDT';
-import { printReceipt, type ReceiptData } from '../../lib/receiptPdf';
+import { printReceipt, type ReceiptData, type ReceiptItem } from '../../lib/receiptPdf';
 import type { SaleTransaction } from '../../hooks/useDashboard';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -60,7 +60,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
         const size = item.items?.size_kg ? `${item.items.size_kg}kg` : '';
         return {
           name: `${brandName} ${size}`.trim(),
-          type: item.type as any,
+          type: item.type as ReceiptItem['type'],
           quantity: item.quantity,
           unit_price: item.unit_price,
           line_total: item.line_total,
@@ -76,8 +76,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
       ref={overlayRef}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(0,0,0,0.72)',
-        backdropFilter: 'blur(4px)',
+        background: 'var(--overlay)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '1rem',
         animation: 'fadeIn 0.18s ease',
@@ -85,11 +84,11 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
       onClick={e => { if (e.target === overlayRef.current) onClose(); }}
     >
       <div style={{
-        background: '#1e293b', // solid slate-800 to avoid transparency
+        background: 'var(--surface)',
         color: 'var(--text-main)',
         border: '1px solid var(--border-color)',
-        borderRadius: 'var(--radius-xl, 16px)',
-        boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+        borderRadius: 'var(--radius-xl)',
+        boxShadow: 'var(--shadow-lg)',
         width: '100%',
         maxWidth: 'min(92vw, 33.75rem)',
         maxHeight: 'min(92dvh, 56rem)',
@@ -200,13 +199,13 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
                         <div style={{ fontSize: '0.65rem', color: '#666' }}>
                           {TYPE_LABELS[item.type] || item.type}
                           {item.type !== 'empty_return' && (
-                            <span> · ৳{formatBDNumber(Number(item.unit_price))}</span>
+                            <span> - Tk {formatBDNumber(Number(item.unit_price))}</span>
                           )}
                         </div>
                       </div>
-                      <div style={{ textAlign: 'right', fontWeight: 600, paddingTop: '0.1rem' }}>×{item.quantity}</div>
+                      <div style={{ textAlign: 'right', fontWeight: 600, paddingTop: '0.1rem' }}>x{item.quantity}</div>
                       <div style={{ textAlign: 'right', fontWeight: 700, paddingTop: '0.1rem', color: item.type === 'empty_return' ? '#888' : '#111' }}>
-                        {item.type === 'empty_return' ? '—' : `৳${formatBDNumber(Number(item.line_total))}`}
+                        {item.type === 'empty_return' ? '-' : `Tk ${formatBDNumber(Number(item.line_total))}`}
                       </div>
                     </div>
                   </div>
@@ -219,20 +218,20 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
             {/* Totals */}
             <div style={{ fontSize: '0.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#555', marginBottom: '0.15rem' }}>
-                <span>Subtotal</span><span>৳{formatBDNumber(sale.subtotal)}</span>
+                <span>Subtotal</span><span>Tk {formatBDNumber(sale.subtotal)}</span>
               </div>
               {sale.discount_amount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e53e3e', marginBottom: '0.15rem' }}>
-                  <span>Discount</span><span>-৳{formatBDNumber(sale.discount_amount)}</span>
+                  <span>Discount</span><span>-Tk {formatBDNumber(sale.discount_amount)}</span>
                 </div>
               )}
               {sale.exchange_fee > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#555', marginBottom: '0.15rem' }}>
-                  <span>Exchange Fee</span><span>৳{formatBDNumber(sale.exchange_fee)}</span>
+                  <span>Exchange Fee</span><span>Tk {formatBDNumber(sale.exchange_fee)}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '0.95rem', borderTop: '1px solid #bbb', paddingTop: '0.35rem', marginTop: '0.2rem' }}>
-                <span>TOTAL</span><span style={{ color: '#1a56db' }}>৳{formatBDNumber(sale.total_amount)}</span>
+                <span>TOTAL</span><span style={{ color: '#1a56db' }}>Tk {formatBDNumber(sale.total_amount)}</span>
               </div>
             </div>
 
@@ -277,10 +276,10 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
               padding: '0.65rem 1rem',
               fontWeight: 700,
               fontSize: '0.88rem',
-              background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+              background: 'var(--primary)',
               color: 'white',
               border: 'none',
-              borderRadius: 10,
+              borderRadius: 'var(--radius-md)',
               cursor: 'pointer',
               transition: 'opacity 0.15s, transform 0.1s',
             }}

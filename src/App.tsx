@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -24,12 +24,10 @@ const queryClient = new QueryClient({
   },
 });
 
-// Placeholder pages for modules not yet built
 const Placeholder = ({ title }: { title: string }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 'min(60dvh, 32rem)', gap: 'var(--space-md)' }}>
-    <div style={{ fontSize: 'var(--font-2xl)' }}>🚧</div>
-    <h2 style={{ color: 'var(--text-muted)' }}>{title}</h2>
-    <p style={{ color: 'var(--text-muted)', fontSize: 'var(--font-sm)' }}>This module is coming soon.</p>
+  <div className="empty-state" style={{ minHeight: 'min(60dvh, 32rem)' }}>
+    <h2 style={{ margin: 0 }}>{title}</h2>
+    <p style={{ margin: 0 }}>This workspace is available in navigation and will be completed in a later release.</p>
   </div>
 );
 
@@ -38,10 +36,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Toaster position="top-right" />
       <AuthProvider>
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             {/* Public auth routes */}
-            <Route path="/login"    element={<LoginPage />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
 
             {/* Protected application routes */}
@@ -54,20 +52,20 @@ function App() {
               }
             >
               <Route index element={<Dashboard />} />
-              <Route path="inventory"  element={<InventoryPage />} />
-              <Route path="customers"  element={<CustomersPage />} />
-              <Route path="finance"    element={<Placeholder title="Financial Ledger" />} />
-              <Route path="purchases"  element={<PurchasesPage />} />
-              <Route path="logistics"  element={<LogisticsPage />} />
+              <Route path="inventory" element={<InventoryPage />} />
+              <Route path="customers" element={<CustomersPage />} />
+              <Route path="finance" element={<Placeholder title="Financial Ledger" />} />
+              <Route path="purchases" element={<PurchasesPage />} />
+              <Route path="logistics" element={<LogisticsPage />} />
               <Route path="gas-plants" element={<GasPlantsPage />} />
-              <Route path="settings"   element={<SettingsPage />} />
-              <Route path="pos"        element={<POSPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="pos" element={<POSPage />} />
             </Route>
 
             {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </AuthProvider>
     </QueryClientProvider>
   );

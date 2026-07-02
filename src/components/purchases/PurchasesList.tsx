@@ -104,7 +104,7 @@ export const PurchasesList = () => {
 
             <div className="purchase-card-footer">
               <div className="purchase-total-label">Total Cost</div>
-              <div className="purchase-total-value">৳ {Number(purchase.total_cost).toLocaleString()}</div>
+              <div className="purchase-total-value">Tk {Number(purchase.total_cost).toLocaleString()}</div>
             </div>
           </div>
         ))}

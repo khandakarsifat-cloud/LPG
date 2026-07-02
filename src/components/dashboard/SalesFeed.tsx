@@ -72,7 +72,7 @@ export const SalesFeed = () => {
             <div className="movement-right">
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
                 <span style={{ color: 'var(--accent)', fontSize: '1rem', fontWeight: 700 }}>
-                  ৳{formatBDNumber(sale.total_amount)}
+                  Tk {formatBDNumber(sale.total_amount)}
                 </span>
               </div>
               <span className="movement-time">

@@ -12,7 +12,7 @@ export const LogisticsPage = () => {
   const [tab, setTab] = useState<Tab>('trucks');
   const [addTruckOpen, setAddTruckOpen] = useState(false);
 
-  const logisticsWallet = wallets?.find((w: any) => w.type === 'logistics');
+  const logisticsWallet = wallets?.find((w) => w.type === 'logistics');
 
   return (
     <div className="inventory-page">
@@ -38,7 +38,7 @@ export const LogisticsPage = () => {
               border: '1px solid rgba(16,185,129,0.2)'
             }}>
               <span>Wallet:</span>
-              <span style={{ fontSize: '1.25rem' }}>৳ {Number(logisticsWallet.balance).toLocaleString()}</span>
+              <span style={{ fontSize: '1.25rem' }}>Tk {Number(logisticsWallet.balance).toLocaleString()}</span>
             </div>
           )}
           {tab === 'trucks' && (
