@@ -29,6 +29,7 @@ export const usePriceBooks = () =>
   });
 
 export interface POSSalePayload {
+  customerId?: string;
   customerPhone: string;           // Required — mandatory customer
   customerName?: string;
   customerShopName?: string;
@@ -70,6 +71,7 @@ export const useCreatePOSSale = () => {
         p_exchange_fee:        payload.exchangeFee ?? 0,
         p_notes:               payload.notes ?? null,
         p_items:               payload.items,
+        p_customer_id:         payload.customerId ?? null,
       });
       if (error) throw error;
       return data as POSSaleResult;

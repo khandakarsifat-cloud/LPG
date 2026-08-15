@@ -13,6 +13,7 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { POSPage } from './pages/POS';
 import { CustomersPage } from './pages/Customers';
+import { EmployeesPage } from './pages/Employees';
 import { Toaster } from 'react-hot-toast';
 
 const queryClient = new QueryClient({
@@ -54,6 +55,7 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="customers" element={<CustomersPage />} />
+              <Route path="employees" element={<EmployeesPage />} />
               <Route path="finance" element={<Placeholder title="Financial Ledger" />} />
               <Route path="purchases" element={<PurchasesPage />} />
               <Route path="logistics" element={<LogisticsPage />} />

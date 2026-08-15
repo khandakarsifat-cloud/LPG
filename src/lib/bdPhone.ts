@@ -1,10 +1,10 @@
-export const BD_MOBILE_PHONE_REGEX = /^(01[3-9][0-9]{8}|\+8801[3-9][0-9]{8})$/;
+export const BD_MOBILE_PHONE_REGEX = /^(01[3-9][0-9]{8}|08801[3-9][0-9]{8})$/;
 
 export const BD_MOBILE_PHONE_ERROR =
-  'Enter a valid Bangladesh mobile number, e.g. 01712345678 or +8801712345678.';
+  'Enter a valid numeric Bangladesh mobile number with 11 or 14 digits, e.g. 01712345678 or 08801712345678.';
 
 export const normalizePhoneInput = (value: string) =>
-  value.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
+  value.replace(/\D/g, '');
 
 export const validateBDMobilePhone = (value: string) =>
   BD_MOBILE_PHONE_REGEX.test(value.trim());
@@ -22,11 +22,11 @@ export const assertBDMobilePhone = (value: string) => {
 
 export const getPhoneSearchTerms = (value: string) => {
   const phone = normalizePhoneInput(value.trim());
-  if (phone.startsWith('+8801') && phone.length > 4) {
+  if (phone.startsWith('08801') && phone.length > 4) {
     return [phone, `0${phone.slice(4)}`];
   }
   if (phone.startsWith('01') && phone.length > 1) {
-    return [phone, `+88${phone}`];
+    return [phone, `088${phone}`];
   }
   return phone ? [phone] : [];
 };

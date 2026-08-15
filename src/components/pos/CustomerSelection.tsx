@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Edit2, Phone, Save, Store, User } from 'lucide-react';
+import { Edit2, MapPin, Phone, Save, Store, User } from 'lucide-react';
 import { useAddCustomer, useCustomers } from '../../hooks/useCustomers';
 import type { Customer } from '../../hooks/useCustomers';
 import {
@@ -21,6 +21,12 @@ interface CustomerSelectionProps {
   onChange: (customer: POSCustomerDraft | null) => void;
 }
 
+const getPhoneCandidateFromSearch = (value: string) => {
+  const normalized = normalizePhoneInput(value);
+  const match = normalized.match(/(?:08801[3-9]\d{0,8}|01[3-9]\d{0,8})/);
+  return match?.[0] ?? '';
+};
+
 export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps) => {
   const [tier, setTier] = useState<'retail' | 'wholesale'>('retail');
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +40,8 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
   const currentCustomer = customer ?? {};
   const phone = customer?.phone?.trim() || '';
   const hasPhone = Boolean(phone);
-  const phoneError = hasPhone && !validateBDMobilePhone(phone) ? BD_MOBILE_PHONE_ERROR : '';
+  const hasNonNumericPhoneSearch = Boolean(searchTerm.trim() && /\d/.test(searchTerm) && /\D/.test(searchTerm));
+  const phoneError = (hasPhone && !validateBDMobilePhone(phone)) || hasNonNumericPhoneSearch ? BD_MOBILE_PHONE_ERROR : '';
   const isSelectedCustomer = Boolean(currentCustomer.customer_id) && selectedCustomerId === currentCustomer.customer_id && isCollapsed;
   const phoneSearchTerms = getPhoneSearchTerms(phone);
   const exactPhoneMatch = Boolean(phone && customers?.some(c => phoneSearchTerms.includes(c.phone)));
@@ -43,7 +50,6 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
   const canSaveCustomer = Boolean(phone && !phoneError && requiredName) && isNewCustomer && !addCustomer.isPending;
 
   useEffect(() => {
-    // State mirrors the selected customer so the compact POS panel can expand back into an editable draft.
     if (!customer) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsCollapsed(false);
@@ -68,12 +74,32 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
     setIsCollapsed(true);
   };
 
+  const handleClearSelectedCustomer = () => {
+    onChange(null);
+    setTier('retail');
+    setSearchTerm('');
+    setShowDropdown(false);
+    setSelectedCustomerId(null);
+    setIsCollapsed(false);
+  };
+
   const handleChange = (field: string, value: string) => {
-    const nextValue = field === 'phone' ? normalizePhoneInput(value) : value;
     if (field === 'phone') {
-      setSearchTerm(nextValue);
+      const phoneValue = getPhoneCandidateFromSearch(value);
+      setSearchTerm(value);
       setShowDropdown(true);
+      setIsCollapsed(false);
+      setSelectedCustomerId(null);
+
+      const draftCustomer = { ...currentCustomer, phone: phoneValue, tier };
+      delete draftCustomer.customer_id;
+      delete draftCustomer.tenant_id;
+      delete draftCustomer.created_at;
+      onChange(draftCustomer);
+      return;
     }
+
+    const nextValue = value;
     setIsCollapsed(false);
     setSelectedCustomerId(null);
 
@@ -159,13 +185,9 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
         <button
           type="button"
           className="btn btn-secondary"
-          title="Change customer"
+          title="Choose another customer"
           style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
-          onClick={() => {
-            setIsCollapsed(false);
-            setSelectedCustomerId(null);
-            setShowDropdown(false);
-          }}
+          onClick={handleClearSelectedCustomer}
         >
           <Edit2 size={14} />
         </button>
@@ -207,7 +229,8 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
             Phone <span style={{ color: '#f87171' }}>*</span>
           </label>
           <input
-            type="tel"
+            type="text"
+            inputMode="search"
             className="input-field"
             style={{
               flex: 1,
@@ -216,10 +239,13 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
               borderColor: !hasPhone || phoneError ? 'rgba(248,113,113,0.5)' : undefined,
               transition: 'border-color 0.2s',
             }}
-            placeholder="01712345678 or +8801712345678"
-            value={customer?.phone || ''}
+            placeholder="Phone, name, shop, address..."
+            value={searchTerm || customer?.phone || ''}
             onChange={(e) => handleChange('phone', e.target.value)}
-            onFocus={() => setShowDropdown(true)}
+            onFocus={() => {
+              if (!searchTerm && customer?.phone) setSearchTerm(customer.phone);
+              setShowDropdown(true);
+            }}
             onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
             required
           />
@@ -242,27 +268,80 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
             border: '1px solid var(--border-color)',
             boxShadow: 'var(--shadow-lg)',
             borderRadius: 'var(--radius-md)',
-            maxHeight: '180px',
+            maxHeight: 'min(16rem, 42vh)',
             overflowY: 'auto',
+            overscrollBehavior: 'contain',
             marginTop: '4px',
           }}>
             {customers.map(c => (
               <div
                 key={c.customer_id}
                 style={{
-                  padding: '0.5rem 0.75rem',
+                  padding: '0.55rem 0.7rem',
                   cursor: 'pointer',
                   borderBottom: '1px solid var(--border-color)',
                   transition: 'background 0.2s',
                 }}
+                onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={(e) => e.currentTarget.style.background = 'var(--primary-glow)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 onClick={() => handleSelectCustomer(c)}
               >
-                <div style={{ fontWeight: 600, fontSize: '0.78rem' }}>
-                  {c.name || 'Unnamed'} {c.shop_name ? `(${c.shop_name})` : ''}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
+                  <div style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'var(--bg-tertiary)',
+                    color: 'var(--text-muted)',
+                    flexShrink: 0,
+                  }}>
+                    {c.tier === 'wholesale' ? <Store size={14} /> : <User size={14} />}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {c.name || c.shop_name || 'Unnamed customer'}
+                    </div>
+                    {c.shop_name && c.shop_name !== c.name && (
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {c.shop_name}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{c.phone} - {c.tier}</div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, max-content) minmax(0, 1fr)',
+                  gap: '0.25rem 0.55rem',
+                  marginTop: '0.4rem',
+                  paddingLeft: 34,
+                  fontSize: '0.68rem',
+                  color: 'var(--text-muted)',
+                }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap' }}>
+                    <Phone size={10} /> {c.phone}
+                  </span>
+                  <span style={{ textTransform: 'capitalize', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {c.tier}
+                  </span>
+                  {c.address && (
+                    <span style={{
+                      gridColumn: '1 / -1',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.2rem',
+                      minWidth: 0,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}>
+                      <MapPin size={10} style={{ flexShrink: 0 }} /> {c.address}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>

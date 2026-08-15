@@ -14,6 +14,7 @@ import {
   Sun,
   Truck,
   UserCircle,
+  UserRound,
   Users,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -26,6 +27,7 @@ const navItems = [
   { path: '/pos', label: 'Point of Sale', icon: ShoppingCart },
   { path: '/purchases', label: 'Purchases', icon: ShoppingCart },
   { path: '/customers', label: 'Customers', icon: Users },
+  { path: '/employees', label: 'Employees', icon: UserRound },
   { path: '/finance', label: 'Finance', icon: CreditCard },
   { path: '/logistics', label: 'Logistics', icon: Truck },
   { path: '/gas-plants', label: 'Gas Plants', icon: Factory },

@@ -199,7 +199,7 @@ const AddCustomerModal = ({ onClose }: { onClose: () => void }) => {
             <input 
               type="tel" 
               className="input-field" 
-              placeholder="01712345678 or +8801712345678"
+              placeholder="01712345678 or 08801712345678"
               value={phone}
               onChange={(e) => setPhone(normalizePhoneInput(e.target.value))}
               required

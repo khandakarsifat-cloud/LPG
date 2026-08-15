@@ -78,6 +78,7 @@ export const POSPage = () => {
     }
 
     const payload: POSSalePayload = {
+      customerId:       customer.customer_id || undefined,
       customerPhone,
       customerName:      customer.name || undefined,
       customerShopName:  customer.shop_name || undefined,

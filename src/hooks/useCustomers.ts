@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { assertBDMobilePhone, getPhoneSearchTerms } from '../lib/bdPhone';
+import { assertBDMobilePhone, getPhoneSearchTerms, normalizePhoneInput } from '../lib/bdPhone';
 
 export interface Customer {
   tenant_id: string;
@@ -20,24 +20,83 @@ export const customerKeys = {
   list: (search?: string) => ['customers', 'list', search] as const,
 };
 
+const escapeSupabaseOrValue = (value: string) => value.replace(/[%_,]/g, '\\$&');
+
+const getCustomerSearchTokens = (searchTerm: string) =>
+  searchTerm
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+const customerMatchesToken = (customer: Customer, token: string) => {
+  const phoneTerms = getPhoneSearchTerms(token).map((term) => normalizePhoneInput(term).toLowerCase());
+  const searchableText = [
+    customer.name,
+    customer.shop_name,
+    customer.address,
+    customer.tier,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  const normalizedPhone = normalizePhoneInput(customer.phone).toLowerCase();
+
+  return (
+    searchableText.includes(token) ||
+    normalizedPhone.includes(normalizePhoneInput(token).toLowerCase()) ||
+    phoneTerms.some((term) => normalizedPhone.includes(term))
+  );
+};
+
+const scoreCustomerMatch = (customer: Customer, tokens: string[]) => {
+  const normalizedPhone = normalizePhoneInput(customer.phone).toLowerCase();
+  const name = customer.name.toLowerCase();
+  const shopName = customer.shop_name?.toLowerCase() ?? '';
+  const address = customer.address?.toLowerCase() ?? '';
+
+  return tokens.reduce((score, token) => {
+    const normalizedToken = normalizePhoneInput(token).toLowerCase();
+    if (normalizedToken && normalizedPhone.startsWith(normalizedToken)) return score + 50;
+    if (normalizedToken && normalizedPhone.includes(normalizedToken)) return score + 35;
+    if (name.startsWith(token) || shopName.startsWith(token)) return score + 25;
+    if (name.includes(token) || shopName.includes(token)) return score + 15;
+    if (address.includes(token)) return score + 8;
+    return score;
+  }, 0);
+};
+
 export const useCustomers = (searchTerm?: string) =>
   useQuery<Customer[]>({
     queryKey: customerKeys.list(searchTerm),
     queryFn: async () => {
+      const tokens = searchTerm ? getCustomerSearchTokens(searchTerm) : [];
       let query = supabase.from('customers').select('*').order('name', { ascending: true });
-      if (searchTerm) {
-        const escapedSearch = searchTerm.replace(/[%_,]/g, '\\$&');
-        const phoneFilters = getPhoneSearchTerms(searchTerm)
-          .map((term) => `phone.ilike.%${term.replace(/[%_,]/g, '\\$&')}%`);
-        query = query.or([
-          `name.ilike.%${escapedSearch}%`,
-          `shop_name.ilike.%${escapedSearch}%`,
+      if (tokens.length > 0) {
+        const filters = tokens.flatMap((token) => {
+          const escapedSearch = escapeSupabaseOrValue(token);
+          const phoneFilters = getPhoneSearchTerms(token)
+            .map((term) => `phone.ilike.%${escapeSupabaseOrValue(term)}%`);
+          return [
+            `name.ilike.%${escapedSearch}%`,
+            `shop_name.ilike.%${escapedSearch}%`,
+            `address.ilike.%${escapedSearch}%`,
+            `phone.ilike.%${escapedSearch}%`,
+            `tier.ilike.%${escapedSearch}%`,
           ...phoneFilters,
-        ].join(','));
+          ];
+        });
+        query = query.or(filters.join(','));
       }
-      const { data, error } = await query.limit(50);
+      const { data, error } = await query.limit(80);
       if (error) throw error;
-      return (data ?? []) as Customer[];
+      const customers = (data ?? []) as Customer[];
+      if (tokens.length === 0) return customers;
+
+      return customers
+        .filter((customer) => tokens.every((token) => customerMatchesToken(customer, token)))
+        .sort((a, b) => scoreCustomerMatch(b, tokens) - scoreCustomerMatch(a, tokens))
+        .slice(0, 50);
     },
   });
 
