@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.env
+.env.*
+!.env.example
+.local-backups/
+.temp/
+supabase/docker/volumes/storage/
+supabase/docker/volumes/db/data/

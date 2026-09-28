@@ -1,0 +1,13 @@
+# LPG local Compose stack
+
+The root `compose.yml` starts the Vite frontend and self-hosted Supabase under the single `LPG` Compose project. Its Supabase configuration is adapted from the official `supabase/supabase` `docker/` tree at commit `36371de15127206280d2d40786e8578dfe1b681a` (2026-09-28). The official Envoy gateway is used. PostgreSQL stays on `public.ecr.aws/supabase/postgres:17.6.1.140`, the exact image of the source CLI database, to avoid a binary downgrade during the data clone. Other Supabase service image versions are pinned in `compose.yml`.
+
+Run `docker compose up -d` from the repository root. Local secrets are in the ignored root `.env`; `.env.example` documents the variables. Keep the original JWT secret, legacy API keys, asymmetric signing keys/JWKS, PostgreSQL password, Realtime encryption keys, and Storage S3 credentials when restoring this database. The frontend build embeds the local anon key only; service-role and secret keys must remain server-side.
+
+Port bindings are local to the host: frontend `3001` (port `3000` belongs to another project), Envoy `54321`, Studio `54323`, Mailpit `54324`, and Supavisor `54322`/`54329`. The browser uses `http://127.0.0.1:54321`. Envoy routes `/mcp` to Studio's internal MCP API and allows local Docker bridge traffic; the gateway host port is bound to `127.0.0.1`.
+
+The Compose database and Storage volumes are `lpg_db_data` and `lpg_storage_data`. They are external named volumes so Compose teardown cannot delete the migrated data. They were cloned from the CLI volumes `supabase_db_LPG` and `supabase_storage_LPG`; the CLI volumes remain intact for rollback. The pre-cutover logical database and Storage archive are in `.local-backups/2026-09-28-pre-cutover/` (ignored by Git). `postgres-all.sql` contains credentials and user data; keep that directory private.
+
+To roll back, stop this Compose stack with `docker compose down` (do not remove volumes), then run `npx supabase start` from the repository root. That restores the old CLI stack from its unchanged original volumes. If the Compose volumes are lost, restore from the backup archive or source volumes before starting the Compose stack.
+
+`20260702164710_employees.sql` is absent from `supabase_migrations.schema_migrations`, although the live database already has its five employee tables, fourteen policies, ten functions, two payment triggers, expected indexes, and matching function signatures. The migration was left unapplied to avoid duplicate-object errors or changes to existing data. Reconcile migration history only after a full schema diff if future CLI migration commands need that version recorded.

@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-const LOCAL_SUPABASE_URL = 'http://localhost:54321';
+const LOCAL_SUPABASE_URLS = new Set([
+  'http://localhost:54321',
+  'http://127.0.0.1:54321',
+  'http://127.0.0.1:55421',
+]);
 const SERVICE_ROLE_JWT_MARKER = 'InNlcnZpY2Vfcm9sZS';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -15,8 +19,8 @@ function assertLocalSupabaseConfig(url?: string, anonKey?: string) {
     throw new Error('Cloud Supabase configuration is not allowed in development.');
   }
 
-  if (url !== LOCAL_SUPABASE_URL) {
-    throw new Error(`Supabase must use ${LOCAL_SUPABASE_URL}. Received: ${url}`);
+  if (!LOCAL_SUPABASE_URLS.has(url)) {
+    throw new Error(`Supabase must use a configured local gateway. Received: ${url}`);
   }
 
   if (anonKey.startsWith('sb_secret_') || anonKey.includes(SERVICE_ROLE_JWT_MARKER)) {
