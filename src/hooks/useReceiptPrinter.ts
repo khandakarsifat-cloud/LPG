@@ -47,7 +47,8 @@ export function useSaveReceiptPrinter() {
   });
 }
 
-export const usePrinterDiscovery = () => useMutation({ mutationFn: discoverPrinters });
+// Each modal open/Refresh calls the host; discovered hardware is never saved configuration.
+export const usePrinterDiscovery = () => useMutation({ mutationFn: discoverPrinters, retry: false });
 
 // Both checkout and reprinting read committed sale data; this path never creates sales.
 export function usePrintSale() {

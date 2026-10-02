@@ -36,10 +36,12 @@ async function readBody(request: IncomingMessage) {
   catch { throw new PrintError('INVALID_REQUEST', 'Invalid JSON print request.'); }
 }
 
-export function createPrintServer() {
+export function createPrintServer(discover = discoverWindowsPrinters) {
   const origins = allowedOrigins();
   const jobs = new PrintJobs(join(process.env.LOCALAPPDATA || homedir(), 'LPGManager', 'PrintBridge', 'jobs'));
   return createServer(async (request, response) => {
+    const started = Date.now();
+    const diagnostic = process.env.LPG_PRINT_DIAGNOSTICS === '1';
     response.setHeader('Content-Type', 'application/json');
     response.setHeader('Cache-Control', 'no-store');
     const reply = (status: number, body: unknown) => { response.writeHead(status); response.end(JSON.stringify(body)); };
@@ -60,17 +62,23 @@ export function createPrintServer() {
       // This custom header forces browser preflight even for discovery. No arbitrary RAW endpoint.
       if (request.headers['x-lpg-print-client'] !== '1') throw new PrintError('FORBIDDEN', 'Print client header required.', 403);
       if (request.url === '/health' && request.method === 'GET') { reply(200, { version: 1, platform: process.platform }); return; }
-      if (request.url === '/printers' && request.method === 'GET') { reply(200, await discoverWindowsPrinters()); return; }
+      if (request.url === '/printers' && request.method === 'GET') {
+        if (diagnostic) console.info('[LPG print bridge] GET /printers: scanning Windows.');
+        const discovery = await discover();
+        if (diagnostic) console.info(`[LPG print bridge] GET /printers: 200, ${discovery.printers.length} queues, ${discovery.usb_devices.length} USB devices, ${Date.now() - started}ms.`);
+        reply(200, discovery); return;
+      }
       if (request.url !== '/print' || request.method !== 'POST') throw new PrintError('METHOD_NOT_ALLOWED', 'Unsupported print service method.', 405);
       const payload = validatePrintRequest(await readBody(request));
       const result = await jobs.submit(payload.request_id, payload, async () => {
-        const printer = resolvePrinter(payload.config.printer, await discoverWindowsPrinters());
+        const printer = resolvePrinter(payload.config.printer, await discover());
         const bytes = await renderEscPos(formatReceipt(payload.receipt), payload.config);
         return windowsUSBTransport.send(printer, bytes, `LPG Receipt ${payload.receipt.sale_id.slice(0, 8)}`);
       });
       reply(200, { ...result, message: `Receipt sent to printer (Windows job ${result.job_id}).` });
     } catch (error) {
       const failure = error instanceof PrintError ? error : new PrintError('BRIDGE_FAILED', 'Local print service failed. Check Windows Print Spooler and restart the bridge.', 503);
+      if (request.url === '/printers') console.error(`[LPG print bridge] Discovery API failed: ${failure.status} ${failure.code} (${Date.now() - started}ms).`);
       reply(failure.status, { code: failure.code, message: failure.message });
     }
   });
@@ -79,7 +87,11 @@ export function createPrintServer() {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (process.platform !== 'win32') throw new Error('Run the print bridge on the Windows host, outside Docker.');
   const server = createPrintServer();
+  server.on('error', error => {
+    console.error('[LPG print bridge] Service startup/listener failed:', error.message);
+    process.exitCode = 1;
+  });
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
-  server.listen(PORT, '127.0.0.1', () => process.stdout.write(`LPG print bridge listening on http://127.0.0.1:${PORT}\n`));
+  server.listen(PORT, '127.0.0.1', () => process.stdout.write(`LPG print bridge listening on http://127.0.0.1:${PORT}. Leave this service running; Dashboard Refresh rescans Windows.\n`));
 }

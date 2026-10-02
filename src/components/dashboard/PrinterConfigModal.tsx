@@ -83,6 +83,7 @@ export function PrinterConfigModal({ onClose }: { onClose: () => void }) {
             {saved.isLoading && <p role="status">Loading saved configuration…</p>}
             {saved.error && <p role="alert">Could not load saved configuration: {saved.error.message}</p>}
             {discovery.error && <p role="alert">{discovery.error.message}</p>}
+            {discovery.data?.warnings?.map(warning => <p role="status" key={warning}>{warning}</p>)}
             {discovery.isSuccess && printers.length === 0 && <p role="status">No Windows printers detected. Connect and install a USB ESC/POS printer, then Refresh.</p>}
             {discovery.isSuccess && printers.length > 0 && !printers.some(printer => printer.supported) &&
               <p role="status">No USB receipt queues detected. Install the printer's Windows USB driver, then Refresh.</p>}

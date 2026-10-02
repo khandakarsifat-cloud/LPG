@@ -10,25 +10,40 @@ export function runWindows<T>(action: 'discover' | 'render' | 'print', input: un
   return new Promise((resolve, reject) => {
     const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', fileURLToPath(new URL('./windows.ps1', import.meta.url)), '-Action', action], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '';
+    let stderr = '';
+    const started = Date.now();
     const timeout = setTimeout(() => {
       child.kill();
+      if (action === 'discover') console.error(`[LPG print bridge] Windows discovery timed out after ${Date.now() - started}ms.`);
       reject(new PrintError('RESULT_UNKNOWN', action === 'print'
         ? 'Windows printing timed out. The job may have printed; check the printer before reprinting.'
         : 'Windows printer discovery/rendering timed out.', 504));
     }, action === 'print' ? 35_000 : 15_000);
     child.stdout.setEncoding('utf8');
     child.stdout.on('data', chunk => { stdout += chunk; });
-    // Native errors are intentionally not logged; receipts and device identifiers stay local.
-    child.stderr.resume();
+    // Only discovery diagnostics: never log receipt/render/print payloads or device identifiers.
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', chunk => { if (action === 'discover') stderr = (stderr + chunk).slice(-4096); });
     child.stdin.on('error', () => {});
-    child.on('error', () => { clearTimeout(timeout); reject(new PrintError('WINDOWS_FAILED', 'Could not start Windows printer helper.', 503)); });
-    child.on('close', () => {
+    child.on('error', error => {
       clearTimeout(timeout);
+      if (action === 'discover') console.error('[LPG print bridge] Could not start Windows discovery helper:', error.message);
+      reject(new PrintError('WINDOWS_FAILED', 'Could not start Windows printer helper.', 503));
+    });
+    child.on('close', code => {
+      clearTimeout(timeout);
+      if (stderr.trim()) console.error('[LPG print bridge] Windows discovery:', stderr.trim());
       try {
         const result = JSON.parse(stdout.trim().replace(/^\uFEFF/, ''));
-        if (result.error) reject(new PrintError(result.code || 'PRINT_FAILED', result.error, 503));
+        if (result.error) {
+          if (action === 'discover') console.error('[LPG print bridge] Windows discovery failed:', result.error);
+          reject(new PrintError(result.code || 'PRINT_FAILED', result.error, 503));
+        }
         else resolve(result);
-      } catch { reject(new PrintError('WINDOWS_FAILED', 'Windows printer helper failed. Check the Print Spooler service and printer driver.', 503)); }
+      } catch {
+        if (action === 'discover') console.error(`[LPG print bridge] Invalid Windows discovery response (exit ${code}).`);
+        reject(new PrintError('WINDOWS_FAILED', 'Windows printer helper failed. Check the Print Spooler service and printer driver.', 503));
+      }
     });
     child.stdin.end(JSON.stringify(input));
   });
@@ -37,10 +52,11 @@ export function runWindows<T>(action: 'discover' | 'render' | 'print', input: un
 const hash = (text: string) => createHash('sha256').update(text.toLowerCase()).digest('hex');
 
 export async function discoverWindowsPrinters(): Promise<PrinterDiscovery> {
-  const result = await runWindows<{ host_id: string; printers: Array<Omit<DiscoveredPrinter, 'queue_id' | 'host_id' | 'transport' | 'device'>>; usb_devices: USBDevice[] }>('discover');
+  const result = await runWindows<{ host_id: string; printers: Array<Omit<DiscoveredPrinter, 'queue_id' | 'host_id' | 'transport' | 'device'>>; usb_devices: USBDevice[]; warnings?: string[] }>('discover');
   const hostId = hash(result.host_id);
   return {
     usb_devices: result.usb_devices,
+    warnings: result.warnings,
     printers: result.printers.map(printer => {
       const matches = result.usb_devices.filter(device => device.port_name?.toLowerCase() === printer.port_name.toLowerCase());
       return {

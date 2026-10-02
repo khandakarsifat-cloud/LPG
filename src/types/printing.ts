@@ -28,6 +28,7 @@ export interface DiscoveredPrinter extends PrinterIdentity {
 export interface PrinterDiscovery {
   printers: DiscoveredPrinter[];
   usb_devices: USBDevice[];
+  warnings?: string[];
 }
 
 export interface PrinterSettings {

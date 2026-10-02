@@ -12,36 +12,52 @@ function DeviceProperty([string]$Id, [string]$Key) {
 try {
   $payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
   if ($Action -eq 'discover') {
-    # Include remembered USBPRINT devices, so disconnected hardware retains its identity.
-    $present = @{}
-    foreach ($device in @(Get-PnpDevice -PresentOnly -ErrorAction Stop)) { $present[$device.InstanceId] = ($device.Status -eq 'OK') }
-    $devices = @(
-      foreach ($device in @(Get-PnpDevice -ErrorAction Stop | Where-Object { $_.InstanceId -like 'USBPRINT\*' })) {
-        $parent = DeviceProperty $device.InstanceId 'DEVPKEY_Device_Parent'
-        $usbId = $parent
-        for ($depth = 0; $depth -lt 4 -and $usbId -and $usbId -notmatch '^USB\\VID_'; $depth++) {
-          $usbId = DeviceProperty $usbId 'DEVPKEY_Device_Parent'
+    # Installed Windows queues are authoritative; optional USB/port enrichment must not hide them.
+    try { $printers = @(Get-Printer -ErrorAction Stop) }
+    catch { throw "Windows printer enumeration (Get-Printer) failed: $($_.Exception.Message)" }
+    $warnings = @()
+    $devices = @()
+    try {
+      # Include remembered USBPRINT devices, so disconnected hardware retains its identity.
+      $present = @{}
+      foreach ($device in @(Get-PnpDevice -PresentOnly -ErrorAction Stop)) { $present[$device.InstanceId] = ($device.Status -eq 'OK') }
+      $devices = @(
+        foreach ($device in @(Get-PnpDevice -ErrorAction Stop | Where-Object { $_.InstanceId -like 'USBPRINT\*' })) {
+          $parent = DeviceProperty $device.InstanceId 'DEVPKEY_Device_Parent'
+          $usbId = $parent
+          for ($depth = 0; $depth -lt 4 -and $usbId -and $usbId -notmatch '^USB\\VID_'; $depth++) {
+            $usbId = DeviceProperty $usbId 'DEVPKEY_Device_Parent'
+          }
+          $vid = $null; $productId = $null; $serial = $null
+          if ($usbId -match '^USB\\VID_([0-9A-F]{4})&PID_([0-9A-F]{4})[^\\]*\\(.+)$') {
+            $vid = $Matches[1]; $productId = $Matches[2]
+            # Windows-generated location identifiers contain '&'; do not call them serial numbers.
+            if ($Matches[3] -notmatch '&') { $serial = $Matches[3] }
+          }
+          $port = (Get-ItemProperty -LiteralPath "HKLM:\SYSTEM\CurrentControlSet\Enum\$($device.InstanceId)\Device Parameters" -ErrorAction SilentlyContinue).PortName
+          [pscustomobject]@{
+            device_id = [string]$device.InstanceId
+            serial_number = $serial; vendor_id = $vid; product_id = $productId
+            manufacturer = (DeviceProperty $device.InstanceId 'DEVPKEY_Device_Manufacturer')
+            model = [string]$device.FriendlyName
+            present = [bool]$present[$device.InstanceId]
+            port_name = $port
+          }
         }
-        $vid = $null; $productId = $null; $serial = $null
-        if ($usbId -match '^USB\\VID_([0-9A-F]{4})&PID_([0-9A-F]{4})[^\\]*\\(.+)$') {
-          $vid = $Matches[1]; $productId = $Matches[2]
-          # Windows-generated location identifiers contain '&'; do not call them serial numbers.
-          if ($Matches[3] -notmatch '&') { $serial = $Matches[3] }
-        }
-        $port = (Get-ItemProperty -LiteralPath "HKLM:\SYSTEM\CurrentControlSet\Enum\$($device.InstanceId)\Device Parameters" -ErrorAction SilentlyContinue).PortName
-        [pscustomobject]@{
-          device_id = [string]$device.InstanceId
-          serial_number = $serial; vendor_id = $vid; product_id = $productId
-          manufacturer = (DeviceProperty $device.InstanceId 'DEVPKEY_Device_Manufacturer')
-          model = [string]$device.FriendlyName
-          present = [bool]$present[$device.InstanceId]
-          port_name = $port
-        }
-      }
-    )
-    $ports = @(Get-PrinterPort -ErrorAction Stop)
+      )
+    } catch {
+      $devices = @()
+      $warnings += 'USB device enumeration failed. Windows queues are listed, but physical device availability could not be checked. Refresh to retry.'
+      [Console]::Error.WriteLine("USB device enumeration failed: $($_.Exception.Message)")
+    }
+    $ports = @()
+    try { $ports = @(Get-PrinterPort -ErrorAction Stop) }
+    catch {
+      $warnings += 'Windows port details could not be read. Some queue transports could not be identified. Refresh to retry.'
+      [Console]::Error.WriteLine("Windows port enumeration failed: $($_.Exception.Message)")
+    }
     $queues = @(
-      foreach ($printer in @(Get-Printer -ErrorAction Stop)) {
+      foreach ($printer in $printers) {
         $port = $ports | Where-Object { $_.Name -eq $printer.PortName } | Select-Object -First 1
         $usb = [bool]($printer.PortName -match 'USB' -or $port.PortMonitor -match 'USB' -or $port.Description -match 'USB')
         $status = [int]$printer.PrinterStatus
@@ -57,7 +73,7 @@ try {
       }
     )
     $machineId = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Cryptography').MachineGuid
-    @{ host_id = $machineId; printers = $queues; usb_devices = $devices } | ConvertTo-Json -Depth 8 -Compress
+    @{ host_id = $machineId; printers = $queues; usb_devices = $devices; warnings = $warnings } | ConvertTo-Json -Depth 8 -Compress
   } else {
     Add-Type -Path (Join-Path $PSScriptRoot 'WindowsPrinting.cs') -ReferencedAssemblies System.Drawing
     if ($Action -eq 'render') {

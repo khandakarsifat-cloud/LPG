@@ -25,6 +25,10 @@ npm run print:bridge
 
 Allow local-network access for LPG Manager if the browser requests it. The bridge rejects non-loopback Host headers, unapproved origins and requests without its custom client header. It does not expose arbitrary byte printing or remote access. The browser's Supabase session/RLS protects the saved configuration and sale reads; the bridge is a local device service, not another database API.
 
+Discovery uses Windows `Get-Printer`, independently of the saved configuration. Each modal open or Refresh sends an uncached request and enumerates Windows again. Installed queues remain listed when disconnected; the saved physical USB identity determines whether they can be used for printing. A USB or port metadata failure shows a warning while preserving the installed queue list. A queue enumeration failure is an API error, not an empty list.
+
+If Windows sees the printer but the app cannot, first check that the host bridge is running: Docker does not start it. Start `npm run print:bridge`, leave it running, and Refresh; no configuration/data change is needed. Startup/listener and enumeration failures are logged. For temporary discovery request/response counts and timings, set `$env:LPG_PRINT_DIAGNOSTICS = '1'` before starting the bridge. Clear that variable or start a fresh terminal afterward to return to normal logging. Receipt content and print payloads are not logged.
+
 ## Checkout and reprinting
 
 **Confirm & Print** first completes the existing sale RPC, clears the cart, and then loads that completed sale and the latest tenant printer configuration. **Confirm** retains the existing sale-only behavior. Print failures have separate feedback and never retry checkout. **Reprint Last Sale** in POS and **Print Receipt Again** in Dashboard sale details print the saved sale without creating a new sale.
