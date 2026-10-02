@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2023", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "types": ["node"], "strict": true, "noEmit": true,
+    "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, "skipLibCheck": true
+  },
+  "include": ["*.ts", "../src/types/printing.ts", "../src/types/receipt.ts"]
+}

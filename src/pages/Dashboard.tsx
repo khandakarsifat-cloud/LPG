@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom';
-import { DollarSign, Package, ShoppingBag, TrendingUp, Users } from 'lucide-react';
+import { DollarSign, Package, Printer, ShoppingBag, TrendingUp, Users } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { PrinterConfigModal } from '../components/dashboard/PrinterConfigModal';
 import { useDashboardStats } from '../hooks/useDashboard';
 import { SalesFeed } from '../components/dashboard/SalesFeed';
 import { formatBDNumber } from '../lib/formatBDT';
 
 export const Dashboard = () => {
   const { data: stats, isLoading } = useDashboardStats();
+  const [printerOpen, setPrinterOpen] = useState(false);
+  const closePrinter = useCallback(() => setPrinterOpen(false), []);
 
   return (
     <div className="page-container">
@@ -14,11 +18,15 @@ export const Dashboard = () => {
           <h1 className="page-title">Operations Overview</h1>
           <p className="page-subtitle">Daily sales, stock activity, and customer coverage.</p>
         </div>
-        <Link to="/pos" className="btn btn-primary">
-          <ShoppingBag size={16} />
-          Open POS
-        </Link>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={() => setPrinterOpen(true)}><Printer size={16} /> Receipt Printer</button>
+          <Link to="/pos" className="btn btn-primary">
+            <ShoppingBag size={16} />
+            Open POS
+          </Link>
+        </div>
       </div>
+      {printerOpen && <PrinterConfigModal onClose={closePrinter} />}
 
       <div className="stats-grid">
         <div className="glass-panel stat-card">

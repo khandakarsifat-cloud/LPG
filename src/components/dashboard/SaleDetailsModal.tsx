@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, CheckCircle2 } from 'lucide-react';
 import { formatBDNumber } from '../../lib/formatBDT';
-import { printReceipt, type ReceiptData, type ReceiptItem } from '../../lib/receiptPdf';
+import { usePrintSale } from '../../hooks/useReceiptPrinter';
 import type { SaleTransaction } from '../../hooks/useDashboard';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -20,6 +20,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProps) => {
   const { profile } = useAuth();
+  const printSale = usePrintSale();
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape
@@ -42,34 +43,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
     hour: '2-digit', minute: '2-digit', hour12: true,
   });
 
-  const handlePrint = () => {
-    const receiptData: ReceiptData = {
-      sale_id: sale.sale_id,
-      created_at: sale.created_at,
-      shop_name: profile?.business_name || 'Gas Dealership',
-      customer_name: customerName,
-      customer_phone: customerPhone,
-      customer_tier: customerTier,
-      subtotal: sale.subtotal,
-      discount_amount: sale.discount_amount,
-      exchange_fee: sale.exchange_fee,
-      total_amount: sale.total_amount,
-      notes: sale.notes,
-      items: (sale.sale_items || []).map(item => {
-        const brandName = item.items?.lpg_brands?.brand_name || item.items?.brand || 'Unknown';
-        const size = item.items?.size_kg ? `${item.items.size_kg}kg` : '';
-        return {
-          name: `${brandName} ${size}`.trim(),
-          type: item.type as ReceiptItem['type'],
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          line_total: item.line_total,
-        };
-      })
-    };
-    
-    printReceipt(receiptData);
-  };
+  const handlePrint = () => { if (!printSale.isPending) printSale.mutate(sale.sale_id); };
 
   const modalContent = (
     <div
@@ -270,6 +244,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
           {/* Confirm & Print */}
           <button
             onClick={handlePrint}
+            disabled={printSale.isPending}
             className="btn"
             style={{
               flex: 1,
@@ -287,7 +262,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
             onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = '1'}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
-              <Printer size={15} /> Print Receipt Again
+              <Printer size={15} /> {printSale.isPending ? 'Printing…' : 'Print Receipt Again'}
             </span>
           </button>
         </div>

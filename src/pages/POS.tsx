@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { AlertCircle, CheckCircle2, ReceiptText, ShoppingCart, User } from 'lucide-react';
 import { POSItemsGrid } from '../components/pos/POSItemsGrid';
@@ -11,8 +11,8 @@ import { useInventoryBalances } from '../hooks/useInventory';
 import type { POSSalePayload, POSSaleResult } from '../hooks/usePOS';
 import type { MouthSize } from '../types/inventory';
 import { MOUTH_SIZE_OPTIONS } from '../types/inventory';
-import { printReceipt, type ReceiptData } from '../lib/receiptPdf';
-import { useAuth } from '../contexts/AuthContext';
+import { usePrintSale } from '../hooks/useReceiptPrinter';
+import { completeSale } from '../lib/completeSale';
 import { BD_MOBILE_PHONE_ERROR, validateBDMobilePhone } from '../lib/bdPhone';
 
 const resetForm = (
@@ -38,12 +38,12 @@ export const POSPage = () => {
   const [mouthSize, setMouthSize]       = useState<MouthSize>('22mm');
   const [modalOpen, setModalOpen]       = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  // pendingPrint reserved for future use
   const [saleResult, setSaleResult]     = useState<POSSaleResult | null>(null);
 
   const { data: inventoryItems } = useInventoryBalances();
   const { mutateAsync: createSale } = useCreatePOSSale();
-  const { profile } = useAuth();
+  const printSale = usePrintSale();
+  const checkoutLock = useRef(false);
 
   const hasPhone        = Boolean(customer?.phone?.trim());
   const customerPhone   = customer?.phone?.trim() || '';
@@ -93,62 +93,30 @@ export const POSPage = () => {
     return result;
   }, [customer, customerPhone, discount, exchangeFee, notes, items, createSale]);
 
-  const buildReceiptData = (result: POSSaleResult): ReceiptData => ({
-    sale_id:        result.sale_id,
-    created_at:     new Date().toISOString(),
-    shop_name:      profile?.business_name || 'Gas Dealership',
-    customer_name:  customer?.name || result.customer_name || 'Unknown',
-    customer_phone: customer?.phone || result.customer_phone,
-    customer_tier:  customer?.tier || 'retail',
-    items: items.map(item => {
-      const inv = inventoryItems?.find(i => i.item_id === item.item_id);
-      return {
-        name:       inv ? `${inv.lpg_brands?.brand_name ?? inv.brand} ${inv.size_kg}kg` : 'Unknown',
-        type:       item.type,
-        quantity:   item.quantity,
-        unit_price: Number(item.unit_price),
-        line_total: item.quantity * Number(item.unit_price),
-      };
-    }),
-    subtotal:        result.subtotal,
-    discount_amount: discount,
-    exchange_fee:    exchangeFee,
-    total_amount:    result.total_amount,
-    notes:           notes || undefined,
-  });
-
-  const handleConfirm = async () => {
+  const completeCheckout = async (withPrint: boolean) => {
+    if (checkoutLock.current) return;
+    checkoutLock.current = true;
     setIsProcessing(true);
     try {
-      const result = await executeSale();
-      setSaleResult(result);
-      toast.success('Sale completed successfully.');
-      setModalOpen(false);
-      resetForm(setItems, setCustomer, setDiscount, setExchangeFee, setNotes);
-    } catch (err: unknown) {
-      toast.error('Failed to complete sale: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      try {
+        await completeSale(executeSale, result => {
+          // Commit UI state before any printer work. A print retry never calls checkout.
+          setSaleResult(result);
+          setModalOpen(false);
+          resetForm(setItems, setCustomer, setDiscount, setExchangeFee, setNotes);
+          toast.success('Sale completed successfully.');
+        }, withPrint ? printSale.mutateAsync : undefined);
+      } catch (err: unknown) {
+        toast.error('Failed to complete sale: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      }
     } finally {
+      checkoutLock.current = false;
       setIsProcessing(false);
     }
   };
 
-  const handleConfirmAndPrint = async () => {
-    setIsProcessing(true);
-    try {
-      const result = await executeSale();
-      setSaleResult(result);
-      toast.success('Sale completed. Opening receipt...');
-      setModalOpen(false);
-      resetForm(setItems, setCustomer, setDiscount, setExchangeFee, setNotes);
-      // Build receipt and print
-      const receiptData = buildReceiptData(result);
-      setTimeout(() => printReceipt(receiptData), 300);
-    } catch (err: unknown) {
-      toast.error('Failed to complete sale: ' + (err instanceof Error ? err.message : 'Unknown error'));
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  const handleConfirm = () => completeCheckout(false);
+  const handleConfirmAndPrint = () => completeCheckout(true);
 
   const blockReason = getCheckoutBlockReason();
 
@@ -288,7 +256,7 @@ export const POSPage = () => {
                   transition: 'opacity 0.2s',
                 }}
                 onClick={handleCheckoutClick}
-                disabled={!canCheckout}
+                disabled={!canCheckout || isProcessing}
                 title={blockReason || undefined}
               >
                 <CheckCircle2 size={15} />
@@ -315,6 +283,14 @@ export const POSPage = () => {
 
       </div>
 
+      {saleResult && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingTop: '0.5rem', flexShrink: 0 }}>
+          <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Saved sale #{saleResult.sale_id.slice(0, 8).toUpperCase()}</span>
+          <button className="btn btn-secondary" disabled={printSale.isPending || isProcessing} onClick={() => printSale.mutate(saleResult.sale_id)}>
+            <ReceiptText size={14} /> {printSale.isPending ? 'Printing…' : 'Reprint Last Sale'}
+          </button>
+        </div>
+      )}
       {/* Checkout Confirmation Modal */}
       <CheckoutConfirmModal
         isOpen={modalOpen}
