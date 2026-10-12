@@ -4,6 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "deploy:backend": "node deploy/deploy.mjs backend",
+    "deploy:frontend": "node deploy/deploy.mjs frontend",
+    "deploy:all": "node deploy/deploy.mjs all",
+    "deploy:test": "node --test deploy/*.test.mjs && python -m unittest discover -s deploy -p \"*_test.py\"",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
@@ -37,6 +41,7 @@
     "globals": "^17.6.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "wrangler": "4.149.0"
   }
 }

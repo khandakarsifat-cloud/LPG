@@ -25,6 +25,10 @@ dist-ssr
 .env
 .env.*
 !.env.example
+!deploy/.env.backend.example
+!deploy/.env.frontend.example
+.wrangler/
+deploy/__pycache__/
 .local-backups/
 .temp/
 supabase/docker/volumes/storage/

@@ -74,6 +74,7 @@ services:
       IMGPROXY_CONCURRENCY: "2"
   mailpit:
     logging: *bounded-logging
+    profiles: [development]
     mem_limit: 96m
   studio:
     logging: *bounded-logging

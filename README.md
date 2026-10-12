@@ -1,6 +1,6 @@
 # LPG Manager
 
-LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Pages. Database inspection results below are dated **2026-10-05**.
+LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Workers Static Assets. Database inspection results below are dated **2026-10-05**.
 
 ## Current status
 
@@ -51,6 +51,8 @@ Routes use URL hashes, for example `http://127.0.0.1:3001/#/pos`.
 
 ## Local setup
 
+Use [OPERATIONS.md](OPERATIONS.md) as the single command guide for choosing local Docker/development/build actions, Azure/Cloudflare deployments, configuration, tests, printing and recovery.
+
 ### Existing Compose deployment
 
 The current machine has the required external volumes `lpg_db_data` and `lpg_storage_data` and a private root `.env`. The app and local Supabase stack can be started from the repository root with:
@@ -68,7 +70,9 @@ The root [`.env.example`](.env.example) lists the Compose variables but contains
 
 The backend-only VPS configuration is [`compose.azure.yml`](compose.azure.yml), layered over the local Compose file using a separate private VPS environment. The frontend is hosted separately. See [`deploy/README.md`](deploy/README.md) for resource limits, HTTPS, data preservation, optional services, frontend build variables and Auth redirect configuration. Local Compose and local data remain independent and functional.
 
-The API is available at <https://api.lpg.20.40.48.3.sslip.io> with trusted HTTPS, verified on **2026-10-11**. Auth redirects were configured for <https://floral-dew-443b.khandakarsifat.workers.dev/> during that deployment. When using a different Cloudflare Pages origin, configure the VPS Auth Site URL and allowed redirects and the Windows print bridge's allowed origins accordingly. Build the frontend with the production variables in the deployment notes. No frontend container runs on the VPS.
+The API is available at <https://api.lpg.20.40.48.3.sslip.io> with trusted HTTPS, verified on **2026-10-11**. Auth redirects were configured for <https://floral-dew-443b.khandakarsifat.workers.dev/> during that deployment. No frontend container runs on the VPS.
+
+For repeatable Windows deployments, configure the ignored `deploy/.env.backend` and `deploy/.env.frontend` files from their example templates. Run `npm run deploy:backend`, `npm run deploy:frontend`, or `npm run deploy:all` (backend health must pass before frontend publication). Add `-- --check` for local validation without SSH or publication. The VPS environment is never uploaded or replaced; pending database migrations require explicit version approval. The frontend command builds `dist` with isolated production settings and publishes to the existing Worker using the pinned Wrangler CLI. See [deployment setup and recovery](deploy/README.md).
 
 ### Frontend development
 
