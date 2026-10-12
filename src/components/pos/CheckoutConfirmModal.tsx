@@ -27,7 +27,7 @@ export const CheckoutConfirmModal = ({
   customer, items, discount, exchangeFee, notes, saleResult,
 }: CheckoutConfirmModalProps) => {
   const { data: inventoryItems } = useInventoryBalances();
-  const { profile } = useAuth();
+  const { profile, can } = useAuth();
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape
@@ -287,7 +287,7 @@ export const CheckoutConfirmModal = ({
           </button>
 
           {/* Confirm & Print */}
-          <button
+          {can('receipts:print') && <button
             onClick={onConfirmAndPrint}
             disabled={isProcessing}
             className="btn"
@@ -315,7 +315,7 @@ export const CheckoutConfirmModal = ({
                 <Printer size={15} /> Confirm & Print
               </span>
             )}
-          </button>
+          </button>}
         </div>
       </div>
 

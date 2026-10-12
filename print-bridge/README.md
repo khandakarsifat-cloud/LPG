@@ -16,7 +16,7 @@ Run this service on the same Windows computer as the browser and USB printer. It
 4. In LPG Manager, open **Receipt Printer**, immediately left of **Open POS** on the Dashboard. Select the USB queue. If Windows cannot associate a custom port monitor with its physical device, also select the matching **Physical USB device**. Serial number plus USB vendor/product IDs are preferred; the USBPRINT device instance and a hashed host/queue identity are retained as fallbacks. No hardware association is guessed from the printer name alone.
 5. Select 80 mm or 58 mm paper. Defaults are **576** and **384** printable dots, respectively. Adjust this to the print head's documented width; dots must be a multiple of eight. Enable auto-cut only for hardware with a cutter, then save. The tenant-keyed Supabase upsert keeps one configuration per business, including when the device is disconnected.
 
-The bridge allows exact loopback frontend origins on ports 3001 and 5173. For another local frontend port, set a comma-separated list of additional exact loopback origins before starting it:
+The bridge allows exact loopback frontend origins on ports 3001 and 5173. For another local frontend port or an externally hosted HTTPS frontend, set a comma-separated list of additional exact origins before starting it:
 
 ```powershell
 $env:LPG_PRINT_ORIGINS = 'http://127.0.0.1:5174,http://localhost:5174'

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { assertBDMobilePhone, getPhoneSearchTerms, normalizePhoneInput } from '../lib/bdPhone';
 
 export interface Customer {
@@ -101,6 +102,7 @@ export const useCustomers = (searchTerm?: string) =>
   });
 
 export const useAddCustomer = () => {
+  const { profile } = useAuth();
   const qc = useQueryClient();
   return useMutation<Customer, Error, CustomerInput>({
     mutationFn: async (payload) => {
@@ -115,12 +117,6 @@ export const useAddCustomer = () => {
       if (existing) {
         throw new Error('A customer with this phone number already exists.');
       }
-
-      // Derive tenant_id from the user profile
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('tenant_id')
-        .single();
 
       if (!profile) throw new Error('No tenant found');
 

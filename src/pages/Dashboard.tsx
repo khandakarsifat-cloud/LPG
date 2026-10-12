@@ -5,8 +5,10 @@ import { PrinterConfigModal } from '../components/dashboard/PrinterConfigModal';
 import { useDashboardStats } from '../hooks/useDashboard';
 import { SalesFeed } from '../components/dashboard/SalesFeed';
 import { formatBDNumber } from '../lib/formatBDT';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Dashboard = () => {
+  const { can } = useAuth();
   const { data: stats, isLoading } = useDashboardStats();
   const [printerOpen, setPrinterOpen] = useState(false);
   const closePrinter = useCallback(() => setPrinterOpen(false), []);
@@ -19,11 +21,11 @@ export const Dashboard = () => {
           <p className="page-subtitle">Daily sales, stock activity, and customer coverage.</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => setPrinterOpen(true)}><Printer size={16} /> Receipt Printer</button>
-          <Link to="/pos" className="btn btn-primary">
+          {can('printers:manage') && <button className="btn btn-secondary" onClick={() => setPrinterOpen(true)}><Printer size={16} /> Receipt Printer</button>}
+          {can('pos:sell') && <Link to="/pos" className="btn btn-primary">
             <ShoppingBag size={16} />
             Open POS
-          </Link>
+          </Link>}
         </div>
       </div>
       {printerOpen && <PrinterConfigModal onClose={closePrinter} />}
@@ -82,9 +84,9 @@ export const Dashboard = () => {
               <ShoppingBag size={20} style={{ color: 'var(--primary)' }} />
               <h2 className="card-title">Today's Sales</h2>
             </div>
-            <Link to="/pos" className="btn btn-ghost">
+            {can('pos:sell') && <Link to="/pos" className="btn btn-ghost">
               New Sale
-            </Link>
+            </Link>}
           </div>
           <div className="app-screen-scroll">
             <SalesFeed />
@@ -98,9 +100,9 @@ export const Dashboard = () => {
           <div className="empty-state" style={{ flex: 1, minHeight: '18rem' }}>
             <Package size={28} />
             <p style={{ margin: 0 }}>Low-stock exception reporting is not configured yet.</p>
-            <Link to="/inventory" className="btn btn-ghost">
+            {(can('inventory:view') || can('inventory:manage')) && <Link to="/inventory" className="btn btn-ghost">
               Review Inventory
-            </Link>
+            </Link>}
           </div>
         </section>
       </div>

@@ -1,0 +1,10 @@
+{$API_DOMAIN} {
+    header Strict-Transport-Security "max-age=31536000"
+    @api path /auth/v1/* /rest/v1/* /realtime/v1/* /storage/v1/* /graphql/v1*
+    handle @api {
+        reverse_proxy api-gw:8000
+    }
+    handle {
+        respond "Not found" 404
+    }
+}

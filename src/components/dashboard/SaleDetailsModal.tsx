@@ -19,7 +19,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProps) => {
-  const { profile } = useAuth();
+  const { profile, can } = useAuth();
   const printSale = usePrintSale();
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -242,7 +242,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
           </button>
 
           {/* Confirm & Print */}
-          <button
+          {can('receipts:print') && <button
             onClick={handlePrint}
             disabled={printSale.isPending}
             className="btn"
@@ -264,7 +264,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
               <Printer size={15} /> {printSale.isPending ? 'Printing…' : 'Print Receipt Again'}
             </span>
-          </button>
+          </button>}
         </div>
       </div>
     </div>

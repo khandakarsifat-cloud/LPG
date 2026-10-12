@@ -19,7 +19,11 @@ function assertLocalSupabaseConfig(url?: string, anonKey?: string) {
     throw new Error('Cloud Supabase configuration is not allowed in development.');
   }
 
-  if (!LOCAL_SUPABASE_URLS.has(url)) {
+  const gateway = new URL(url);
+  const isSecureSelfHosted = import.meta.env.PROD && gateway.protocol === 'https:'
+    && !gateway.username && !gateway.password && !gateway.search && !gateway.hash
+    && gateway.pathname === '/';
+  if (!LOCAL_SUPABASE_URLS.has(url) && !isSecureSelfHosted) {
     throw new Error(`Supabase must use a configured local gateway. Received: ${url}`);
   }
 

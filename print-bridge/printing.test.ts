@@ -74,6 +74,8 @@ test('validation bounds receipt, paper, transport and request identifiers', () =
   assert.throws(() => validatePrintRequest({ ...payload, request_id: '../bad-path' }), /identifier/);
   assert.throws(() => validatePrintRequest({ ...payload, receipt: { ...receipt, total_amount: NaN } }), /amount/);
   assert.throws(() => allowedOrigins('http://evil.example'), /loopback origins/);
+  assert.ok(allowedOrigins('https://lpg.20.40.48.3.sslip.io').has('https://lpg.20.40.48.3.sslip.io'));
+  assert.throws(() => allowedOrigins('https://example.com/path'), /exact/);
 });
 
 test('persistent request journal never sends the same job twice, including after bridge restart', async () => {

@@ -1,0 +1,116 @@
+# Separate production configuration; the local compose.yml and .env stay unchanged.
+x-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  frontend:
+    logging: *bounded-logging
+    profiles: [frontend]
+    mem_limit: 128m
+  api-gw:
+    logging: *bounded-logging
+    mem_limit: 256m
+    command: ["--concurrency", "2"]
+    depends_on: !override
+      auth:
+        condition: service_healthy
+      rest:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+      realtime:
+        condition: service_healthy
+  db:
+    logging: *bounded-logging
+    mem_limit: 1g
+    shm_size: 256m
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=80
+      - -c
+      - log_min_messages=warning
+  auth:
+    logging: *bounded-logging
+    mem_limit: 192m
+    environment:
+      GOTRUE_DB_MAX_POOL_SIZE: "5"
+  rest:
+    logging: *bounded-logging
+    mem_limit: 192m
+    environment:
+      PGRST_DB_POOL: "10"
+  realtime:
+    logging: *bounded-logging
+    mem_limit: 512m
+    networks:
+      default:
+        aliases: [realtime-dev.supabase-realtime]
+    environment:
+      ERL_AFLAGS: "+S 2:2 -proto_dist inet_tcp"
+      DB_POOL_SIZE: "5"
+  storage:
+    logging: *bounded-logging
+    mem_limit: 384m
+    environment:
+      DATABASE_POOL_MAX: "5"
+  imgproxy:
+    logging: *bounded-logging
+    mem_limit: 192m
+    environment:
+      IMGPROXY_CONCURRENCY: "2"
+  mailpit:
+    logging: *bounded-logging
+    mem_limit: 96m
+  studio:
+    logging: *bounded-logging
+    profiles: [admin]
+    mem_limit: 512m
+  meta:
+    logging: *bounded-logging
+    profiles: [admin]
+    mem_limit: 192m
+  functions:
+    logging: *bounded-logging
+    profiles: [functions]
+    mem_limit: 256m
+  supavisor:
+    logging: *bounded-logging
+    profiles: [pooler]
+    mem_limit: 384m
+  caddy:
+    logging: *bounded-logging
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    mem_limit: 128m
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN}
+    depends_on:
+      api-gw:
+        condition: service_healthy
+volumes:
+  db-config:
+    name: lpg_db-config
+    external: true
+  caddy-data:
+  caddy-config:

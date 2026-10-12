@@ -16,8 +16,9 @@ export function allowedOrigins(extra = process.env.LPG_PRINT_ORIGINS || '') {
   const values = [...defaultOrigins, ...extra.split(',').map(value => value.trim()).filter(Boolean)];
   for (const value of values) {
     const url = new URL(value);
-    if (url.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(url.hostname) || url.origin !== value) {
-      throw new Error('LPG_PRINT_ORIGINS must contain exact HTTP loopback origins.');
+    const local = url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname);
+    if ((!local && url.protocol !== 'https:') || url.origin !== value) {
+      throw new Error('LPG_PRINT_ORIGINS must contain exact HTTP loopback origins or HTTPS origins.');
     }
   }
   return new Set(values);

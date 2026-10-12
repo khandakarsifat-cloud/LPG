@@ -19,36 +19,12 @@ export const useDashboardStats = () =>
     queryFn: async () => {
       const todayIso = startOfDay(new Date()).toISOString();
 
-      // 1. Today's Revenue (sum of total_amount from sales completed today)
-      const { data: salesData, error: salesError } = await supabase
-        .from('sales')
-        .select('total_amount')
-        .gte('created_at', todayIso)
-        .eq('status', 'completed');
-        
-      if (salesError) throw salesError;
-      
-      const todayRevenue = salesData.reduce((acc, curr) => acc + Number(curr.total_amount || 0), 0);
-
-      // 2. Today's Movements Count
-      const { count: movementsCount, error: movementsError } = await supabase
-        .from('inventory_movements')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', todayIso);
-
-      if (movementsError) throw movementsError;
-
-      // 3. Total Active Customers
-      const { count: customersCount, error: customersError } = await supabase
-        .from('customers')
-        .select('*', { count: 'exact', head: true });
-
-      if (customersError) throw customersError;
-
+      const { data, error } = await supabase.rpc('get_dashboard_stats', { p_since: todayIso });
+      if (error) throw error;
       return {
-        todayRevenue,
-        todayMovements: movementsCount || 0,
-        totalCustomers: customersCount || 0,
+        todayRevenue: Number(data.todayRevenue),
+        todayMovements: Number(data.todayMovements),
+        totalCustomers: Number(data.totalCustomers),
       };
     },
     refetchInterval: 30_000, // Refresh every 30 seconds

@@ -52,13 +52,16 @@ export const usePrinterDiscovery = () => useMutation({ mutationFn: discoverPrint
 
 // Both checkout and reprinting read committed sale data; this path never creates sales.
 export function usePrintSale() {
-  const { profile } = useAuth();
+  const { profile, can } = useAuth();
   return useMutation({
     retry: false,
     mutationFn: async (saleId: string) => {
+      if (!can('receipts:print')) throw new Error('Receipt printing access is required.');
       if (!profile) throw new Error('Business profile unavailable.');
       const config = await loadConfig(profile.tenant_id);
-      if (!config) throw new Error('Configure a receipt printer from the Dashboard first.');
+      if (!config) throw new Error(can('printers:manage')
+        ? 'Configure a receipt printer from the Dashboard first.'
+        : 'Ask your business manager to configure a receipt printer from the Dashboard.');
       const { data, error } = await supabase.from('sales').select(`
         sale_id, created_at, subtotal, discount_amount, exchange_fee, total_amount, notes,
         customers(name, phone, tier),

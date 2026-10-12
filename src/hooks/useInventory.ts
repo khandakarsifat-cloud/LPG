@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import type { Item, ItemWithBrand, InventoryMovement, CreateItemPayload, CreateMovementPayload } from '../types/inventory';
 
 // ── Query Keys ────────────────────────────────────────────────────────────────
@@ -67,15 +68,10 @@ export const useInventoryMovements = (limit = 100) =>
 
 /** Create a new product item */
 export const useCreateItem = () => {
+  const { profile } = useAuth();
   const qc = useQueryClient();
   return useMutation<Item, Error, CreateItemPayload>({
     mutationFn: async (payload) => {
-      // Derive tenant_id from the user profile
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('tenant_id')
-        .single();
-
       if (!profile) throw new Error('No tenant found');
 
       const { data, error } = await supabase
@@ -132,4 +128,3 @@ export const useItemMovements = (itemId: string) =>
     enabled: !!itemId,
     refetchInterval: 15_000,
   });
-

@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "print:bridge": "node print-bridge/server.ts",
     "print:check": "tsc -p print-bridge/tsconfig.json",
-    "print:test": "node --test print-bridge/*.test.ts"
+    "print:test": "node --test print-bridge/*.test.ts",
+    "auth:test": "node --test tests/authorization.test.ts",
+    "auth:db:test": "node supabase/tests/run-authorization.mjs",
+    "auth:api:test": "node --env-file=.env supabase/tests/authorization-api.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

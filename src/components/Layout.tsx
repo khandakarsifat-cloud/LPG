@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { hasAnyPermission, routePermissions } from '../lib/authorization';
 import { applyTheme, getPreferredTheme, getStoredTheme, persistTheme, type AppTheme } from '../lib/theme';
 
 const navItems = [
@@ -35,7 +36,7 @@ const navItems = [
 ];
 
 export const Layout = () => {
-  const { profile, signOut } = useAuth();
+  const { profile, permissions, signOut } = useAuth();
   const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme() ?? getPreferredTheme());
@@ -66,7 +67,7 @@ export const Layout = () => {
 
         <nav className="sidebar-nav" aria-label="Primary navigation">
           <div className="sidebar-nav-label">Operations</div>
-          {navItems.map((item) => {
+          {navItems.filter(item => hasAnyPermission(permissions, routePermissions[item.path])).map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -89,7 +90,7 @@ export const Layout = () => {
               <div className="sidebar-tenant-name">
                 {profile?.business_name ?? 'Loading...'}
               </div>
-              <div className="sidebar-tenant-role">Owner workspace</div>
+              <div className="sidebar-tenant-role">Business workspace</div>
             </div>
           </div>
         </div>

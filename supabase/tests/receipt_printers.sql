@@ -4,9 +4,21 @@ begin;
 insert into public.tenants(tenant_id, business_name) values
   ('a1111111-1111-4111-8111-111111111111', 'Printer integration test A'),
   ('b1111111-1111-4111-8111-111111111111', 'Printer integration test B');
+insert into auth.users(id, email, is_anonymous) values
+  ('a2222222-2222-4222-8222-222222222222', 'printer-a@example.invalid', false),
+  ('b2222222-2222-4222-8222-222222222222', 'printer-b@example.invalid', false);
 insert into public.user_profiles(user_id, tenant_id, email) values
   ('a2222222-2222-4222-8222-222222222222', 'a1111111-1111-4111-8111-111111111111', 'printer-a@example.invalid'),
   ('b2222222-2222-4222-8222-222222222222', 'b1111111-1111-4111-8111-111111111111', 'printer-b@example.invalid');
+insert into public.roles(tenant_id, role_id, name) values
+  ('a1111111-1111-4111-8111-111111111111', 'a4444444-4444-4444-8444-444444444444', 'OWNER'),
+  ('b1111111-1111-4111-8111-111111111111', 'b4444444-4444-4444-8444-444444444444', 'OWNER');
+insert into public.role_permissions(tenant_id, role_id, permission_id)
+select r.tenant_id, r.role_id, p.permission_id from public.roles r cross join public.permissions p
+where r.tenant_id in ('a1111111-1111-4111-8111-111111111111', 'b1111111-1111-4111-8111-111111111111');
+insert into public.user_roles(tenant_id, user_id, role_id) values
+  ('a1111111-1111-4111-8111-111111111111', 'a2222222-2222-4222-8222-222222222222', 'a4444444-4444-4444-8444-444444444444'),
+  ('b1111111-1111-4111-8111-111111111111', 'b2222222-2222-4222-8222-222222222222', 'b4444444-4444-4444-8444-444444444444');
 insert into public.items(tenant_id, item_id, brand, size_kg, filled_quantity, empty_quantity)
   values ('a1111111-1111-4111-8111-111111111111', 'a3333333-3333-4333-8333-333333333333', 'Print test item', 12, 10, 10);
 
@@ -46,6 +58,10 @@ begin
   if (result->>'total_amount')::numeric <> 1150 then raise exception 'Incorrect saved totals'; end if;
   if (select count(*) from public.sale_items) <> 2 then raise exception 'Missing receipt items'; end if;
   if (select count(*) from public.inventory_movements) <> 2 then raise exception 'Wrong movement count'; end if;
+  if (select filled_quantity from public.items limit 1) <> 9 or
+     (select empty_quantity from public.items limit 1) <> 11 then
+    raise exception 'Checkout must apply each stock delta exactly once';
+  end if;
 end $$;
 
 select set_config('request.jwt.claim.sub', 'b2222222-2222-4222-8222-222222222222', true);

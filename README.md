@@ -1,6 +1,6 @@
 # LPG Manager
 
-LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to a local, self hosted Supabase stack. This README describes the repository and the running local database as inspected on **2026-10-02**.
+LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to a local, self hosted Supabase stack. This README describes the repository and the running local database as inspected on **2026-10-05**.
 
 ## Current status
 
@@ -24,8 +24,8 @@ The current local deployment uses the root [`compose.yml`](compose.yml) with a s
 ## Architecture
 
 - **Frontend:** React 19, TypeScript 6, Vite 8, React Router 7 with `HashRouter`, TanStack Query 5, Lucide icons, custom CSS, and jsPDF.
-- **Authentication and data:** Supabase Auth, PostgREST, PostgreSQL 17, and SQL functions. `src/contexts/AuthContext.tsx` handles email/password sign in, business signup, and tenant profile loading. A protected layout guards the operational routes.
-- **Data access:** Hooks in `src/hooks/` call a mix of Supabase RPCs and direct table queries or mutations. Tenant identity is associated with `user_profiles` and enforced through database policies and function logic. The browser client in `src/lib/supabase.ts` accepts only configured loopback Supabase URLs and rejects a service role or secret key.
+- **Authentication and authorization:** Supabase Auth, PostgREST, PostgreSQL 17, and SQL functions. `src/contexts/AuthContext.tsx` loads the trusted profile and effective RBAC permissions. Routes/navigation use capabilities; database policies and privileged RPCs enforce active membership, trusted tenancy and permission mappings independently of the UI. OWNER and MANAGER have the complete current permission set; SALESMAN has Dashboard, POS and saved receipt access. No platform ADMIN is implemented. See [tenant authorization](supabase/authorization.md).
+- **Data access:** Hooks in `src/hooks/` call validated RPCs and tenant-scoped direct reads. Direct browser writes are limited to zero-stock item registration, customer creation and authorized printer configuration. Profiles and RBAC mappings are not browser-writable; stock, ledger, purchase, transit and employee/payroll workflows stay behind gated RPCs. Internal helpers/triggers live in the unexposed `app_private` schema. The browser client in `src/lib/supabase.ts` accepts configured loopback Supabase URLs in development and HTTPS self-hosted URLs in production, and rejects a service role or secret key.
 - **Receipt printing:** A Node.js service in `print-bridge/` runs on the Windows host outside Docker, discovers Windows queues/USB devices, and sends raster ESC/POS receipts through Winspool RAW printing. Printer identity and 80/58 mm settings persist in the tenant-keyed `receipt_printers` table. Receipt content, formatting, discovery, configuration, and byte transport have separate boundaries.
 - **Deployment:** `Dockerfile` builds the Vite bundle and serves it with Nginx. `compose.yml` defines the frontend, Envoy API gateway, Auth, PostgREST, Realtime, Storage, Studio, PostgreSQL, Supavisor, and supporting services. [`supabase/docker/README.md`](supabase/docker/README.md) documents the local Compose cutover and volume handling.
 
@@ -64,6 +64,12 @@ The frontend is on <http://127.0.0.1:3001>, the API gateway on <http://127.0.0.1
 
 The root [`.env.example`](.env.example) lists the Compose variables but contains placeholders. A usable `.env` needs valid local database, Auth, API, Storage, and gateway secrets. Keep that file private. The Vite build receives `VITE_SUPABASE_URL` and the **anon** key as build arguments; the service role and secret keys belong only in the server configuration. Existing database and Storage data live in external volumes, so `docker compose down` does not remove them. See the [Compose setup notes](supabase/docker/README.md) before restoring or replacing volumes.
 
+### Azure backend deployment
+
+The backend-only VPS configuration is [`compose.azure.yml`](compose.azure.yml), layered over the local Compose file using a separate private VPS environment. The frontend is hosted separately. See [`deploy/README.md`](deploy/README.md) for resource limits, HTTPS, data preservation, optional services, frontend build variables and Auth redirect configuration. Local Compose and local data remain independent and functional.
+
+The API is available at <https://api.lpg.20.40.48.3.sslip.io> with trusted HTTPS, verified on **2026-10-11**. Auth redirects are configured for the externally hosted <https://floral-dew-443b.khandakarsifat.workers.dev/>. That site's current build still targets localhost; it needs the production frontend build described in the deployment notes. No frontend container runs on the VPS.
+
 ### Frontend development
 
 With the local Supabase gateway already running, install dependencies and start Vite:
@@ -81,6 +87,9 @@ Other scripts:
 npm run build
 npm run lint
 npm run preview
+npm run auth:test
+npm run auth:db:test
+npm run auth:api:test
 ```
 
 ### Direct USB receipt printing
@@ -93,7 +102,7 @@ Use **Confirm & Print** at checkout, **Reprint Last Sale** in POS, or **Print Re
 
 ### Migration state
 
-There are nine SQL files in [`supabase/migrations/`](supabase/migrations/). The live database reports the first **six** plus both receipt-printer migrations (**eight** records total) in `supabase_migrations.schema_migrations`. The seventh file, `20260702164710_employees.sql`, is **not recorded as applied**, although its employee tables and related objects are present in the live database. Reconcile the schema and migration history before using CLI migration or reset commands against this data. The two receipt-printer migrations add the tenant configuration table and restrict its default privileges to reads and upserts. The older SQL files in `supabase/migrations_old_broken/` are historical and outside the active migration directory.
+There are twelve SQL files in [`supabase/migrations/`](supabase/migrations/) and twelve matching live records in `supabase_migrations.schema_migrations`, verified on **2026-10-05**. The employee history gap is reconciled; the [migration audit](supabase/migration-audit.md) documents that earlier ten-migration snapshot. Two forward authorization migrations enforce permission-based RLS/RPC boundaries, composite identity/tenant relationships, least-privilege grants and safe future-object defaults, and retain PostgREST printer upserts. All twelve files replay against the existing Supabase platform dependencies and match live `public`/`app_private` schema. The authorization defaults require a platform superuser; see [deployment and tests](supabase/authorization.md). Existing business rows and historical stock balances are retained. The older SQL files in `supabase/migrations_old_broken/` are historical and outside the active migration directory.
 
 ## Project layout
 
@@ -115,7 +124,8 @@ There are nine SQL files in [`supabase/migrations/`](supabase/migrations/). The 
 - Direct printing requires a running bridge on the browser's Windows computer, an installed USB queue/device, and compatible ESC/POS raster commands. Ethernet transport and automatic bridge startup are not implemented. Windows job acceptance cannot guarantee physical completion for every driver; uncertain jobs must be checked before explicit reprinting.
 - `zk-test/test.cjs` handles device handshakes and logs pushed attendance records, but it does not persist them or connect them to employees in the app.
 - The settings business profile, finance route, and dashboard stock exceptions panel are placeholders. Reporting, staff role management UI, and offline operation are not implemented.
-- The 2026-09-28 Supabase security advisor reported **71 findings**, including 32 `SECURITY DEFINER` functions callable by `anon`, six functions with mutable search paths, and an RLS enabled `permissions` table without a policy. These are review items; RLS being enabled alone does not prove every function or policy is safe. The performance advisor at that inspection reported **121 findings**, mainly overlapping permissive policies, unused indexes, unindexed foreign keys, and RLS expression costs.
+- The 2026-10-05 security advisor reports 29 authenticated definer RPC warnings and 13 informational RLS-without-policy entries for internal/RPC-only tables. These reflect intentional gated workflows; anonymous function execution and mutable function-path findings are removed. The database has 20 capability-based policies, 29 public RPCs and 13 private helpers/triggers. Staff membership/role administration remains a trusted server/database operation without a browser management API.
+- On 2026-10-05, authorization SQL suites and REST integration tests passed for all three roles, cross-tenant access, reused entity UUIDs, escalation/profile reassignment denial, mapping-driven permission changes, active membership, internal execution restrictions and legitimate workflows. Real REST signup/setup, checkout, receipt/creator embeds and printer upserts passed. Frontend build, focused lint, three route-permission tests, bridge typecheck and twelve bridge/checkout tests passed. No physical print jobs were sent. Full browser UI checkout/reprint remains unverified; the existing bundle-size warning remains.
 - On 2026-10-02, the frontend and Docker builds, bridge typecheck, focused changed-file lint, and twelve bridge/checkout tests passed. Live discovery returned the USB printer after bridge startup/restart; repeated discovery requests succeeded and saved configuration remained unchanged. The user confirmed the modal/refresh checks and a marked diagnostic receipt with readable Bengali and working cutting. Tests cover queue renames, disconnected hardware, enumeration failures, and print/reprint deduplication. Full POS checkout/reprint browser flows remain unverified by the agent because no browser was connected. The build retains its large bundle warning. The root `npm run lint` failed because ESLint traversed `.temp/supabase-official/`, which references an unavailable `eslint-config-supabase/next` package. That temporary checkout is outside the application source.
 
 All currency displays use Bangladeshi Taka formatting. This project is not affiliated with an LPG brand or cylinder manufacturer.

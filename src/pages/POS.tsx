@@ -12,6 +12,7 @@ import type { POSSalePayload, POSSaleResult } from '../hooks/usePOS';
 import type { MouthSize } from '../types/inventory';
 import { MOUTH_SIZE_OPTIONS } from '../types/inventory';
 import { usePrintSale } from '../hooks/useReceiptPrinter';
+import { useAuth } from '../contexts/AuthContext';
 import { completeSale } from '../lib/completeSale';
 import { BD_MOBILE_PHONE_ERROR, validateBDMobilePhone } from '../lib/bdPhone';
 
@@ -30,6 +31,7 @@ const resetForm = (
 };
 
 export const POSPage = () => {
+  const { can } = useAuth();
   const [items, setItems]               = useState<POSSalePayload['items']>([]);
   const [customer, setCustomer]         = useState<POSCustomerDraft | null>(null);
   const [discount, setDiscount]         = useState(0);
@@ -286,9 +288,9 @@ export const POSPage = () => {
       {saleResult && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingTop: '0.5rem', flexShrink: 0 }}>
           <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Saved sale #{saleResult.sale_id.slice(0, 8).toUpperCase()}</span>
-          <button className="btn btn-secondary" disabled={printSale.isPending || isProcessing} onClick={() => printSale.mutate(saleResult.sale_id)}>
+          {can('receipts:print') && <button className="btn btn-secondary" disabled={printSale.isPending || isProcessing} onClick={() => printSale.mutate(saleResult.sale_id)}>
             <ReceiptText size={14} /> {printSale.isPending ? 'Printing…' : 'Reprint Last Sale'}
-          </button>
+          </button>}
         </div>
       )}
       {/* Checkout Confirmation Modal */}
