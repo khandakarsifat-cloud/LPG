@@ -6,7 +6,7 @@ Run `docker compose up -d` from the repository root. Local secrets are in the ig
 
 Port bindings are local to the host: frontend `3001` (port `3000` belongs to another project), Envoy `54321`, Studio `54323`, Mailpit `54324`, and Supavisor `54322`/`54329`. The browser uses `http://127.0.0.1:54321`. Envoy routes `/mcp` to Studio's internal MCP API and allows local Docker bridge traffic; the gateway host port is bound to `127.0.0.1`.
 
-The Compose database and Storage volumes are `lpg_db_data` and `lpg_storage_data`. They are external named volumes so Compose teardown cannot delete the migrated data. They were cloned from the CLI volumes `supabase_db_LPG` and `supabase_storage_LPG`; the CLI volumes remain intact for rollback. The pre-cutover logical database and Storage archive are in `.local-backups/2026-09-28-pre-cutover/` (ignored by Git). `postgres-all.sql` contains credentials and user data; keep that directory private.
+The Compose database and Storage volumes are `lpg_db_data` and `lpg_storage_data`. They are external named volumes so Compose teardown cannot delete the migrated data. They were cloned from the CLI volumes `supabase_db_LPG` and `supabase_storage_LPG`; the CLI volumes remain intact for rollback. The pre-cutover logical database and Storage archive are stored in a private archive outside the repository. `postgres-all.sql` contains credentials and user data; keep the archive private.
 
 To roll back, stop this Compose stack with `docker compose down` (do not remove volumes), then run `npx supabase start` from the repository root. That restores the old CLI stack from its unchanged original volumes. If the Compose volumes are lost, restore from the backup archive or source volumes before starting the Compose stack.
 

@@ -69,7 +69,7 @@ Platform schemas also contain their own types, sequences, functions, constraints
 - On the isolated replay, passed the existing `supabase/tests/receipt_printers.sql` checks for configuration upserts, tenant/anonymous access and real POS checkout. Also passed employee creation, salary payment/readback, duplicate salary rejection, owner-level payment update/delete rejection and paid-employee deactivation. All fixtures rolled back. No browser flow or frontend build was run for this database-only change.
 - Verified ten files equal ten live history records, zero application-schema differences, unchanged live schema, and identical before/after row counts and full-row checksums for every public table.
 
-Private evidence is retained in [`.local-backups/2026-10-04-migration-audit/`](../.local-backups/2026-10-04-migration-audit/), ignored by Git: full and public schema snapshots, platform bootstrap SQL, before/after history, catalog inventories, object diffs, guarded history correction SQL, and public-data checksums. The original history backup is preserved. Audit helpers remain under ignored `.temp/migration-audit/`.
+Private evidence is retained outside the repository in the local archive's `.local-backups/2026-10-04-migration-audit/` directory: full and public schema snapshots, platform bootstrap SQL, before/after history, catalog inventories, object diffs, guarded history correction SQL, and public-data checksums. The original history backup and temporary audit helpers are preserved in that private archive.
 
 ## Remaining decisions and limits
 

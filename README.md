@@ -1,6 +1,6 @@
 # LPG Manager
 
-LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to a local, self hosted Supabase stack. This README describes the repository and the running local database as inspected on **2026-10-05**.
+LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Pages. Database inspection results below are dated **2026-10-05**.
 
 ## Current status
 
@@ -12,7 +12,7 @@ The current local deployment uses the root [`compose.yml`](compose.yml) with a s
 | --- | --- |
 | Dashboard | Today's completed sales revenue, inventory movement count, active customer count, and sales feed with sale details. Receipt Printer configuration beside Open POS saves one USB printer per business. The stock exceptions panel is a placeholder. |
 | POS | Product selection by cylinder mouth size; refill, package, and empty return line types; customer lookup or creation; retail and wholesale pricing; discounts, exchange fees, notes, and checkout. Refill quantity must match empty returns. Confirm & Print sends the completed sale directly to the configured USB ESC/POS printer through a Windows host bridge. Saved sales can be reprinted without creating another sale. |
-| Inventory | Item registry, filled and empty balances, stock summaries, manual adjustments, recent movement feed, and per item history. |
+| Inventory | Item registry, filled and empty balances, stock summaries, recent movement feed, and per item history. No manual adjustment dialog is exposed in the current UI. |
 | Customers | Customer list, search, creation, and phone based matching. Customer phone numbers accept numeric Bangladesh mobile formats `01XXXXXXXXX` and `08801XXXXXXXXX`. |
 | Purchases | Draft purchase creation and editing, truck and gas plant association, item and cost entry, and completion that updates inventory. |
 | Logistics | Truck registry, status and location changes, transits, cost breakdowns, and wallet balance display. |
@@ -23,7 +23,7 @@ The current local deployment uses the root [`compose.yml`](compose.yml) with a s
 
 ## Architecture
 
-- **Frontend:** React 19, TypeScript 6, Vite 8, React Router 7 with `HashRouter`, TanStack Query 5, Lucide icons, custom CSS, and jsPDF.
+- **Frontend:** React 19, TypeScript 6, Vite 8, React Router 7 with `HashRouter`, TanStack Query 5, Lucide icons, and custom CSS.
 - **Authentication and authorization:** Supabase Auth, PostgREST, PostgreSQL 17, and SQL functions. `src/contexts/AuthContext.tsx` loads the trusted profile and effective RBAC permissions. Routes/navigation use capabilities; database policies and privileged RPCs enforce active membership, trusted tenancy and permission mappings independently of the UI. OWNER and MANAGER have the complete current permission set; SALESMAN has Dashboard, POS and saved receipt access. No platform ADMIN is implemented. See [tenant authorization](supabase/authorization.md).
 - **Data access:** Hooks in `src/hooks/` call validated RPCs and tenant-scoped direct reads. Direct browser writes are limited to zero-stock item registration, customer creation and authorized printer configuration. Profiles and RBAC mappings are not browser-writable; stock, ledger, purchase, transit and employee/payroll workflows stay behind gated RPCs. Internal helpers/triggers live in the unexposed `app_private` schema. The browser client in `src/lib/supabase.ts` accepts configured loopback Supabase URLs in development and HTTPS self-hosted URLs in production, and rejects a service role or secret key.
 - **Receipt printing:** A Node.js service in `print-bridge/` runs on the Windows host outside Docker, discovers Windows queues/USB devices, and sends raster ESC/POS receipts through Winspool RAW printing. Printer identity and 80/58 mm settings persist in the tenant-keyed `receipt_printers` table. Receipt content, formatting, discovery, configuration, and byte transport have separate boundaries.
@@ -68,7 +68,7 @@ The root [`.env.example`](.env.example) lists the Compose variables but contains
 
 The backend-only VPS configuration is [`compose.azure.yml`](compose.azure.yml), layered over the local Compose file using a separate private VPS environment. The frontend is hosted separately. See [`deploy/README.md`](deploy/README.md) for resource limits, HTTPS, data preservation, optional services, frontend build variables and Auth redirect configuration. Local Compose and local data remain independent and functional.
 
-The API is available at <https://api.lpg.20.40.48.3.sslip.io> with trusted HTTPS, verified on **2026-10-11**. Auth redirects are configured for the externally hosted <https://floral-dew-443b.khandakarsifat.workers.dev/>. That site's current build still targets localhost; it needs the production frontend build described in the deployment notes. No frontend container runs on the VPS.
+The API is available at <https://api.lpg.20.40.48.3.sslip.io> with trusted HTTPS, verified on **2026-10-11**. Auth redirects were configured for <https://floral-dew-443b.khandakarsifat.workers.dev/> during that deployment. When using a different Cloudflare Pages origin, configure the VPS Auth Site URL and allowed redirects and the Windows print bridge's allowed origins accordingly. Build the frontend with the production variables in the deployment notes. No frontend container runs on the VPS.
 
 ### Frontend development
 
@@ -102,7 +102,7 @@ Use **Confirm & Print** at checkout, **Reprint Last Sale** in POS, or **Print Re
 
 ### Migration state
 
-There are twelve SQL files in [`supabase/migrations/`](supabase/migrations/) and twelve matching live records in `supabase_migrations.schema_migrations`, verified on **2026-10-05**. The employee history gap is reconciled; the [migration audit](supabase/migration-audit.md) documents that earlier ten-migration snapshot. Two forward authorization migrations enforce permission-based RLS/RPC boundaries, composite identity/tenant relationships, least-privilege grants and safe future-object defaults, and retain PostgREST printer upserts. All twelve files replay against the existing Supabase platform dependencies and match live `public`/`app_private` schema. The authorization defaults require a platform superuser; see [deployment and tests](supabase/authorization.md). Existing business rows and historical stock balances are retained. The older SQL files in `supabase/migrations_old_broken/` are historical and outside the active migration directory.
+There are twelve SQL files in [`supabase/migrations/`](supabase/migrations/) and twelve matching live records in `supabase_migrations.schema_migrations`, verified on **2026-10-05**. The employee history gap is reconciled; the [migration audit](supabase/migration-audit.md) documents that earlier ten-migration snapshot. Two forward authorization migrations enforce permission-based RLS/RPC boundaries, composite identity/tenant relationships, least-privilege grants and safe future-object defaults, and retain PostgREST printer upserts. All twelve files replay against the existing Supabase platform dependencies and match live `public`/`app_private` schema. The authorization defaults require a platform superuser; see [deployment and tests](supabase/authorization.md). Existing business rows and historical stock balances are retained.
 
 ## Project layout
 

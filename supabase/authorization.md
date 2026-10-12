@@ -1,8 +1,7 @@
 # Tenant authorization
 
-Implemented and inspected on **2026-10-05 (Asia/Dhaka)**. The earlier
-[RLS strategy input](rls-strategy-input.md) records the findings that led to this
-implementation; it describes the pre-authorization database.
+Implemented and inspected on **2026-10-05 (Asia/Dhaka)**. This document describes
+the implemented authorization boundaries and their verification.
 
 ## Authority and roles
 

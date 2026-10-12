@@ -5,6 +5,3 @@ dist
 .local-backups
 .env*
 supabase/docker/volumes
-supabase/migrations_old_broken
-cloud_auth_data.sql
-cloud_public_data.sql
