@@ -2,6 +2,8 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   Bell,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
   Factory,
   LayoutDashboard,
@@ -35,16 +37,30 @@ const navItems = [
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'lpg-sidebar-collapsed';
+
+const getStoredSidebarCollapsed = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
+};
+
 export const Layout = () => {
   const { profile, permissions, signOut } = useAuth();
   const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme() ?? getPreferredTheme());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(getStoredSidebarCollapsed);
 
   useEffect(() => {
     applyTheme(theme);
     persistTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed));
+    }
+  }, [sidebarCollapsed]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -57,12 +73,24 @@ export const Layout = () => {
 
   return (
     <div className="app-container">
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-logo">
-          <span className="sidebar-logo-text">
-            Nexus<span>LPG</span>
-          </span>
-          <div className="sidebar-logo-badge">OPS</div>
+          <div className="sidebar-logo-brand">
+            <span className="sidebar-logo-text">
+              Nexus<span>LPG</span>
+            </span>
+            <div className="sidebar-logo-badge">OPS</div>
+          </div>
+          <button
+            type="button"
+            className="sidebar-collapse-btn"
+            onClick={() => setSidebarCollapsed((v) => !v)}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!sidebarCollapsed}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
         </div>
 
         <nav className="sidebar-nav" aria-label="Primary navigation">
@@ -75,6 +103,7 @@ export const Layout = () => {
                 to={item.path}
                 end={item.end}
                 className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                title={sidebarCollapsed ? item.label : undefined}
               >
                 <Icon size={18} />
                 <span>{item.label}</span>
@@ -83,7 +112,10 @@ export const Layout = () => {
           })}
         </nav>
 
-        <div className="sidebar-tenant-card">
+        <div
+          className="sidebar-tenant-card"
+          title={sidebarCollapsed ? (profile?.business_name ?? 'Business workspace') : undefined}
+        >
           <div className="sidebar-tenant-info">
             <div className="sidebar-tenant-avatar">{initials}</div>
             <div>

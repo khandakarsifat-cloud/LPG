@@ -1,6 +1,6 @@
 # LPG Manager
 
-LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Workers Static Assets. Database inspection results below are dated **2026-10-05**.
+LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Workers Static Assets. Production deployment and purchase acceptance were verified on **2026-10-14**; older security advisor snapshots retain their original dates below.
 
 ## Current status
 
@@ -14,12 +14,16 @@ The current local deployment uses the root [`compose.yml`](compose.yml) with a s
 | POS | Product selection by cylinder mouth size; refill, package, and empty return line types; customer lookup or creation; retail and wholesale pricing; discounts, exchange fees, notes, and checkout. Refill quantity must match empty returns. Confirm & Print sends the completed sale directly to the configured USB ESC/POS printer through a Windows host bridge. Saved sales can be reprinted without creating another sale. |
 | Inventory | Item registry, filled and empty balances, stock summaries, recent movement feed, and per item history. No manual adjustment dialog is exposed in the current UI. |
 | Customers | Customer list, search, creation, and phone based matching. Customer phone numbers accept numeric Bangladesh mobile formats `01XXXXXXXXX` and `08801XXXXXXXXX`. |
-| Purchases | Draft purchase creation and editing, truck and gas plant association, item and cost entry, and completion that updates inventory. |
+| Purchases | Plant-only Created orders, empty-cylinder dispatch to In Transit, actual new/refill receipt and independent full payment. Commission reduces company payable; money locks on payment and Received + Paid purchases show a read-only summary and activity history. |
 | Logistics | Truck registry, status and location changes, transits, cost breakdowns, and wallet balance display. |
 | Gas plants | Plant directory with LPG brand association and area officer contacts. |
 | Employees | Employee profiles, multiple phone numbers, employee types, business units, activation status, payment categories, and payment history. |
 | Settings | LPG brand management. The business profile tab is a placeholder. |
 | Finance | Route and placeholder screen only. |
+
+## Technical documentation
+
+Start with [the architecture and documentation map](docs/architecture.md) for module responsibilities, data flow, implementation boundaries and links to the sales/inventory, purchases/logistics and employee/payroll guides. Existing authorization, printing, deployment and operations guides remain the references for those subsystems.
 
 ## Architecture
 
@@ -29,7 +33,7 @@ The current local deployment uses the root [`compose.yml`](compose.yml) with a s
 - **Receipt printing:** A Node.js service in `print-bridge/` runs on the Windows host outside Docker, discovers Windows queues/USB devices, and sends raster ESC/POS receipts through Winspool RAW printing. Printer identity and 80/58 mm settings persist in the tenant-keyed `receipt_printers` table. Receipt content, formatting, discovery, configuration, and byte transport have separate boundaries.
 - **Deployment:** `Dockerfile` builds the Vite bundle and serves it with Nginx. `compose.yml` defines the frontend, Envoy API gateway, Auth, PostgREST, Realtime, Storage, Studio, PostgreSQL, Supavisor, and supporting services. [`supabase/docker/README.md`](supabase/docker/README.md) documents the local Compose cutover and volume handling.
 
-The database currently exposes **29 public tables** with RLS enabled, including `tenants`, `user_profiles`, `items`, `inventory_movements`, `customers`, `price_books`, `receipt_printers`, `sales`, `sale_items`, `purchases`, `purchase_items`, `trucks`, `transits`, `wallets`, `gas_plants`, `area_officers`, `lpg_brands`, and five employee tables. The employee phone table is named `employee_phone_numbers`. The inventory movement and employee payment records are intended as ledgers; see the SQL migrations for their exact constraints and triggers.
+The deployed database exposes **30 public tables**, all with RLS enabled, including `tenants`, `user_profiles`, `items`, `inventory_movements`, `customers`, `price_books`, `receipt_printers`, `sales`, `sale_items`, `purchases`, `purchase_items`, `purchase_activity`, `trucks`, `transits`, `wallets`, `gas_plants`, `area_officers`, `lpg_brands`, and five employee tables. The employee phone table is named `employee_phone_numbers`. See the SQL migrations for ledger constraints and triggers.
 
 ### Routes
 
@@ -72,6 +76,8 @@ The backend-only VPS configuration is [`compose.azure.yml`](compose.azure.yml), 
 
 The API is available at <https://api.lpg.20.40.48.3.sslip.io> with trusted HTTPS, verified on **2026-10-11**. Auth redirects were configured for <https://floral-dew-443b.khandakarsifat.workers.dev/> during that deployment. No frontend container runs on the VPS.
 
+The production Supabase dashboard is available at <https://api.lpg.20.40.48.3.sslip.io/project/default>. It requires the VPS `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD` login and administers production data. Studio and its metadata service are retained by backend deployments; see [dashboard access](deploy/README.md#production-dashboard).
+
 For repeatable Windows deployments, configure the ignored `deploy/.env.backend` and `deploy/.env.frontend` files from their example templates. Run `npm run deploy:backend`, `npm run deploy:frontend`, or `npm run deploy:all` (backend health must pass before frontend publication). Add `-- --check` for local validation without SSH or publication. The VPS environment is never uploaded or replaced; pending database migrations require explicit version approval. The frontend command builds `dist` with isolated production settings and publishes to the existing Worker using the pinned Wrangler CLI. See [deployment setup and recovery](deploy/README.md).
 
 ### Frontend development
@@ -92,6 +98,8 @@ npm run build
 npm run lint
 npm run preview
 npm run auth:test
+npm run purchase:test
+npm run purchase:db:test
 npm run auth:db:test
 npm run auth:api:test
 ```
@@ -106,7 +114,7 @@ Use **Confirm & Print** at checkout, **Reprint Last Sale** in POS, or **Print Re
 
 ### Migration state
 
-There are twelve SQL files in [`supabase/migrations/`](supabase/migrations/) and twelve matching live records in `supabase_migrations.schema_migrations`, verified on **2026-10-05**. The employee history gap is reconciled; the [migration audit](supabase/migration-audit.md) documents that earlier ten-migration snapshot. Two forward authorization migrations enforce permission-based RLS/RPC boundaries, composite identity/tenant relationships, least-privilege grants and safe future-object defaults, and retain PostgREST printer upserts. All twelve files replay against the existing Supabase platform dependencies and match live `public`/`app_private` schema. The authorization defaults require a platform superuser; see [deployment and tests](supabase/authorization.md). Existing business rows and historical stock balances are retained.
+All **fifteen** repository migrations match the production migration history, verified on **2026-10-14**. The purchase migrations add Created status, independent payment, commission, actual receipt, activity and atomic stock/shipment/settlement rules; a forward ownership migration aligns private helpers and RPCs with the existing `postgres` application owner. The updated frontend is published to the existing Worker. Historical stock balances, inventory movements, wallet balances and transactions remained unchanged across deployment and acceptance testing. The [purchase workflow](docs/modules/purchases-and-logistics.md) explains billing and compatibility. The [migration audit](supabase/migration-audit.md) is an older snapshot; [authorization](supabase/authorization.md) documents permission gates and platform-superuser requirements.
 
 ## Project layout
 
@@ -133,3 +141,4 @@ There are twelve SQL files in [`supabase/migrations/`](supabase/migrations/) and
 - On 2026-10-02, the frontend and Docker builds, bridge typecheck, focused changed-file lint, and twelve bridge/checkout tests passed. Live discovery returned the USB printer after bridge startup/restart; repeated discovery requests succeeded and saved configuration remained unchanged. The user confirmed the modal/refresh checks and a marked diagnostic receipt with readable Bengali and working cutting. Tests cover queue renames, disconnected hardware, enumeration failures, and print/reprint deduplication. Full POS checkout/reprint browser flows remain unverified by the agent because no browser was connected. The build retains its large bundle warning. The root `npm run lint` failed because ESLint traversed `.temp/supabase-official/`, which references an unavailable `eslint-config-supabase/next` package. That temporary checkout is outside the application source.
 
 All currency displays use Bangladeshi Taka formatting. This project is not affiliated with an LPG brand or cylinder manufacturer.
+- Purchase SQL, authorization and receipt suites pass on VPS PostgreSQL 17.6 with rolled-back fixtures. Real Auth/PostgREST acceptance covers concurrent creation, dispatch, full payment, receipt and truck allocation, both payment orderings, operating costs and tenant isolation. Fixture businesses/accounts were removed. Published HTML/asset hashes and browser login/route protection match the production build; full purchase UI scenarios were verified with browser API fixtures. Deployment safety tests, build and focused lint pass; the existing bundle-size warning remains.

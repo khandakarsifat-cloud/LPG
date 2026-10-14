@@ -3,9 +3,12 @@ import { Plus, Wallet } from 'lucide-react';
 import { useWallets } from '../hooks/useLogistics';
 import { PurchasesList } from '../components/purchases/PurchasesList';
 import { CreatePurchaseModal } from '../components/purchases/CreatePurchaseModal';
+import { useAuth } from '../contexts/AuthContext';
+import { formatBDT } from '../lib/formatBDT';
 
 export const PurchasesPage = () => {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const { can } = useAuth();
   const { data: wallets } = useWallets();
 
   const dealershipWallet = wallets?.find((w) => w.type === 'dealership');
@@ -17,7 +20,7 @@ export const PurchasesPage = () => {
         <div>
           <h1 className="page-title">Purchases</h1>
           <p className="page-subtitle">
-            Manage incoming stock and Dealership financials
+            Plan shipments, receive cylinders and settle company payments
           </p>
         </div>
         
@@ -30,16 +33,16 @@ export const PurchasesPage = () => {
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Dealership Wallet</div>
                 <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--accent)' }}>
-                  Tk {Number(dealershipWallet.balance).toLocaleString()}
+                  {formatBDT(Number(dealershipWallet.balance))}
                 </div>
               </div>
             </div>
           )}
 
-          <button className="btn btn-primary" onClick={() => setPurchaseOpen(true)}>
+          {can('purchases:manage') && <button className="btn btn-primary" onClick={() => setPurchaseOpen(true)}>
             <Plus size={16} />
             New Purchase
-          </button>
+          </button>}
         </div>
       </div>
 

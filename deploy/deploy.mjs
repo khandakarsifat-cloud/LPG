@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseEnv } from 'node:util';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const services = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'api-gw', 'caddy'];
+export const services = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'caddy'];
 export const workerURL = 'https://floral-dew-443b.khandakarsifat.workers.dev';
 const backendNames = ['AZURE_HOST', 'AZURE_USER', 'AZURE_PORT', 'AZURE_SSH_KEY', 'AZURE_PROJECT_DIR', 'AZURE_COMPOSE_PROJECT', 'PRODUCTION_API_URL'];
 const frontendNames = ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
@@ -49,7 +49,7 @@ export function validateAnon(key) {
   }
 }
 
-function config(kind) {
+export function config(kind) {
   const file = resolve(root, 'deploy', `.env.${kind}`);
   if (!existsSync(file)) throw new Error(`Missing deploy/.env.${kind}. Copy deploy/.env.${kind}.example and populate it.`);
   const values = parseEnv(readFileSync(file, 'utf8'));
@@ -78,7 +78,7 @@ function config(kind) {
 
 export function validateGraph(model) {
   const enabled = Object.entries(model.services).filter(([, service]) => !service.profiles?.length).map(([name]) => name);
-  if (enabled.length !== services.length || enabled.some(name => !services.includes(name))) throw new Error('Azure Compose must enable exactly the eight production services.');
+  if (enabled.length !== services.length || enabled.some(name => !services.includes(name))) throw new Error('Azure Compose must enable exactly the ten production services, including Studio/meta.');
   for (const name of services) {
     for (const dependency of Object.keys(model.services[name].depends_on ?? {})) {
       if (!services.includes(dependency)) throw new Error(`${name} pulls in excluded service ${dependency}.`);
@@ -112,7 +112,7 @@ function checkBackend() {
     env: { ...cleanEnv(), API_DOMAIN: 'api.lpg.20.40.48.3.sslip.io' }, quiet: true,
   });
   validateGraph(JSON.parse(output));
-  console.log('Azure Compose validated: eight production services, safe dependencies and external data volumes.');
+  console.log('Azure Compose validated: ten production services, safe dependencies and external data volumes.');
 }
 
 async function cloudflare(config, path) {
@@ -141,9 +141,10 @@ export function validateRESTHealth(status, body) {
   if (![401, 403].includes(status) || body?.code !== '42501') throw new Error('REST health/anonymous authorization check failed. Expected the existing permission-denied response from PostgREST.');
 }
 
-async function checkPublicAPI(url, anon) {
+export async function checkPublicAPI(url, anon) {
+  validateAnon(anon);
   for (const path of ['/auth/v1/health', '/rest/v1/items?select=*&limit=0', '/storage/v1/status']) {
-    const response = await fetch(`${url}${path}`, { headers: anon ? { apikey: anon, Authorization: `Bearer ${anon}` } : {}, signal: AbortSignal.timeout(20000), redirect: 'error' });
+    const response = await fetch(`${url}${path}`, { headers: { apikey: anon, Authorization: `Bearer ${anon}` }, signal: AbortSignal.timeout(20000), redirect: 'error' });
     if (path.startsWith('/rest/')) { validateRESTHealth(response.status, await response.json()); continue; }
     if (!response.ok) throw new Error(`Production API check failed: ${path} (HTTP ${response.status}). Frontend deployment stopped.`);
     await response.body?.cancel();
@@ -176,9 +177,9 @@ async function deployBackend(values, approval) {
   const sshArgs = ['-i', values.AZURE_SSH_KEY, '-p', values.AZURE_PORT, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=15', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3', `${values.AZURE_USER}@${values.AZURE_HOST}`];
   const command = `umask 077; stage=$(mktemp -d /tmp/lpg-deploy.XXXXXX) || exit 1; tar -xf - -C "$stage" && sudo -n python3 "$stage/deploy/backend.py" ${shellQuote(values.AZURE_PROJECT_DIR)} "$stage" ${shellQuote(values.AZURE_COMPOSE_PROJECT)} ${shellQuote(validateAPI(values.PRODUCTION_API_URL))} ${shellQuote(approval)}; result=$?; rm -rf -- "$stage"; exit "$result"`;
   run('ssh', [...sshArgs, command], { input: archive });
-  const response = await fetch(`${validateAPI(values.PRODUCTION_API_URL)}/auth/v1/health`, { signal: AbortSignal.timeout(20000), redirect: 'error' });
-  if (!response.ok) throw new Error('Public Azure Auth health check failed after deployment.');
-  await response.body?.cancel();
+  // The updater verifies public Auth/REST/Storage with the VPS anon key and
+  // checks the dashboard login. Bare health requests are gateway-protected.
+  // Frontend/all also checks these endpoints from Windows with its public key.
   console.log('Azure deployment and public HTTPS health check passed.');
 }
 

@@ -1,6 +1,7 @@
 import { X, ArrowUpCircle, ArrowDownCircle, Activity, Loader2, Package } from 'lucide-react';
 import { useItemMovements } from '../../hooks/useInventory';
-import { MOVEMENT_TYPE_LABELS, MOVEMENT_TYPE_COLORS, type MovementType, type ItemWithBrand } from '../../types/inventory';
+import { MOVEMENT_TYPE_COLORS, type MovementType, type ItemWithBrand } from '../../types/inventory';
+import { inventoryMovementLabel } from '../../lib/inventoryMovement';
 import { formatDistanceToNow, format } from 'date-fns';
 import './inventory.css';
 
@@ -67,7 +68,7 @@ export const ProductHistoryModal = ({ item, onClose }: ProductHistoryModalProps)
             <div className="phm-feed">
               {movements.map((m) => {
                 const color   = MOVEMENT_TYPE_COLORS[m.movement_type as MovementType] ?? '#94a3b8';
-                const label   = MOVEMENT_TYPE_LABELS[m.movement_type as MovementType] ?? m.movement_type;
+                const label   = inventoryMovementLabel(m);
                 const isUp    = (m.filled_quantity_change > 0) || (m.empty_quantity_change > 0);
                 const actor   = m.user_profiles?.email?.split('@')[0] ?? 'System';
                 const hasFilled = m.filled_quantity_change !== 0;

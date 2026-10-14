@@ -20,7 +20,7 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
   // Custom additional costs
   const [additionalCosts, setAdditionalCosts] = useState<{name: string, amount: number}[]>([]);
 
-  const isLocked = transit?.status === 'completed';
+  const isLocked = transit?.status !== 'active';
 
   useEffect(() => {
     if (transit && open) {
@@ -28,7 +28,7 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
       setDriverCost(transit.driver_cost || 0);
       setHelperCost(transit.helper_cost || 0);
       setOilCost(transit.oil_cost || 0);
-      setStatus(transit.status);
+      setStatus(transit.legacy_completion ? 'completed' : transit.status);
       setAdditionalCosts(transit.additional_costs || []);
     }
   }, [transit, open]);
@@ -108,16 +108,21 @@ export const TransitCostsModal = ({ open, onClose, transit }: TransitCostsModalP
 
             <div className="input-group">
               <label className="input-label">Transit Status</label>
+              {transit.purchase_id && !transit.legacy_completion ? <>
+                <div className="input-field">{isLocked ? 'Finalized' : 'Active purchase shipment'}</div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem' }}>Purchase shipments remain active until the truck returns. Receive the purchase in Purchases to finalize inventory and these operating costs.</p>
+              </> : <>
+              {transit.legacy_completion && <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>This historical purchase was received before shipment completion was integrated. Finalize its operating costs once here.</p>}
               <select 
                 className="input-field" 
                 value={status} 
                 onChange={(e) => setStatus(e.target.value)}
                 disabled={isLocked}
               >
-                <option value="active">Active (On Duty)</option>
+                {!transit.legacy_completion && <option value="active">Active (On Duty)</option>}
                 <option value="completed">Completed (Deduct costs & lock)</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
+                {!transit.legacy_completion && <option value="cancelled">Cancelled</option>}
+              </select></>}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>

@@ -1,6 +1,7 @@
 -- Run with psql -v ON_ERROR_STOP=1 after the authorization migration.
 -- Real roles, workflow calls and adversarial fixtures; every row rolls back.
 begin;
+set local row_security=on;
 
 create temporary table authorization_context(tenant_a uuid, tenant_b uuid, purchase_id uuid, employee_id uuid, sale_id uuid);
 grant select, insert, update on authorization_context to authenticated;
@@ -75,8 +76,8 @@ from authorization_context c cross join lateral (values(c.tenant_a,'Plant A'),(c
 insert into public.purchases(tenant_id,purchase_id,truck_id,plant_id,status)
 select t,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','in_transit'
 from authorization_context c cross join lateral (values(c.tenant_a),(c.tenant_b)) x(t);
-insert into public.purchase_items(tenant_id,purchase_item_id,purchase_id,item_id,type,quantity,unit_price,line_total)
-select t,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','refill',q,100,q*100
+insert into public.purchase_items(tenant_id,purchase_item_id,purchase_id,item_id,type,quantity,empty_dispatched,billed_quantity,unit_price,line_total)
+select t,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','refill',q,q,q,100,q*100
 from authorization_context c cross join lateral (values(c.tenant_a,1),(c.tenant_b,7)) x(t,q);
 insert into public.transits(tenant_id,transit_id,truck_id,purchase_id,status)
 select t,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','active'
@@ -158,22 +159,26 @@ select pg_temp.expect_denied($s$update public.receipt_printers set tenant_id=(se
 
 -- The purchase read must never join B's reused purchase/truck/plant/item/brand IDs.
 do $$
-declare r record;
+declare r jsonb;
 begin
- select * into strict r from public.list_purchases() where purchase_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
- perform pg_temp.assert_true(r.truck_name='Truck A' and r.plant_name='Plant A','tenant-qualified purchase parents');
- perform pg_temp.assert_true(jsonb_array_length(r.items)=1 and r.items->0->>'brand_name'='Brand A'
-   and (r.items->0->>'quantity')::int=1,'tenant-qualified purchase lines');
+ select value into strict r from public.list_purchases() value where value->>'purchase_id'='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+ perform pg_temp.assert_true(r->>'truck_name'='Truck A' and r->>'plant_name'='Plant A','tenant-qualified purchase parents');
+ perform pg_temp.assert_true(jsonb_array_length(r->'items')=1 and r->'items'->0->>'brand_name'='Brand A'
+   and (r->'items'->0->>'quantity')::int=1,'tenant-qualified purchase lines');
 end $$;
-select public.update_transit_costs('cccccccc-cccc-4ccc-8ccc-cccccccccccc',10,20,30,'[]','completed');
-select public.update_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc',20,30,null,
- '[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","quantity":2,"unit_price":100}]');
-select public.complete_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+select public.update_transit_costs('cccccccc-cccc-4ccc-8ccc-cccccccccccc',10,20,30,'[]','active');
+select public.update_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc','{"transport_cost":20,"labour_cost":30}',2);
+select public.receive_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc','[{"purchase_item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","received_quantity":1}]',null,3);
+select public.pay_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc',4);
 update authorization_context set purchase_id=(public.create_purchase(
- 'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc',10,5,null,
- '[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"unit_price":100}]')->>'purchase_id')::uuid;
-select public.complete_purchase(purchase_id) from authorization_context;
+ '{"plant_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","request_id":"a1111111-1111-4111-8111-111111111111","transport_cost":10,"labour_cost":5,"items":[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"empty_dispatched":1,"unit_price":100}]}'
+ )->>'purchase_id')::uuid;
+select public.dispatch_purchase(purchase_id,1) from authorization_context;
+select public.receive_purchase(c.purchase_id,jsonb_build_array(jsonb_build_object('purchase_item_id',p.value->'items'->0->>'purchase_item_id','received_quantity',1)),null,2)
+ from authorization_context c join public.list_purchases() p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
+select public.pay_purchase(purchase_id,3) from authorization_context;
 select public.create_custom_transit('cccccccc-cccc-4ccc-8ccc-cccccccccccc',25,'Test');
+select public.update_transit_costs(transit_id,0,0,0,'[]','completed') from public.transits where purchase_id is null;
 select public.create_lpg_brand('New brand','Test');
 select public.update_lpg_brand('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Brand A updated',null,true);
 select public.create_gas_plant('New plant','cccccccc-cccc-4ccc-8ccc-cccccccccccc',null);
@@ -219,9 +224,12 @@ set local role authenticated;
 select pg_temp.expect_denied($s$select public.create_inventory_movement('cccccccc-cccc-4ccc-8ccc-cccccccccccc','adjust_gain',1,0,null)$s$);
 -- Purchases need their own capability, not the public inventory-adjustment capability.
 update authorization_context set purchase_id=(public.create_purchase(
- 'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc',0,0,null,
- '[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"unit_price":100}]')->>'purchase_id')::uuid;
-select public.complete_purchase(purchase_id) from authorization_context;
+ '{"plant_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","request_id":"a1111111-1111-4111-8111-111111111112","items":[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"empty_dispatched":1,"unit_price":100}]}'
+ )->>'purchase_id')::uuid;
+select public.dispatch_purchase(purchase_id,1) from authorization_context;
+select public.receive_purchase(c.purchase_id,jsonb_build_array(jsonb_build_object('purchase_item_id',p.value->'items'->0->>'purchase_item_id','received_quantity',1)),null,2)
+ from authorization_context c join public.list_purchases() p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
+select public.pay_purchase(purchase_id,3) from authorization_context;
 
 -- SALESMAN supporting reads, customer creation, real checkout and receipt readback.
 select set_config('request.jwt.claim.sub','a2222222-2222-4222-8222-222222222224',true);

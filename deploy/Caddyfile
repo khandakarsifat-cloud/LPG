@@ -5,6 +5,10 @@
         reverse_proxy api-gw:8000
     }
     handle {
-        respond "Not found" 404
+        # Studio uses Envoy's dashboard Basic Auth. Do not expose its local MCP
+        # bypass or the direct metadata/function routes through this fallback.
+        @private path /mcp* /api/mcp* /pg* /functions*
+        respond @private "Not found" 404
+        reverse_proxy api-gw:8000
     }
 }

@@ -6,6 +6,8 @@
 - Inspect the existing implementation around the target area first and follow established patterns rather than introducing parallel abstractions.
 - Keep changes scoped to the requested task. Do not refactor unrelated code unless required for correctness.
 - Prefer extending existing components, hooks, utilities, types, and styles over creating duplicate patterns.
+- Use relevant skills from `.agents/skills/` when applicable. Follow their specialized guidance while preserving this project's architecture, conventions, business rules, and safety requirements. Do not invoke unrelated skills.
+- Consult relevant architectural and module documentation before modifying complex workflows or cross-module behavior.
 
 ## Supabase & Database
 
@@ -37,18 +39,36 @@
 
 After implementation:
 
-- run the relevant build, type, lint, or test checks available for the affected area;
-- verify important user flows touched by the change;
-- distinguish failures introduced by the change from pre-existing repository issues;
-- never claim something was tested or verified when it was not.
+- Run the relevant build, type, lint, or test checks available for the affected area.
+- Verify important user flows touched by the change.
+- Distinguish failures introduced by the change from pre-existing repository issues.
+- Never claim something was tested or verified when it was not.
 
-## Documentation
+## Architecture & Documentation
 
-- `README.md` is the current project snapshot, not a development diary.
-- Update it only when a change materially alters documented behavior, architecture, setup, integrations, dependencies, module status, or limitations.
+- `README.md` is the current project snapshot, not a development diary. Update it only when changes materially affect documented behavior, architecture, setup, integrations, dependencies, module status, or limitations.
+- Maintain `docs/architecture.md` as a concise, current architectural map covering major modules, their responsibilities, dependencies, and important code locations.
+- Maintain documentation for critical business rules, complex modules, and non-obvious cross-module workflows under `docs/modules/` when such documentation provides lasting value.
+- Create new module documentation only when necessary. Prefer updating existing documentation over creating overlapping files.
+- Update relevant architectural and module documentation whenever implementation changes make it inaccurate.
+- Keep specialized documentation near its existing subsystem when appropriate; do not duplicate it under `docs/`.
+- Document important architectural decisions and invariants, not routine implementation details that can be easily discovered from source code.
+- Keep documentation concise, accurate, and grounded in the actual implementation. Source code and database migrations remain authoritative.
 - Do not duplicate implementation history that Git already records.
-- Keep documentation consistent with the repository and verified Supabase state.
+
+## Deployment
+
+- Consult `README.md` and the existing deployment configuration to identify the current frontend and backend environments.
+- Do not assume local Docker or Supabase availability represents the state of the deployed backend.
+- When deployment is explicitly requested, use the established deployment workflow and verify the target environment before making changes.
+- Apply required database migrations before deploying dependent frontend changes.
+- Never perform destructive production operations without explicit approval.
+- Verify deployment success and report any unverified functionality or blockers.
 
 ## Completion
 
-Before finishing a task, review the final diff for unrelated edits, accidental generated files, exposed secrets, and documentation that became inaccurate.
+Before finishing a task:
+
+- Review the final diff for unrelated edits, accidental generated files, and exposed secrets.
+- Check whether architectural or module documentation needs updating.
+- Ensure affected documentation remains consistent with the implementation and verified Supabase state.

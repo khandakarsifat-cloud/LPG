@@ -78,11 +78,12 @@ services:
     mem_limit: 96m
   studio:
     logging: *bounded-logging
-    profiles: [admin]
     mem_limit: 512m
+    depends_on:
+      meta:
+        condition: service_started
   meta:
     logging: *bounded-logging
-    profiles: [admin]
     mem_limit: 192m
   functions:
     logging: *bounded-logging

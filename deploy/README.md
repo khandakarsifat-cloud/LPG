@@ -2,7 +2,25 @@
 
 For the combined local Docker, development, build and production command guide, see [OPERATIONS.md](../OPERATIONS.md).
 
-The VPS deployment reuses `compose.yml` plus `compose.azure.yml`. Its eight production services are PostgreSQL, Auth, PostgREST, Realtime, Storage, imgproxy, Envoy and Caddy. Mailpit, Studio/meta, Edge Functions, Supavisor and the frontend are optional profiles and are excluded by the deployment command, including through dependencies. Existing excluded containers are stopped without removing containers or volumes. No Supabase Cloud service is used. Local `compose.yml` behavior is unchanged.
+The VPS deployment reuses `compose.yml` plus `compose.azure.yml`. Its ten production services are PostgreSQL, Auth, PostgREST, Realtime, Storage, imgproxy, Studio, postgres-meta, Envoy and Caddy. Mailpit, Edge Functions, Supavisor and the frontend are optional profiles and are excluded by the deployment command, including through dependencies. Existing excluded containers are stopped without removing containers or volumes. No Supabase Cloud service is used. Local `compose.yml` behavior is unchanged.
+
+## Production dashboard
+
+Open <https://api.lpg.20.40.48.3.sslip.io/project/default> and enter the existing VPS `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD`. These administrator credentials are separate from LPG app accounts. Keep them private; the dashboard can inspect and modify production data.
+
+From Windows, copy each login field privately using the existing SSH configuration in `deploy/.env.backend`:
+
+```powershell
+npm run dashboard:credentials -- --username
+# Paste into the username field, then copy the password:
+npm run dashboard:credentials
+```
+
+The helper copies only the selected field to the Windows clipboard without displaying or saving it. No credentials are added to source or uploaded. Replace clipboard contents after login.
+
+Caddy forwards dashboard pages/assets/platform requests to Envoy, which enforces its existing HTTP Basic authentication and strips that header before forwarding to Studio. Application API routes retain their API-key/JWT handling. Public `/pg*`, `/mcp*`, `/api/mcp*` and `/functions*` routes remain blocked, including the local MCP bypass. Studio's direct port stays loopback-only and postgres-meta has no public port. The local dashboard remains independent at `http://127.0.0.1:54323`.
+
+Studio and metadata are normal production services with the existing pinned images and memory limits. Backend deployment can add these two services to the earlier eight-service installation, but still requires all core services to be healthy and preserves existing images, mounts, credentials and data. Future deployments keep them running. Health verification checks both the anonymous authentication challenge and authenticated Studio HTML; interactive dashboard actions require separate browser acceptance.
 
 ## One-time Windows setup
 
@@ -26,7 +44,7 @@ Populate the ignored files manually. They are parsed as dotenv files; a Windows 
 
 The VPS `/opt/lpg/.env` remains the sole source of backend settings and credentials. Keep it mode 600. No production environment is generated from the local `.env`; no environment file is in the SSH upload. This deployment system does not change passwords, JWT/encryption keys, SMTP settings, URLs, database/Storage volumes, or migration history records that are already applied. Database initialization SQL/configuration is not synchronized to the existing VPS.
 
-For Cloudflare, create an API token scoped to the existing account with **Account / Workers Scripts / Edit**. Add **Account / Account Settings / Read** for account/subdomain discovery. The API checks must be able to read account subdomain and existing Worker settings. Set `CLOUDFLARE_ACCOUNT_ID` to that account, not a zone ID. Future deployments use the token without dashboard interaction or `wrangler login`. There is no local account credential to reuse yet; account ownership must pass read-only API checks at deployment time.
+For Cloudflare, use an API token scoped to the existing account with **Account / Workers Scripts / Edit**. Add **Account / Account Settings / Read** for account/subdomain discovery. The API checks must be able to read account subdomain and existing Worker settings. Set `CLOUDFLARE_ACCOUNT_ID` to that account, not a zone ID. The saved private deployment configuration supplies these credentials without dashboard interaction or `wrangler login`; account ownership must pass read-only API checks each time.
 
 SSH uses `BatchMode=yes` and `StrictHostKeyChecking=yes`. Before first use, ensure the VPS host key is in Windows `known_hosts` and verify its fingerprint through a trusted channel if it is new. Use the existing private key and its restrictive Windows ACLs; do not disable host-key verification. No new key or backend environment is required.
 
@@ -49,6 +67,8 @@ npm run deploy:all
 `deploy:all` validates both targets and builds/packages the frontend before changing the backend. It verifies the existing Cloudflare Worker/account, deploys the backend and checks container/public HTTPS health, then checks the frontend anon key through the public API and publishes the frontend. Backend failure prevents frontend publication. Frontend failure leaves the healthy backend in place; fix the error and rerun `deploy:frontend`.
 
 Public health checks require Auth/Storage success and a zero-row `items` REST request returning the existing anonymous permission denial (`401/403`, PostgreSQL code `42501`). This proves the request reached PostgREST without fetching business rows and keeps anonymous access blocked. Invalid-key errors and Envoy's generic denial are failures. The REST OpenAPI root is intentionally gateway-protected and is not a service-health endpoint.
+
+Auth/Storage health requests require the public anon API key too; a bare Auth health request receives the gateway's authentication challenge. The VPS updater validates all public endpoints with its existing anon key. Frontend/all deployment repeats those checks from Windows using the frontend's configured public key before publishing.
 
 ## Backend update and migration safety
 
@@ -91,7 +111,7 @@ If Cloudflare publication fails, the backend remains independent. Fix token/conf
 
 The backend is installed under `/opt/lpg` on `20.40.48.3`. Use SSH with the existing private key path; never copy the key to the VPS. The private VPS `.env` uses `COMPOSE_FILE=compose.yml:compose.azure.yml` and `API_DOMAIN=api.lpg.20.40.48.3.sslip.io`. Only Caddy's ports 80/443 are public; administrative services are loopback or internal. Azure's Network Security Group must allow TCP 80/443. Caddy obtains and renews certificates automatically once those ports are reachable.
 
-Verified on 2026-10-11: all nine backend containers run; all configured health checks pass. The public API at `https://api.lpg.20.40.48.3.sslip.io` has a trusted Let's Encrypt certificate and HTTP redirects to HTTPS. Auth signup/business setup, REST role/tenant boundaries, checkout/stock/receipt/printer configuration, Realtime WebSockets and private Storage upload/download pass through the public HTTPS endpoint. Counts and checksums for all 33 original public/Auth/Storage/migration tables still match the local source after fixture cleanup. Public administration routes return 404. Auth uses `https://floral-dew-443b.khandakarsifat.workers.dev/` as its production Site URL, and exact redirect URLs for that origin; allowed redirects and rejection of an unapproved redirect were tested. Cross-origin Auth preflight/requests from that origin pass. No browser UI or physical printer verification was performed.
+Verified on 2026-10-11, before dashboard enablement: all nine backend containers run; all configured health checks pass. The public API at `https://api.lpg.20.40.48.3.sslip.io` has a trusted Let's Encrypt certificate and HTTP redirects to HTTPS. Auth signup/business setup, REST role/tenant boundaries, checkout/stock/receipt/printer configuration, Realtime WebSockets and private Storage upload/download pass through the public HTTPS endpoint. Counts and checksums for all 33 original public/Auth/Storage/migration tables still match the local source after fixture cleanup. Public administration routes return 404. Auth uses `https://floral-dew-443b.khandakarsifat.workers.dev/` as its production Site URL, and exact redirect URLs for that origin; allowed redirects and rejection of an unapproved redirect were tested. Cross-origin Auth preflight/requests from that origin pass. No browser UI or physical printer verification was performed.
 
 ```sh
 cd /opt/lpg

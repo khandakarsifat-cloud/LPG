@@ -44,20 +44,10 @@ export const useTransits = () =>
   useQuery<Transit[]>({
     queryKey: logisticsKeys.transits,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('transits')
-        .select(`
-          *,
-          trucks!inner ( name )
-        `)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.rpc('list_transits');
       
       if (error) throw error;
-      const rows = (data ?? []) as Array<Transit & { trucks?: { name?: string } | null }>;
-      return rows.map((t) => ({
-        ...t,
-        truck_name: t.trucks?.name
-      }));
+      return (data ?? []) as Transit[];
     },
   });
 
@@ -143,6 +133,7 @@ export const useCreateCustomTransit = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: logisticsKeys.transits });
       qc.invalidateQueries({ queryKey: logisticsKeys.trucks });
+      qc.invalidateQueries({ queryKey: logisticsKeys.wallets });
     },
   });
 };
@@ -174,6 +165,7 @@ export const useUpdateTransitCosts = () => {
       qc.invalidateQueries({ queryKey: logisticsKeys.transits });
       qc.invalidateQueries({ queryKey: logisticsKeys.wallets });
       qc.invalidateQueries({ queryKey: logisticsKeys.trucks });
+      qc.invalidateQueries({ queryKey: ['purchases'] });
     },
   });
 };

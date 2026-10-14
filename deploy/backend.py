@@ -1,5 +1,6 @@
 """Existing-VPS updater. Standard library only; invoked over SSH, never on import."""
 import datetime
+import base64
 import hashlib
 import json
 import os
@@ -11,8 +12,9 @@ import sys
 import urllib.request
 import urllib.error
 
-SERVICES = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'api-gw', 'caddy']
-EXCLUDED = ['frontend', 'studio', 'meta', 'functions', 'supavisor', 'mailpit']
+SERVICES = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'caddy']
+CORE_SERVICES = set(SERVICES) - {'studio', 'meta'}
+EXCLUDED = ['frontend', 'functions', 'supavisor', 'mailpit']
 
 
 def require(condition, message):
@@ -38,7 +40,7 @@ def digest(path):
 
 def validate_model(model):
     enabled = {name for name, service in model['services'].items() if not service.get('profiles')}
-    require(enabled == set(SERVICES), 'Compose must enable exactly the eight production services.')
+    require(enabled == set(SERVICES), 'Compose must enable exactly the ten production services, including Studio/meta.')
     for name in SERVICES:
         service = model['services'][name]
         require(not service.get('build'), f'Unexpected image build: {name}.')
@@ -127,6 +129,19 @@ def verify_health(model, api_url):
             with error:
                 require(path.startswith('/rest/') and error.code in (401, 403)
                         and json.load(error).get('code') == '42501', f'Unexpected API error or anonymous authorization response: {path}.')
+    # Studio must challenge anonymous visitors and accept only the existing login.
+    try:
+        with urllib.request.urlopen(api_url + '/', timeout=20):
+            raise RuntimeError('Dashboard is reachable without authentication.')
+    except urllib.error.HTTPError as error:
+        with error:
+            require(error.code == 401, 'Dashboard must require HTTP Basic authentication.')
+    login = model['services']['api-gw']['environment']
+    credentials = (login['DASHBOARD_USERNAME'] + ':' + login['DASHBOARD_PASSWORD']).encode()
+    request = urllib.request.Request(api_url + '/project/default', headers={
+        'Authorization': 'Basic ' + base64.b64encode(credentials).decode()})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        require(response.status == 200 and b'/_next/' in response.read(), 'Authenticated Studio page verification failed.')
 
 
 def deploy(root, stage, project, api_url, approval):
@@ -152,11 +167,17 @@ def update(root, stage, project, api_url, approval):
                 '-f', str(source / 'compose.yml'), '-f', str(source / 'compose.azure.yml')]
 
     old_cmd, candidate_cmd = compose(root), compose(stage)
-    old = json.loads(run(old_cmd + ['config', '--format', 'json'], 'Existing production Compose validation'))
-    candidate = json.loads(run(candidate_cmd + ['config', '--format', 'json'], 'Candidate production Compose validation'))
+    # Inspect disabled definitions too when promoting Studio/meta into production.
+    # This activates profiles only for config rendering, not service startup.
+    old = json.loads(run(old_cmd + ['--profile', '*', 'config', '--format', 'json'], 'Existing production Compose validation'))
+    candidate = json.loads(run(candidate_cmd + ['--profile', '*', 'config', '--format', 'json'], 'Candidate production Compose validation'))
     validate_model(candidate)
     require(candidate['services']['api-gw']['environment']['SUPABASE_PUBLIC_URL'].rstrip('/') == api_url, 'VPS API URL differs from deployment configuration.')
     require(candidate['services']['auth']['environment']['GOTRUE_SITE_URL'].rstrip('/') == 'https://floral-dew-443b.khandakarsifat.workers.dev', 'VPS Auth Site URL does not match the existing Worker.')
+    dashboard = candidate['services']['api-gw']['environment']
+    require(bool(dashboard.get('DASHBOARD_USERNAME')) and len(dashboard.get('DASHBOARD_PASSWORD', '')) >= 12
+            and dashboard['DASHBOARD_PASSWORD'] not in ('replace-with-existing-or-generated-value', 'this_password_is_insecure'),
+            'A configured strong dashboard login is required before exposing Studio.')
     # Refuse database image upgrades and all volume remapping, including Caddy TLS.
     require(old['volumes'] == candidate['volumes'], 'Compose volume definitions changed. Separate review required.')
     for name in SERVICES:
@@ -164,13 +185,12 @@ def update(root, stage, project, api_url, approval):
         require(before.get('volumes') == after.get('volumes'), f'{name} mount definitions changed. Separate review required.')
     require(old['services']['db']['image'] == candidate['services']['db']['image'], 'PostgreSQL image upgrade refused; use a reviewed upgrade procedure.')
 
-    ids = run(old_cmd + ['ps', '-q', *SERVICES], 'Container discovery').split()
-    require(len(ids) == len(SERVICES), 'All eight existing production containers must be running. Check project name and recover the stack first.')
+    ids = run(old_cmd + ['--profile', '*', 'ps', '-q', *SERVICES], 'Container discovery').split()
+    require(len(CORE_SERVICES) <= len(ids) <= len(SERVICES), 'All eight core production containers must be running; only Studio/meta may be added.')
     containers = json.loads(run(['docker', 'inspect', *ids], 'Existing container inspection'))
     current = {container['Config']['Labels']['com.docker.compose.service']: container for container in containers}
-    require(set(current) == set(SERVICES), 'Container service/project identity mismatch.')
-    for name in SERVICES:
-        container = current[name]
+    require(CORE_SERVICES <= set(current) <= set(SERVICES) and len(current) == len(containers), 'Container service/project identity mismatch.')
+    for name, container in current.items():
         require(container['Config']['Labels']['com.docker.compose.project'] == project, 'Compose project identity mismatch.')
         require(container['State']['Running'] and container['State'].get('Health', {}).get('Status', 'healthy') == 'healthy', f'Existing {name} is unhealthy; recover before deployment.')
     for name, destination, expected in [('db', '/var/lib/postgresql/data', 'lpg_db_data'), ('db', '/etc/postgresql-custom', 'lpg_db-config'), ('storage', '/var/lib/storage', 'lpg_storage_data')]:
@@ -207,14 +227,14 @@ def update(root, stage, project, api_url, approval):
         affected.update(json.loads(pending_file.read_text()))
         require(affected <= set(SERVICES), 'Invalid pending deployment service list.')
     for name in SERVICES:
-        if (old['services'][name] != candidate['services'][name]
+        if (name not in current or old['services'][name] != candidate['services'][name]
                 or current[name]['Config']['Image'] != candidate['services'][name]['image']
                 or current[name]['Config']['Labels'].get('com.docker.compose.config-hash') != desired_hashes[name]):
             affected.add(name)
         for volume in candidate['services'][name].get('volumes', []):
             if volume['type'] == 'bind' and any(str(root / relative) == volume['source'] for relative in changed):
                 affected.add(name)
-    excluded_ids = run(old_cmd + ['ps', '-q', *EXCLUDED], 'Excluded service discovery').split()
+    excluded_ids = run(old_cmd + ['--profile', '*', 'ps', '-q', *EXCLUDED], 'Excluded service discovery').split()
     changes_runtime = bool(affected or pending or excluded_ids)
     print('Affected services: ' + (', '.join(name for name in SERVICES if name in affected) or 'none'), flush=True)
     smtp = candidate['services']['auth']['environment']
@@ -283,7 +303,7 @@ def update(root, stage, project, api_url, approval):
     run(old_cmd + ['up', '-d', '--no-deps', '--no-build', '--pull', 'never', '--no-recreate', '--wait', '--wait-timeout', '180', *SERVICES], 'Final health verification (no recreation)')
     verify_health(candidate, api_url)
     pending_file.unlink(missing_ok=True)
-    print('Eight production services verified; data volumes and VPS environment preserved.', flush=True)
+    print('Ten production services verified; data volumes and VPS environment preserved.', flush=True)
 
 
 if __name__ == '__main__':

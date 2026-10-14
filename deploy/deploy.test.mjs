@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { backendFiles, cleanEnv, main, shellQuote, validateAnon, validateAPI, validateGraph, validateRESTHealth, services } from './deploy.mjs';
+import { backendFiles, checkPublicAPI, cleanEnv, main, shellQuote, validateAnon, validateAPI, validateGraph, validateRESTHealth, services } from './deploy.mjs';
 
 const anon = role => `${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({ role, exp: 4102444800 })).toString('base64url')}.signature`;
 
@@ -42,6 +42,26 @@ test('frontend build explicitly disables Vite env-file loading', () => {
 test('REST health distinguishes existing anonymous denial from bad keys or gateway errors', () => {
   validateRESTHealth(401, { code: '42501' });
   for (const [status, body] of [[401, { code: 'PGRST301' }], [403, {}], [200, []], [503, { code: '42501' }]]) assert.throws(() => validateRESTHealth(status, body));
+});
+
+test('public API health uses the anon key and rejects gateway-only Auth denial', async t => {
+  const key = anon('anon');
+  const paths = [];
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(options.headers.apikey, key);
+    assert.equal(options.headers.Authorization, `Bearer ${key}`);
+    const path = new URL(url).pathname;
+    paths.push(path);
+    return new Response(path.startsWith('/rest/') ? JSON.stringify({ code: '42501' }) : '{}', {
+      status: path.startsWith('/rest/') ? 401 : 200,
+    });
+  });
+  await assert.rejects(checkPublicAPI('https://api.lpg.20.40.48.3.sslip.io'), /anon JWT/);
+  assert.equal(paths.length, 0);
+  await checkPublicAPI('https://api.lpg.20.40.48.3.sslip.io', key);
+  assert.deepEqual(paths, ['/auth/v1/health', '/rest/v1/items', '/storage/v1/status']);
+  t.mock.method(globalThis, 'fetch', async () => new Response('Unauthorized', { status: 401 }));
+  await assert.rejects(checkPublicAPI('https://api.lpg.20.40.48.3.sslip.io', key), /auth\/v1\/health/);
 });
 
 test('unsafe or ambiguous command flags fail before any deployment', async () => {

@@ -71,7 +71,7 @@ the caller's own profile/business identity needed to load the workspace.
 | Printer settings | `printers:manage` gates configuration INSERT/UPDATE; configuration SELECT also allows `receipts:print`. PostgREST upserts can assign the tenant column, but old and new ownership must both match the trusted tenant. |
 | Inventory | View/manage capabilities permit registry/history reads and same-tenant creator attribution. Only `inventory:manage` allows registering zero-stock items and calling inventory adjustments. |
 | Customers | Customer view/manage allows reads; management or POS allows form creation. No direct update/delete path is exposed. |
-| Purchases | Purchase view/manage gates lists and supporting product/truck/plant selectors. Create/edit/complete requires `purchases:manage`; internal stock and wallet writes need no separate inventory/finance management grant. |
+| Purchases | Purchase view/manage gates lists, activity and supporting product/truck/plant selectors. Create/edit/dispatch/receive/full payment requires `purchases:manage`; internal stock and wallet writes need no separate inventory/finance management grant. See [lifecycle and settlement](../docs/modules/purchases-and-logistics.md). |
 | Logistics | Logistics view/manage gates truck/transit/wallet reads; truck/custom-transit/cost mutations require `logistics:manage`. |
 | Brands / plants | `settings:manage` gates brand mutations. Plant/officer mutations require `gas_plants:manage`; plant view and purchase selectors retain their supporting reads. |
 | Employees | Employee view/manage gates profile/phone/payment-count lists; employee mutations require `employees:manage`. |
@@ -86,7 +86,7 @@ choose their attribution.
 
 Privileged routines use permission gates and tenant-qualified reads, joins,
 subqueries and writes. Public inventory adjustments gate `inventory:manage`;
-purchases use an unexposed stock recorder under their own validated workflow.
+purchases insert referenced movement rows under their validated workflow; the movement trigger applies the stock delta once.
 POS applies stock changes through the movement trigger exactly once, locks each
 item, rejects invalid lines/negative totals and rolls back insufficient stock.
 Existing historical stock balances are not recalculated.
@@ -120,7 +120,7 @@ Application functions remain owned by `postgres`. Apply the printer follow-up
 afterward. Do not reset existing data or repair historical migration records to
 deploy these changes.
 
-Both migrations are applied to the repository's local Compose database and
+The two authorization migrations were applied to the repository's local Compose database and
 recorded with their actual SQL. All twelve migrations replayed against schema-only
 Supabase platform dependencies in a network-disabled scratch database; its
 `public`/`app_private` schema matches live. Historical application migrations
@@ -151,7 +151,7 @@ fixture membership and cleanup. It verifies real signup/setup, profile/receipt/
 inventory embeds, customer creation, checkout, printer upserts, all three roles,
 and metadata spoofing denial. It never contacts the printer bridge.
 
-Security advisors currently report 29 authenticated definer RPC warnings and
+The 2026-10-05 security advisor snapshot reported 29 authenticated definer RPC warnings and
 13 informational RLS-without-policy entries for tables intentionally accessible
 only through trusted workflows/helpers. Anonymous definer execution and mutable
 function-path findings are gone. These remaining diagnostics do not override

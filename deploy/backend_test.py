@@ -1,9 +1,11 @@
 import tempfile
 import json
+import io
+import urllib.error
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-from backend import SERVICES, digest, migration_plan, update, validate_sql
+from backend import SERVICES, digest, migration_plan, update, validate_sql, verify_health
 
 
 class MigrationSafetyTests(unittest.TestCase):
@@ -55,7 +57,7 @@ class DeploymentFlowTests(unittest.TestCase):
             (directory / 'compose.azure.yml').write_text('existing\n')
             (directory / 'supabase/migrations/20261012000000_existing.sql').write_text('select 1;')
         model = {'volumes': {key: {'external': True, 'name': name} for key, name in [('lpg_db_data', 'lpg_db_data'), ('lpg_storage_data', 'lpg_storage_data'), ('db-config', 'lpg_db-config')]}, 'services': {name: {'image': name + ':1', 'environment': {}, 'volumes': []} for name in SERVICES}}
-        model['services']['api-gw']['environment'] = {'SUPABASE_PUBLIC_URL': 'https://api.lpg.20.40.48.3.sslip.io', 'ANON_KEY': 'not-used'}
+        model['services']['api-gw']['environment'] = {'SUPABASE_PUBLIC_URL': 'https://api.lpg.20.40.48.3.sslip.io', 'ANON_KEY': 'not-used', 'DASHBOARD_USERNAME': 'test-only', 'DASHBOARD_PASSWORD': 'test-only-not-a-real-password'}
         model['services']['auth']['environment']['GOTRUE_SITE_URL'] = 'https://floral-dew-443b.khandakarsifat.workers.dev'
         model['services']['db']['environment']['POSTGRES_DB'] = 'postgres'
         containers = [{'Id': name, 'Config': {'Image': name + ':1', 'Labels': {'com.docker.compose.service': name, 'com.docker.compose.project': 'lpg', 'com.docker.compose.config-hash': 'hash'}}, 'State': {'Running': True, 'Health': {'Status': 'healthy'}}, 'Mounts': []} for name in SERVICES]
@@ -77,6 +79,58 @@ class DeploymentFlowTests(unittest.TestCase):
                 return '20261012000000\n'
             return ''
         return root, stage, calls, fake_run
+
+    def test_existing_eight_service_stack_adds_only_dashboard_services(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root, stage, calls, fake = self.fixture(folder)
+
+            def without_dashboard(args, label, **kwargs):
+                result = fake(args, label, **kwargs)
+                if label == 'Container discovery':
+                    return ' '.join(name for name in SERVICES if name not in ('studio', 'meta'))
+                if label == 'Existing container inspection':
+                    return json.dumps([c for c in json.loads(result) if c['Id'] not in ('studio', 'meta')])
+                return result
+
+            with patch('backend.run', without_dashboard), patch('backend.verify_health'):
+                update(root, stage, 'lpg', 'https://api.lpg.20.40.48.3.sslip.io', '')
+            updates = [args[-1] for args, _, _ in calls if '--force-recreate' in args]
+            self.assertEqual(updates, ['meta', 'studio'])
+            self.assertTrue(any(label == 'Pre-deployment database backup' for _, label, _ in calls))
+            self.assertFalse(any('--single-transaction' in args for args, _, _ in calls))
+            for args, label, _ in calls:
+                if 'Compose validation' in label:
+                    self.assertIn('--profile', args)
+
+    def test_missing_core_service_is_not_treated_as_dashboard_installation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root, stage, calls, fake = self.fixture(folder)
+
+            def without_auth(args, label, **kwargs):
+                result = fake(args, label, **kwargs)
+                if label == 'Existing container inspection':
+                    return json.dumps([c for c in json.loads(result) if c['Id'] != 'auth'])
+                return result
+
+            with patch('backend.run', without_auth), self.assertRaisesRegex(RuntimeError, 'identity mismatch'):
+                update(root, stage, 'lpg', 'https://api.lpg.20.40.48.3.sslip.io', '')
+            self.assertFalse(any('up' in args or 'pull' in args for args, _, _ in calls))
+
+    def test_weak_dashboard_login_stops_before_runtime_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root, stage, calls, fake = self.fixture(folder)
+
+            def weak_login(args, label, **kwargs):
+                result = fake(args, label, **kwargs)
+                if 'Compose validation' in label:
+                    model = json.loads(result)
+                    model['services']['api-gw']['environment']['DASHBOARD_PASSWORD'] = 'weak'
+                    return json.dumps(model)
+                return result
+
+            with patch('backend.run', weak_login), self.assertRaisesRegex(RuntimeError, 'strong dashboard login'):
+                update(root, stage, 'lpg', 'https://api.lpg.20.40.48.3.sslip.io', '')
+            self.assertFalse(any('up' in args or 'pull' in args for args, _, _ in calls))
 
     def test_pending_sql_fails_before_sync_backup_or_service_changes(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -130,6 +184,39 @@ class DeploymentFlowTests(unittest.TestCase):
             self.assertIn('select 2;', sql)
             self.assertIn('INSERT INTO supabase_migrations.schema_migrations', sql)
             self.assertIn("NOTIFY pgrst, 'reload schema'", sql)
+
+
+class DashboardHealthTests(unittest.TestCase):
+    def check(self, anonymous_status):
+        model = {'services': {'api-gw': {'environment': {
+            'ANON_KEY': 'test-public-key', 'DASHBOARD_USERNAME': 'test-only',
+            'DASHBOARD_PASSWORD': 'test-only-not-a-real-password'}}}}
+        seen = []
+
+        def response(request, timeout):
+            url = request if isinstance(request, str) else request.full_url
+            seen.append(request)
+            if '/rest/' in url:
+                raise urllib.error.HTTPError(url, 401, 'Unauthorized', {}, io.BytesIO(b'{"code":"42501"}'))
+            if url.endswith('/') and anonymous_status == 401:
+                raise urllib.error.HTTPError(url, 401, 'Unauthorized', {}, io.BytesIO(b''))
+            result = io.BytesIO(b'<html><script src="/_next/test.js"></script></html>')
+            result.status = 200
+            return result
+
+        with patch('backend.urllib.request.urlopen', response):
+            verify_health(model, 'https://example.invalid')
+        return seen
+
+    def test_authenticated_dashboard_and_unchanged_api_health(self):
+        seen = self.check(401)
+        request = seen[-1]
+        self.assertEqual(request.full_url, 'https://example.invalid/project/default')
+        self.assertTrue(request.get_header('Authorization').startswith('Basic '))
+
+    def test_public_dashboard_is_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, 'without authentication'):
+            self.check(200)
 
 
 if __name__ == '__main__':

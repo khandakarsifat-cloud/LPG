@@ -1,6 +1,7 @@
 import { ArrowUpCircle, ArrowDownCircle, Activity, ShoppingBag } from 'lucide-react';
 import { useInventoryMovements } from '../../hooks/useInventory';
-import { MOVEMENT_TYPE_LABELS, MOVEMENT_TYPE_COLORS, type MovementType } from '../../types/inventory';
+import { MOVEMENT_TYPE_COLORS, type MovementType } from '../../types/inventory';
+import { inventoryMovementLabel } from '../../lib/inventoryMovement';
 import { formatDistanceToNow } from 'date-fns';
 import './inventory.css';
 
@@ -66,7 +67,7 @@ export const MovementsFeed = () => {
               </div>
               <div className="movement-meta">
                 <span className="movement-type-badge" style={{ background: `${color}18`, color }}>
-                  {MOVEMENT_TYPE_LABELS[m.movement_type as MovementType] ?? m.movement_type}
+                  {inventoryMovementLabel(m)}
                 </span>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
                   by {actor}

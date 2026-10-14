@@ -114,4 +114,5 @@ export interface Transit {
   
   // Joined fields for convenience
   truck_name?: string;
+  legacy_completion?: boolean;
 }

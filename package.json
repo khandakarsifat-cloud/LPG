@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "dashboard:credentials": "node deploy/dashboard-credentials.mjs",
     "deploy:backend": "node deploy/deploy.mjs backend",
     "deploy:frontend": "node deploy/deploy.mjs frontend",
     "deploy:all": "node deploy/deploy.mjs all",
@@ -16,6 +17,8 @@
     "print:check": "tsc -p print-bridge/tsconfig.json",
     "print:test": "node --test print-bridge/*.test.ts",
     "auth:test": "node --test tests/authorization.test.ts",
+    "purchase:test": "node --test tests/purchase.test.ts",
+    "purchase:db:test": "node supabase/tests/run-purchases.mjs",
     "auth:db:test": "node supabase/tests/run-authorization.mjs",
     "auth:api:test": "node --env-file=.env supabase/tests/authorization-api.mjs"
   },
