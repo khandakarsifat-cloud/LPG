@@ -96,7 +96,8 @@ begin
   perform pg_temp.purchase_fails(format('select public.update_purchase(%L,''{"commission":1}'',1)',id),'subtotal');
   perform pg_temp.purchase_fails(format('select public.update_purchase(%L,''{"transport_cost":"NaN"}'',1)',id),'finite');
   perform pg_temp.purchase_fails(format('select public.update_purchase(%L,''{"labour_cost":1.001}'',1)',id),'decimal');
-  lines := '[{"item_id":"ff000000-0000-4000-8000-000000000001","type":"refill","quantity":4,"empty_dispatched":6,"unit_price":100},
+  perform pg_temp.purchase_fails(format('select public.update_purchase(%L,''{"items":[{"item_id":"ff000000-0000-4000-8000-000000000001","type":"refill","quantity":4,"empty_dispatched":6,"unit_price":100}]}'',1)',id),'one empty cylinder per refill');
+  lines := '[{"item_id":"ff000000-0000-4000-8000-000000000001","type":"refill","quantity":4,"unit_price":100},
     {"item_id":"ff000000-0000-4000-8000-000000000001","type":"package","quantity":2,"empty_dispatched":0,"unit_price":200}]';
   perform public.update_purchase(id,jsonb_build_object('truck_id','ee000000-0000-4000-8000-000000000001','items',lines,'commission',50,'transport_cost',20,'labour_cost',10),1);
   p := pg_temp.purchase_header(id);
@@ -110,8 +111,8 @@ begin
   perform public.dispatch_purchase(id,2);
   p := pg_temp.purchase_header(id);
   perform pg_temp.check_purchase(p.status='in_transit' and p.revision=3 and p.dispatched_at is not null,'dispatch transition and retry');
-  perform pg_temp.check_purchase((select empty_quantity from public.items where item_id='ff000000-0000-4000-8000-000000000001')=4
-    and (select filled_quantity from public.items where item_id='ff000000-0000-4000-8000-000000000001')=5,'dispatch deducts outgoing empties only, expected refill differs');
+  perform pg_temp.check_purchase((select empty_quantity from public.items where item_id='ff000000-0000-4000-8000-000000000001')=6
+    and (select filled_quantity from public.items where item_id='ff000000-0000-4000-8000-000000000001')=5,'dispatch deducts one empty per expected refill, once');
   perform pg_temp.check_purchase((select count(*) from public.inventory_movements where reference_id=id)=1,'dispatch movement posted exactly once');
   perform pg_temp.purchase_fails(format('select public.update_purchase(%L,''{"items":[]}'',3)',id),'locked');
   perform pg_temp.purchase_fails(format('select public.update_purchase(%L,''{"truck_id":null}'',3)',id),'locked');
@@ -141,7 +142,7 @@ begin
   p := pg_temp.purchase_header(id);
   perform pg_temp.check_purchase(p.status='received' and p.payment_status='paid' and p.total_cost=780,'prepaid receipt preserves settled total');
   perform pg_temp.check_purchase((select filled_quantity from public.items where item_id='ff000000-0000-4000-8000-000000000001')=12
-    and (select empty_quantity from public.items where item_id='ff000000-0000-4000-8000-000000000001')=4,'receipt adds actual new/refills only');
+    and (select empty_quantity from public.items where item_id='ff000000-0000-4000-8000-000000000001')=6,'receipt adds actual new/refills only');
   perform pg_temp.check_purchase((select count(*) from public.inventory_movements where reference_id=id)=3,'distinct referenced new/refill movements');
   perform pg_temp.check_purchase((select status from public.trucks where truck_id='ee000000-0000-4000-8000-000000000001')='idle'
     and (select status from public.transits where transit_id=transit)='completed','receipt finalizes transit and releases truck');
@@ -153,12 +154,12 @@ begin
   -- Short delivery before payment changes billing to actual quantities.
   payload := jsonb_build_object('plant_id','dd000000-0000-4000-8000-000000000001','request_id',gen_random_uuid(),
     'truck_id','ee000000-0000-4000-8000-000000000001','items',jsonb_build_array(jsonb_build_object(
-    'item_id','ff000000-0000-4000-8000-000000000001','type','refill','quantity',3,'empty_dispatched',5,'unit_price',100)));
+    'item_id','ff000000-0000-4000-8000-000000000001','type','refill','quantity',7,'empty_dispatched',7,'unit_price',100)));
   id2 := (public.create_purchase(payload)->>'purchase_id')::uuid;
   count_before := (select count(*) from public.inventory_movements);
   perform pg_temp.purchase_fails(format('select public.dispatch_purchase(%L,1)',id2),'Insufficient');
   perform pg_temp.check_purchase((pg_temp.purchase_header(id2)).status='created' and (select count(*) from public.inventory_movements)=count_before,'insufficient-stock dispatch is atomic');
-  lines := jsonb_set(payload->'items','{0,empty_dispatched}','3');
+  lines := jsonb_set(jsonb_set(payload->'items','{0,empty_dispatched}','3'),'{0,quantity}','3');
   perform public.update_purchase(id2,jsonb_build_object('items',lines,'commission',50),1);
   perform public.dispatch_purchase(id2,2);
   receipt := jsonb_build_array(jsonb_build_object('purchase_item_id',pg_temp.purchase_lines(id2)->0->>'purchase_item_id','received_quantity',2));

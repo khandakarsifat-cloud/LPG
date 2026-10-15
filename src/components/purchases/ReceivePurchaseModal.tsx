@@ -7,7 +7,7 @@ import type { Purchase } from '../../types/purchase';
 
 export function ReceivePurchaseModal({ purchase, onClose, onReceived }: { purchase: Purchase; onClose: () => void; onReceived: () => void }) {
   const receive = useReceivePurchase();
-  const [quantities, setQuantities] = useState<(number | null)[]>(() => purchase.items.map(() => null));
+  const [quantities, setQuantities] = useState<(number | null)[]>(() => purchase.items.map(item => item.quantity));
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -35,14 +35,14 @@ export function ReceivePurchaseModal({ purchase, onClose, onReceived }: { purcha
         <div className="modal-body purchase-receipt-body">
           <p className="purchase-alert">Record receipt after the truck has returned. Only actual filled cylinders will be added to inventory. The shipment and its saved operating costs will be finalized.</p>
           {error && <p role="alert" className="purchase-error">{error}</p>}
-          <button type="button" className="btn btn-secondary" onClick={() => setQuantities(purchase.items.map(item => item.quantity))}>Use expected quantities</button>
+          <button type="button" className="btn btn-secondary" onClick={() => setQuantities(purchase.items.map(item => item.quantity))}>Reset to expected</button>
           {purchase.items.map((item, index) => <div key={item.purchase_item_id} className="purchase-receipt-row">
             <div><strong>{item.brand_name} {item.size_kg} kg {item.mouth_size}</strong><small>{item.type === 'refill' ? 'Refill' : 'New cylinders'} · Expected {item.quantity} · Empties sent {item.empty_dispatched}</small></div>
             <PurchaseNumber label={`Received ${item.type === 'refill' ? 'refills' : 'new cylinders'}`} value={quantities[index] ?? null}
               onChange={n => setQuantities(current => current.map((q, i) => i === index ? n : q))} />
           </div>)}
           <section className="purchase-section"><label className="input-label" htmlFor="receipt-notes">Receipt notes {discrepancy ? '(required for discrepancies)' : '(optional)'}</label>
-            <textarea id="receipt-notes" className="input-field" rows={3} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Explain missing or extra cylinders…" />
+            <textarea id="receipt-notes" className="input-field" rows={2} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Explain missing or extra cylinders…" />
           </section>
           <p className="purchase-hint">{purchase.payment_status === 'paid'
             ? `The paid total of ${formatBDT(Number(purchase.total_cost))} remains unchanged, even if actual quantities differ.`

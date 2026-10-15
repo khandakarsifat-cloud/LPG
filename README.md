@@ -1,6 +1,6 @@
 # LPG Manager
 
-LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Workers Static Assets. Production deployment and purchase acceptance were verified on **2026-10-14**; older security advisor snapshots retain their original dates below.
+LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Workers Static Assets. Production deployment and purchase acceptance were verified on **2026-10-15**; older security advisor snapshots retain their original dates below.
 
 ## Current status
 
@@ -14,7 +14,7 @@ The current local deployment uses the root [`compose.yml`](compose.yml) with a s
 | POS | Product selection by cylinder mouth size; refill, package, and empty return line types; customer lookup or creation; retail and wholesale pricing; discounts, exchange fees, notes, and checkout. Refill quantity must match empty returns. Confirm & Print sends the completed sale directly to the configured USB ESC/POS printer through a Windows host bridge. Saved sales can be reprinted without creating another sale. |
 | Inventory | Item registry, filled and empty balances, stock summaries, recent movement feed, and per item history. No manual adjustment dialog is exposed in the current UI. |
 | Customers | Customer list, search, creation, and phone based matching. Customer phone numbers accept numeric Bangladesh mobile formats `01XXXXXXXXX` and `08801XXXXXXXXX`. |
-| Purchases | Plant-only Created orders, empty-cylinder dispatch to In Transit, actual new/refill receipt and independent full payment. Commission reduces company payable; money locks on payment and Received + Paid purchases show a read-only summary and activity history. |
+| Purchases | Compact searchable Created orders, one-empty-per-refill dispatch to In Transit, editable expected-default receipt quantities and independent full payment. Commission reduces company payable; money locks on payment and Received + Paid purchases show a read-only summary and activity history. |
 | Logistics | Truck registry, status and location changes, transits, cost breakdowns, and wallet balance display. |
 | Gas plants | Plant directory with LPG brand association and area officer contacts. |
 | Employees | Employee profiles, multiple phone numbers, employee types, business units, activation status, payment categories, and payment history. |
@@ -38,6 +38,8 @@ The deployed database exposes **30 public tables**, all with RLS enabled, includ
 ### Routes
 
 Routes use URL hashes, for example `http://127.0.0.1:3001/#/pos`.
+
+The header search finds pages available to the signed-in user's permissions; select a result or press Enter to navigate. Theme and account controls remain available on mobile. Purchases uses page scrolling, a compact header overview, token search (spaces AND, commas OR), shipment/payment and inclusive date filters, and date/amount sorting with a reset action; a negative wallet balance is displayed as a deficit.
 
 | Route | Screen |
 | --- | --- |
@@ -114,7 +116,7 @@ Use **Confirm & Print** at checkout, **Reprint Last Sale** in POS, or **Print Re
 
 ### Migration state
 
-All **fifteen** repository migrations match the production migration history, verified on **2026-10-14**. The purchase migrations add Created status, independent payment, commission, actual receipt, activity and atomic stock/shipment/settlement rules; a forward ownership migration aligns private helpers and RPCs with the existing `postgres` application owner. The updated frontend is published to the existing Worker. Historical stock balances, inventory movements, wallet balances and transactions remained unchanged across deployment and acceptance testing. The [purchase workflow](docs/modules/purchases-and-logistics.md) explains billing and compatibility. The [migration audit](supabase/migration-audit.md) is an older snapshot; [authorization](supabase/authorization.md) documents permission gates and platform-superuser requirements.
+All **sixteen** repository migrations match production history, verified on **2026-10-15**. The purchase migrations add Created status, independent payment, commission, actual receipt, activity and atomic stock/shipment/settlement rules; the ownership migration aligns helpers and RPCs with the existing `postgres` application owner. `20261014183416_purchase_refill_exchange.sql` restores one empty per expected refill on Created plans while retaining recorded quantities on existing dispatched shipments. The compact Purchases frontend is published to the existing Cloudflare Worker. Existing stock balances, inventory movements, wallet balances and transactions were unchanged by deployment and live acceptance testing; fixture accounts and businesses were removed. The [purchase workflow](docs/modules/purchases-and-logistics.md) explains billing and compatibility. The [migration audit](supabase/migration-audit.md) is an older snapshot; [authorization](supabase/authorization.md) documents permission gates and platform-superuser requirements.
 
 ## Project layout
 

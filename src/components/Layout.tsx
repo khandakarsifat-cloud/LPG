@@ -1,6 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  Bell,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -48,8 +47,13 @@ export const Layout = () => {
   const { profile, permissions, signOut } = useAuth();
   const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [workspaceSearch, setWorkspaceSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme() ?? getPreferredTheme());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getStoredSidebarCollapsed);
+  const availablePages = navItems.filter(item => hasAnyPermission(permissions, routePermissions[item.path]));
+  const matchingPages = availablePages.filter(item => item.label.toLowerCase().includes(workspaceSearch.trim().toLowerCase()));
+  const openPage = (path: string) => { navigate(path); setSearchOpen(false); setWorkspaceSearch(''); };
 
   useEffect(() => {
     applyTheme(theme);
@@ -130,14 +134,31 @@ export const Layout = () => {
 
       <main className="main-content">
         <header className="topbar">
-          <div className="topbar-search">
+          <div className="topbar-search workspace-search" onBlur={event => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setSearchOpen(false);
+          }}>
             <Search size={16} className="topbar-search-icon" />
             <input
               type="text"
-              placeholder="Search workspace"
+              placeholder="Find a page…"
               className="input-field topbar-search-input"
               aria-label="Search workspace"
+              aria-expanded={searchOpen}
+              aria-controls="workspace-search-results"
+              value={workspaceSearch}
+              onFocus={() => setSearchOpen(true)}
+              onChange={event => { setWorkspaceSearch(event.target.value); setSearchOpen(true); }}
+              onKeyDown={event => {
+                if (event.key === 'Escape') { setSearchOpen(false); event.currentTarget.blur(); }
+                if (event.key === 'Enter' && matchingPages.length) { openPage(matchingPages[0].path); event.currentTarget.blur(); }
+                if (event.key === 'ArrowDown') { event.preventDefault(); event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('.workspace-search-result')?.focus(); }
+              }}
             />
+            {searchOpen && <div id="workspace-search-results" className="workspace-search-results">
+              {matchingPages.length ? matchingPages.map(item => <button key={item.path} type="button" className="workspace-search-result" onClick={() => openPage(item.path)}>
+                <item.icon size={16} aria-hidden="true" />{item.label}
+              </button>) : <p>No pages match your search.</p>}
+            </div>}
           </div>
 
           <div className="topbar-actions">
@@ -151,12 +172,11 @@ export const Layout = () => {
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            <button className="topbar-icon-btn" aria-label="Notifications">
-              <Bell size={18} />
-              <span className="topbar-notif-dot" />
-            </button>
-
-            <div className="user-menu-wrapper">
+            <div className="user-menu-wrapper" onBlur={event => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setUserMenuOpen(false);
+            }} onKeyDown={event => {
+              if (event.key === 'Escape') { setUserMenuOpen(false); event.currentTarget.querySelector<HTMLButtonElement>('.user-menu-trigger')?.focus(); }
+            }}>
               <button
                 className="user-menu-trigger"
                 onClick={() => setUserMenuOpen((v) => !v)}

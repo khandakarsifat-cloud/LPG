@@ -4,7 +4,7 @@ import { useCreatePurchase } from '../../hooks/usePurchases';
 import { useGasPlants } from '../../hooks/useGasPlants';
 import { emptyPurchaseDraft, purchaseTotals, validatePurchaseDraft } from '../../lib/purchase';
 import { PurchaseConfirmation, PurchaseDialog, PurchaseSelect } from './PurchaseControls';
-import { PurchaseForm } from './PurchaseForm';
+import { PurchaseForm, PurchaseShipment } from './PurchaseForm';
 import './purchases.css';
 
 export function CreatePurchaseModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -39,16 +39,18 @@ function CreatePurchase({ onClose }: { onClose: () => void }) {
       }}>
         <div className="modal-body">
           {error && <p role="alert" className="purchase-error">{error}</p>}
-          <section className="purchase-section"><h3>Destination</h3>
-            <PurchaseSelect label="Destination plant" value={plantId} placeholder={plantsQuery.isLoading ? 'Loading plants…' : 'Search plants or companies'}
-              options={plants.map(plant => ({ value: plant.plant_id, label: plant.plant_name, description: [plant.brand_name, plant.location].filter(Boolean).join(' · ') }))}
-              onChange={id => { setPlantId(id); setDraft(previous => ({ ...previous, items: [], commission: 0 })); setError(null); }} />
-            {plant && <dl className="purchase-meta"><div><dt>Company</dt><dd>{plant.brand_name}</dd></div><div><dt>Location</dt><dd>{plant.location || 'Not specified'}</dd></div></dl>}
-            <p className="purchase-hint">The plant determines the company. Both are fixed once this purchase is created.</p>
+          <section className="purchase-section"><h3>Destination & vehicle</h3>
+            <div className="purchase-destination-grid">
+              <PurchaseSelect label="Destination plant" value={plantId} placeholder={plantsQuery.isLoading ? 'Loading plants…' : 'Select a plant'}
+                options={plants.map(plant => ({ value: plant.plant_id, label: plant.plant_name, description: [plant.brand_name, plant.location].filter(Boolean).join(' · ') }))}
+                onChange={id => { setPlantId(id); setDraft(previous => ({ ...previous, items: [], commission: 0 })); setError(null); }} />
+              {plant && <PurchaseShipment draft={draft} onChange={setDraft} />}
+            </div>
+            {plant && <p className="purchase-hint">Company: <strong>{plant.brand_name}</strong>{plant.location ? ` · ${plant.location}` : ''}. Plant and company are fixed after creation.</p>}
             {plantsQuery.isError && <p role="alert" className="purchase-error">Plants could not be loaded. <button type="button" className="btn btn-ghost" onClick={() => void plantsQuery.refetch()}>Retry</button></p>}
             {!plantsQuery.isLoading && !plants.length && !plantsQuery.isError && <p className="purchase-error">Add an active plant linked to a company in Gas Plants first.</p>}
           </section>
-          {plant && <PurchaseForm draft={draft} onChange={setDraft} companyId={plant.brand_id} />}
+          {plant && <PurchaseForm draft={draft} onChange={setDraft} companyId={plant.brand_id} showShipment={false} />}
         </div>
         <div className="modal-footer"><span className="purchase-hint purchase-footer-hint">Created purchases do not move stock or make payments.</span>
           <button type="button" className="btn btn-secondary" disabled={create.isPending} onClick={onClose}>Cancel</button>

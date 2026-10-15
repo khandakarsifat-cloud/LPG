@@ -41,7 +41,13 @@ if (replayIndex === -1) {
       grant usage on schema auth to anon,authenticated; grant execute on function auth.uid(),auth.jwt() to anon,authenticated;
       select set_config('lpg.disposable_replay','on',false);`);
     const names=readdirSync(new URL('../migrations/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort();
+    let exchangeCompatibility = false;
     for(const name of names) {
+      if(name.endsWith('_purchase_refill_exchange.sql')) {
+        report('historical compatibility',await db.exec(read('purchases-legacy.after.sql')));
+        await db.exec(read('purchases-exchange.before.sql'));
+        exchangeCompatibility = true;
+      }
       if(name.endsWith('_purchase_created_status.sql')) {
         await db.exec(read('purchases-legacy.before.sql'));
         // Production migrations run as the platform administrator while the
@@ -58,7 +64,8 @@ if (replayIndex === -1) {
     if(process.argv.includes('--deployment-batch')) await db.exec('commit;');
     console.log('Migration replay:', (await db.query('select version()')).rows[0].version);
     await db.exec('set row_security=on; set check_function_bodies=on;');
-    report('historical compatibility',await db.exec(read('purchases-legacy.after.sql')));
+    if(exchangeCompatibility) report('exchange compatibility',await db.exec(read('purchases-exchange.after.sql')));
+    else report('historical compatibility',await db.exec(read('purchases-legacy.after.sql')));
     for(const name of ['purchases.sql','authorization.sql','receipt_printers.sql']) report(name,await db.exec(read(name)));
   } catch(error) {
     console.error({ message:error.message,detail:error.detail,where:error.where });

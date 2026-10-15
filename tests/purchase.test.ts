@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyPurchaseDraft, purchaseAccess, purchaseDraft, purchaseTotals, validatePurchaseDraft } from '../src/lib/purchase.ts';
+import { emptyPurchaseDraft, filterPurchases, purchaseAccess, purchaseDay, purchaseDraft, purchaseTotals, validatePurchaseDraft, type PurchaseFilters } from '../src/lib/purchase.ts';
 import { inventoryMovementLabel } from '../src/lib/inventoryMovement.ts';
 import type { Purchase } from '../src/types/purchase.ts';
 
@@ -76,4 +76,53 @@ test('inventory history identifies dispatch, new receipt and refill receipt', ()
   assert.equal(inventoryMovementLabel({ movement_type:'purchase',reference_type:'purchase_receipt_new' }),'New cylinders received');
   assert.equal(inventoryMovementLabel({ movement_type:'refill',reference_type:'purchase_receipt_refill' }),'Refills received');
   assert.equal(inventoryMovementLabel({ movement_type:'sale',reference_type:'sale' }),'Sale');
+});
+
+const filters: PurchaseFilters = { search: '', status: 'all', payment: 'all', from: '', to: '', sort: 'date_desc' };
+const searchable: Purchase[] = [
+  { ...purchase, purchase_id: 'a', company_name: 'Jamuna Gas', plant_name: 'Dhaka Plant', truck_name: 'Ashok Leyland', status: 'received', payment_status: 'paid', created_at: '2026-10-01T18:00:00Z', total_cost: 500,
+    items: [{ ...purchase.items[0], brand_name: 'Jamuna Gas', mouth_size: '22mm', size_kg: 12 }] },
+  { ...purchase, purchase_id: 'b', company_name: 'Bashundhara LPG', plant_name: 'Gazipur Plant', truck_name: 'JAC', status: 'in_transit', created_at: '2026-10-03T12:00:00Z', total_cost: 100,
+    items: [{ ...purchase.items[1], brand_name: 'Bashundhara LPG', size_kg: 12, mouth_size: '35mm' }] },
+  { ...purchase, purchase_id: 'c', company_name: 'Jamuna Gas', plant_name: 'Chattogram Plant', truck_name: 'Ashok', created_at: '2026-10-04T12:00:00Z', total_cost: 100, receipt_notes: 'Valve inspection',
+    items: [{ ...purchase.items[0], brand_name: 'Jamuna Gas', size_kg: 25, mouth_size: '22mm' }] },
+];
+const matches = (patch: Partial<PurchaseFilters>) => filterPurchases(searchable, { ...filters, ...patch }).map(p => p.purchase_id);
+
+test('search AND terms match across fields in any order, ignoring case and whitespace', () => {
+  assert.deepEqual(matches({ search: '  12KG   ASHOK jamuna  22mm  ' }), ['a']);
+  assert.deepEqual(matches({ search: 'jamuna jac' }), []);
+  assert.deepEqual(matches({ search: 'refill valve inspection' }), ['c']);
+});
+
+test('comma groups are OR, without joining fields from different purchases', () => {
+  assert.deepEqual(matches({ search: 'jamuna ashok 22mm 12kg, bashundhara 12kg' }), ['b', 'a']);
+  assert.deepEqual(matches({ search: ', , jamuna 12kg,  ,' }), ['a']);
+  assert.deepEqual(matches({ search: ' , , ' }), ['c', 'b', 'a']);
+  assert.deepEqual(matches({ search: 'jamuna 35mm, bashundhara 25kg' }), []);
+});
+
+test('search combines with status, payment and inclusive Dhaka date range', () => {
+  assert.deepEqual(matches({ search: 'jamuna, bashundhara', status: 'in_transit', payment: 'unpaid', from: '2026-10-03', to: '2026-10-03' }), ['b']);
+  assert.deepEqual(matches({ search: 'jamuna 12kg', payment: 'unpaid' }), []);
+  assert.deepEqual(matches({ from: '2026-10-02', to: '2026-10-02' }), ['a']);
+  assert.deepEqual(matches({ from: '2026-10-04', to: '2026-10-02' }), []);
+  assert.equal(purchaseDay('2026-10-01T17:59:59Z'), '2026-10-01');
+  assert.equal(purchaseDay('2026-10-01T18:00:00Z'), '2026-10-02');
+});
+
+test('all sort directions operate after filtering and do not mutate query data', () => {
+  assert.deepEqual(matches({ sort: 'date_asc' }), ['a', 'b', 'c']);
+  assert.deepEqual(matches({ sort: 'date_desc' }), ['c', 'b', 'a']);
+  assert.deepEqual(matches({ sort: 'amount_asc' }), ['b', 'c', 'a']);
+  assert.deepEqual(matches({ sort: 'amount_desc' }), ['a', 'b', 'c']);
+  assert.deepEqual(matches({ search: 'jamuna', sort: 'amount_asc' }), ['c', 'a']);
+  assert.deepEqual(searchable.map(p => p.purchase_id), ['a', 'b', 'c']);
+});
+
+test('Created drafts restore exchange quantities; saved dispatched history remains independent', () => {
+  assert.equal(purchaseDraft(purchase).items[0].empty_dispatched, 4);
+  const dispatched = { ...purchase, status: 'in_transit' as const };
+  assert.equal(purchaseDraft(dispatched).items[0].empty_dispatched, 6);
+  assert.match(validatePurchaseDraft({ ...emptyPurchaseDraft(), items: [{ ...purchaseDraft(purchase).items[0], empty_dispatched: 6 }] }, 400) ?? '', /one empty/);
 });

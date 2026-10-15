@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Check, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { formatBDNumber, formatBDQty, formatBDT } from '../../lib/formatBDT';
 import type { Purchase, PurchaseDraft } from '../../types/purchase';
 import { PURCHASE_STATUS_BG, PURCHASE_STATUS_COLORS, PURCHASE_STATUS_LABELS } from '../../types/purchase';
@@ -41,51 +41,19 @@ export function PurchaseConfirmation({ title, children, action, busy, onCancel, 
 
 export interface SelectionOption { value: string; label: string; description?: string }
 
-// Searchable combobox: arrow/Home/End navigation, Enter selection, Escape close,
-// labelled listbox and active descendant. No extra component library needed.
+// Native selects keep fixed options non-editable and provide keyboard/typeahead support.
 export function PurchaseSelect({ label, value, options, placeholder = 'Select…', onChange }: {
   label: string; value: string; options: SelectionOption[]; placeholder?: string; onChange: (value: string) => void;
 }) {
   const id = useId();
-  const root = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [active, setActive] = useState(0);
-  const selected = options.find(option => option.value === value);
-  const matches = options.filter(option => `${option.label} ${option.description ?? ''}`.toLowerCase().includes(search.toLowerCase()));
-  const select = (option: SelectionOption) => { onChange(option.value); setOpen(false); setSearch(''); };
-  useEffect(() => {
-    if (open) root.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
-  }, [active, open]);
-  return <div ref={root} className="purchase-select input-group" onBlur={event => {
-    if (!event.currentTarget.contains(event.relatedTarget)) { setOpen(false); setSearch(''); }
-  }}>
+  return <div className="purchase-select input-group">
     <label className="input-label" htmlFor={id}>{label}</label>
-    <div className="purchase-select-control">
-      <input id={id} className="input-field" role="combobox" aria-autocomplete="list" aria-expanded={open}
-        aria-controls={`${id}-options`} aria-activedescendant={open && matches.length ? `${id}-option-${Math.min(active, matches.length - 1)}` : undefined}
-        autoComplete="off" placeholder={placeholder} value={open ? search : selected?.label ?? ''}
-        onFocus={() => { setSearch(''); setActive(0); setOpen(true); }}
-        onChange={event => { setSearch(event.target.value); setActive(0); setOpen(true); }}
-        onKeyDown={event => {
-          if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); }
-          else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            event.preventDefault(); setOpen(true);
-            setActive(index => Math.max(0, Math.min(matches.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1))));
-          } else if (event.key === 'Home' && open) { event.preventDefault(); setActive(0); }
-          else if (event.key === 'End' && open) { event.preventDefault(); setActive(Math.max(0, matches.length - 1)); }
-          else if (event.key === 'Enter') { event.preventDefault(); if (open && matches[active]) select(matches[active]); }
-        }} />
-      <ChevronDown size={16} aria-hidden="true" />
-    </div>
-    {open && <div id={`${id}-options`} role="listbox" aria-label={label} className="purchase-select-menu">
-      {matches.length ? matches.map((option, index) => <div key={option.value} id={`${id}-option-${index}`}
-        role="option" aria-selected={index === active} className={`purchase-select-option${index === active ? ' active' : ''}`}
-        onMouseDown={event => event.preventDefault()} onClick={() => select(option)} onMouseMove={() => setActive(index)}>
-        <div><strong>{option.label}</strong>{option.description && <small>{option.description}</small>}</div>
-        {value === option.value && <Check size={16} aria-label="Selected" />}
-      </div>) : <p className="purchase-hint">No matching options.</p>}
-    </div>}
+    <select id={id} className="input-field" value={value} onChange={event => onChange(event.target.value)}>
+      {!options.some(option => option.value === '') && !options.some(option => option.value === value) && <option value="" disabled>{placeholder}</option>}
+      {options.map(option => <option key={option.value} value={option.value}>
+        {option.label}{option.description ? ` — ${option.description}` : ''}
+      </option>)}
+    </select>
   </div>;
 }
 

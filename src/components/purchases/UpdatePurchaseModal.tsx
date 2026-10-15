@@ -26,7 +26,8 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
   const dispatch = useDispatchPurchase();
   const pay = usePayPurchase();
   const busy = update.isPending || dispatch.isPending || pay.isPending;
-  const dirty = JSON.stringify(draft) !== JSON.stringify(purchaseDraft(purchase));
+  const dirty = JSON.stringify(draft) !== JSON.stringify(purchaseDraft(purchase))
+    || access.products && purchase.items.some(item => item.empty_dispatched !== (item.type === 'refill' ? item.quantity : 0));
   const totals = purchaseTotals(draft.items, draft.commission, draft.transport_cost, draft.labour_cost, purchase);
   const outgoing = purchase.items.reduce((sum, item) => sum + item.empty_dispatched, 0);
 
@@ -74,9 +75,10 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
           <PurchaseHistory purchaseId={purchase.purchase_id} />
         </div>
         <div className="modal-footer">
-          {dirty && <span className="purchase-hint purchase-footer-hint">Save changes before dispatch, receipt or payment.</span>}
+          {dirty ? <span className="purchase-hint purchase-footer-hint" role="status">Save changes before dispatch, receipt or payment.</span>
+            : access.dispatch && (!purchase.truck_id || !purchase.items.length) && <span className="purchase-hint purchase-footer-hint">Assign a truck and add at least one product to dispatch.</span>}
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Close</button>
-          {access.editable && <button type="submit" className="btn btn-secondary" disabled={busy || !dirty}><Save size={15} /> Save changes</button>}
+          {access.editable && <button type="submit" className={`btn ${dirty ? 'btn-primary' : 'btn-secondary'}`} disabled={busy || !dirty}><Save size={15} /> {update.isPending ? 'Saving…' : 'Save changes'}</button>}
           {access.pay && <button type="button" className="btn btn-secondary" disabled={busy || dirty} onClick={() => setConfirm('pay')}><CreditCard size={15} /> Record full payment</button>}
           {access.dispatch && <button type="button" className="btn btn-primary" disabled={busy || dirty || !purchase.truck_id || !purchase.items.length} onClick={() => setConfirm('dispatch')}><Truck size={15} /> Dispatch truck</button>}
           {access.receive && <button type="button" className="btn btn-primary" disabled={busy || dirty} onClick={() => setReceiptOpen(true)}><CheckCircle2 size={15} /> Receive shipment</button>}
