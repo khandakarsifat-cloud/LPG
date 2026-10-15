@@ -39,7 +39,7 @@ The deployed database exposes **30 public tables**, all with RLS enabled, includ
 
 Routes use URL hashes, for example `http://127.0.0.1:3001/#/pos`.
 
-The header search finds pages available to the signed-in user's permissions; select a result or press Enter to navigate. Theme and account controls remain available on mobile. Purchases uses page scrolling, a compact header overview, token search (spaces AND, commas OR), shipment/payment and inclusive date filters, and date/amount sorting with a reset action; a negative wallet balance is displayed as a deficit.
+The top bar shows the current page name, theme control and dealership wallet for users with wallet read permissions. The sidebar account beneath the business name opens the sign-out menu and remains available on mobile. Purchases uses page scrolling, four separated overview figures, company-led cards with product lists and one total purchase cost row, token search (spaces AND, commas OR), shipment/payment and inclusive date filters, and date/amount sorting with a reset action. Details remain in the purchase summary. A negative wallet balance is displayed as a deficit. Shared dropdown styling covers pages and modals; date fields include a keyboard-accessible calendar with month/year navigation, Today, Clear and range limits.
 
 | Route | Screen |
 | --- | --- |

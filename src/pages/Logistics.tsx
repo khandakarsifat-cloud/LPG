@@ -19,7 +19,6 @@ export const LogisticsPage = () => {
       {/* ── Page Header ── */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Logistics Management</h1>
           <p className="page-subtitle">
             Manage your fleet and track delivery operations.
           </p>

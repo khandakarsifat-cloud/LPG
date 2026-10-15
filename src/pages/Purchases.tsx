@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Plus, Wallet } from 'lucide-react';
-import { useWallets } from '../hooks/useLogistics';
+import { Plus } from 'lucide-react';
 import { PurchasesList } from '../components/purchases/PurchasesList';
 import { CreatePurchaseModal } from '../components/purchases/CreatePurchaseModal';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,21 +9,15 @@ import { usePurchases } from '../hooks/usePurchases';
 export const PurchasesPage = () => {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const { can } = useAuth();
-  const { data: wallets } = useWallets();
   const purchasesQuery = usePurchases();
   const purchases = purchasesQuery.data ?? [];
   const unpaid = purchases.filter(p => p.payment_status === 'unpaid' && p.status !== 'created' && p.status !== 'cancelled');
   const summaryValue = (value: number | string) => purchasesQuery.isLoading ? '…' : purchasesQuery.isError ? '—' : value;
 
-  const dealershipWallet = wallets?.find((w) => w.type === 'dealership');
-
   return (
     <div className="purchases-page">
       {/* ── Page Header ── */}
       <div className="page-header purchases-header">
-        <div>
-          <h1 className="page-title">Purchases</h1>
-        </div>
         <dl className="purchase-list-summary" aria-label="Purchase overview">
           <div><dt>Created</dt><dd>{summaryValue(purchases.filter(p => p.status === 'created').length)}</dd></div>
           <div><dt>In Transit</dt><dd>{summaryValue(purchases.filter(p => p.status === 'in_transit').length)}</dd></div>
@@ -33,20 +26,6 @@ export const PurchasesPage = () => {
         </dl>
         
         <div className="purchases-header-actions">
-          {dealershipWallet && (
-            <div className={`purchase-wallet${Number(dealershipWallet.balance) < 0 ? ' negative' : ''}`}>
-              <div className="purchase-wallet-icon">
-                <Wallet size={16} />
-              </div>
-              <div>
-                <div className="purchase-wallet-label">Dealership wallet</div>
-                <div className="purchase-wallet-value">
-                  {formatBDT(Number(dealershipWallet.balance))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {can('purchases:manage') && <button className="btn btn-primary" aria-label="New Purchase" onClick={() => setPurchaseOpen(true)}>
             <Plus size={16} />
             <span className="purchase-new-label">New Purchase</span>

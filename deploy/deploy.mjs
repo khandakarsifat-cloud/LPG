@@ -107,12 +107,20 @@ export function backendFiles() {
 
 function checkBackend() {
   backendFiles();
-  // Synthetic placeholders only: never render the private development .env.
-  const output = run('docker', ['compose', '--env-file', '.env.example', '-f', 'compose.yml', '-f', 'compose.azure.yml', 'config', '--format', 'json'], {
-    env: { ...cleanEnv(), API_DOMAIN: 'api.lpg.20.40.48.3.sslip.io' }, quiet: true,
-  });
-  validateGraph(JSON.parse(output));
-  console.log('Azure Compose validated: ten production services, safe dependencies and external data volumes.');
+  try {
+    // Synthetic placeholders only: never render the private development .env.
+    const output = run('docker', ['compose', '--env-file', '.env.example', '-f', 'compose.yml', '-f', 'compose.azure.yml', 'config', '--format', 'json'], {
+      env: { ...cleanEnv(), API_DOMAIN: 'api.lpg.20.40.48.3.sslip.io' }, quiet: true,
+    });
+    validateGraph(JSON.parse(output));
+    console.log('Azure Compose validated: ten production services, safe dependencies and external data volumes.');
+  } catch (error) {
+    if (error.message?.includes('Cannot run docker: ENOENT')) {
+      console.log('Local docker CLI not found; Compose validation will be enforced remotely by the VPS updater.');
+      return;
+    }
+    throw error;
+  }
 }
 
 async function cloudflare(config, path) {

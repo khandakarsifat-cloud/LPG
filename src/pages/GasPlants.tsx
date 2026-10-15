@@ -56,7 +56,6 @@ export const GasPlantsPage = () => {
       {/* ── Page Header ── */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Gas Plants</h1>
           <p className="page-subtitle">
             Manage LPG filling plants and their area officers across all brands.
           </p>

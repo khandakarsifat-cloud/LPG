@@ -120,6 +120,40 @@ export const POSPage = () => {
   const handleConfirm = () => completeCheckout(false);
   const handleConfirmAndPrint = () => completeCheckout(true);
 
+  const handleAddItem = useCallback((item: POSSalePayload['items'][0]) => {
+    if (item.type === 'refill' || item.type === 'package') {
+      const invItem = inventoryItems?.find(i => i.item_id === item.item_id);
+      const maxStock = invItem?.filled_quantity || 0;
+      const currentTotalInCart = items
+        .filter(i => i.item_id === item.item_id && (i.type === 'refill' || i.type === 'package'))
+        .reduce((acc, curr) => acc + curr.quantity, 0);
+
+      if (currentTotalInCart + item.quantity > maxStock) {
+        toast.error(`Cannot add more. Only ${maxStock} filled cylinders in stock.`);
+        return;
+      }
+    }
+
+    setItems(prev => {
+      const existing = prev.find(i => i.item_id === item.item_id && i.type === item.type);
+      if (existing) {
+        return prev.map(i => i === existing ? { ...i, quantity: i.quantity + item.quantity } : i);
+      }
+      return [...prev, item];
+    });
+  }, [inventoryItems, items]);
+
+  const handleDecreaseItem = useCallback((itemId: string, type: 'refill' | 'package' | 'empty_return') => {
+    setItems(prev => {
+      const existing = prev.find(i => i.item_id === itemId && i.type === type);
+      if (!existing) return prev;
+      if (existing.quantity > 1) {
+        return prev.map(i => i === existing ? { ...i, quantity: i.quantity - 1 } : i);
+      }
+      return prev.filter(i => !(i.item_id === itemId && i.type === type));
+    });
+  }, []);
+
   const blockReason = getCheckoutBlockReason();
 
   return (
@@ -132,9 +166,6 @@ export const POSPage = () => {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)', minHeight: 0, minWidth: 0 }}>
           {/* Title + Mouth Size toggle row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0, flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ReceiptText size={20} /> Point of Sale
-            </h1>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Products</span>
 
             {/* Mouth Size Pill Toggle */}
@@ -167,28 +198,9 @@ export const POSPage = () => {
 
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: '0.25rem' }}>
             <POSItemsGrid
-              onAddItem={(item) => {
-                if (item.type === 'refill' || item.type === 'package') {
-                  const invItem = inventoryItems?.find(i => i.item_id === item.item_id);
-                  const maxStock = invItem?.filled_quantity || 0;
-                  const currentTotalInCart = items
-                    .filter(i => i.item_id === item.item_id && (i.type === 'refill' || i.type === 'package'))
-                    .reduce((acc, curr) => acc + curr.quantity, 0);
-
-                  if (currentTotalInCart + item.quantity > maxStock) {
-                    toast.error(`Cannot add more. Only ${maxStock} filled cylinders in stock.`);
-                    return;
-                  }
-                }
-
-                setItems(prev => {
-                  const existing = prev.find(i => i.item_id === item.item_id && i.type === item.type);
-                  if (existing) {
-                    return prev.map(i => i === existing ? { ...i, quantity: i.quantity + item.quantity } : i);
-                  }
-                  return [...prev, item];
-                });
-              }}
+              cartItems={items}
+              onAddItem={handleAddItem}
+              onDecreaseItem={handleDecreaseItem}
               tier={customer?.tier || 'retail'}
               mouthSize={mouthSize}
             />

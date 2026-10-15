@@ -13,7 +13,6 @@ export const SettingsPage = () => {
           <SettingsIcon size={24} color="white" />
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.875rem', fontWeight: 700 }}>Settings</h1>
           <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
             Manage your business profile and preferences
           </p>

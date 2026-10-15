@@ -15,7 +15,6 @@ export const CustomersPage = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1 className="page-title">Customer Management</h1>
         <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
           <Plus size={18} />
           <span>Add Customer</span>

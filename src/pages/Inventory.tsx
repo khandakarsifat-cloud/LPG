@@ -27,7 +27,6 @@ export const InventoryPage = () => {
       {/* ── Page Header ── */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Inventory Ledger</h1>
           <p className="page-subtitle">
             Immutable event-sourced stock tracking. Every movement is permanent.
           </p>

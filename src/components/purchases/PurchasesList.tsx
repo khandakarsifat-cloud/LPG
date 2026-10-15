@@ -1,6 +1,7 @@
+import { DatePicker } from '../ui/DatePicker';
 import { useMemo, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { Package, Truck, Calendar, Search, ArrowRight, RotateCcw } from 'lucide-react';
+import { Package, Truck, Calendar, Search, RotateCcw } from 'lucide-react';
 import { filterPurchases, type PurchaseSort } from '../../lib/purchase';
 import { PurchaseSelect, PurchaseStatuses } from './PurchaseControls';
 import { UpdatePurchaseModal } from './UpdatePurchaseModal';
@@ -31,8 +32,8 @@ export function PurchasesList({ query }: { query: UseQueryResult<Purchase[], Err
       <PurchaseSelect label="Payment status" value={payment} onChange={setPayment} options={[{ value: 'all', label: 'All payments' }, { value: 'unpaid', label: 'Unpaid' }, { value: 'paid', label: 'Paid' }]} />
       <div className="purchase-filter-extras">
         <div className="purchase-date-range" role="group" aria-label="Purchase date range">
-          <label htmlFor="purchase-from">From</label><input id="purchase-from" className="input-field" type="date" value={from} max={to || undefined} onChange={event => setFrom(event.target.value)} />
-          <label htmlFor="purchase-to">To</label><input id="purchase-to" className="input-field" type="date" value={to} min={from || undefined} onChange={event => setTo(event.target.value)} />
+          <label htmlFor="purchase-from">From</label><DatePicker id="purchase-from" label="From" value={from} max={to || undefined} onChange={setFrom} />
+          <label htmlFor="purchase-to">To</label><DatePicker id="purchase-to" label="To" value={to} min={from || undefined} onChange={setTo} />
         </div>
         <PurchaseSelect label="Sort by" value={sort} onChange={value => {
           if (value === 'date_desc' || value === 'date_asc' || value === 'amount_desc' || value === 'amount_asc') setSort(value);
@@ -45,18 +46,18 @@ export function PurchasesList({ query }: { query: UseQueryResult<Purchase[], Err
     {!filtered.length && <div className="purchase-empty purchase-list-empty"><Package size={28} /><p>{purchases.length ? 'No purchases match these filters.' : 'Create a purchase with a destination plant to get started.'}</p>
       {hasFilters && <button className="btn btn-secondary" onClick={resetFilters}>Clear filters</button>}
     </div>}
-    <div className="purchases-grid">{filtered.map(purchase => <button key={purchase.purchase_id} className="glass-panel purchase-card purchase-card-button" onClick={() => setSelected(purchase)}>
-      <div className="purchase-card-header"><div><strong>{purchase.plant_name}</strong><p className="purchase-hint">{purchase.company_name ?? 'Historical purchase'}</p></div><PurchaseStatuses purchase={purchase} /></div>
+    <div className="purchases-grid">{filtered.map(purchase => <button key={purchase.purchase_id} className="glass-panel purchase-card purchase-card-button" data-status={purchase.status} data-purchase-id={purchase.purchase_id} onClick={() => setSelected(purchase)}>
+      <div className="purchase-card-header"><div><strong>{purchase.company_name ?? 'Historical purchase'}</strong></div><PurchaseStatuses purchase={purchase} /></div>
       <div className="purchase-card-meta"><div className="purchase-info-row"><Calendar size={14} /><span>{new Date(purchase.created_at).toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
         <div className="purchase-info-row"><Truck size={14} /><span>{purchase.truck_name ?? 'Truck not assigned'}</span></div></div>
-      <div className="purchase-items-preview"><div className="purchase-items-count">{purchase.items.length} product {purchase.items.length === 1 ? 'line' : 'lines'}</div>
-        {!purchase.items.length && <p className="purchase-hint">Add products before dispatch.</p>}
-        <div className="purchase-items-list">{purchase.items.slice(0, 3).map(item => <div key={item.purchase_item_id} className="purchase-item-pill">
-          <span className="pill-qty">{purchase.status === 'received' ? item.received_quantity ?? item.quantity : item.quantity}×</span><span className="pill-name">{item.size_kg} kg {item.mouth_size} {item.type === 'refill' ? 'refills' : 'new cylinders'}</span>
-        </div>)}{purchase.items.length > 3 && <span className="purchase-item-pill more">+{purchase.items.length - 3} more</span>}</div></div>
-      <div className="purchase-card-footer"><div><span className="purchase-total-label">Company payable</span><div>{formatBDT(Number(purchase.company_payable))}</div></div>
-        <div><span className="purchase-total-label">Total purchase cost</span><div className="purchase-total-value">{formatBDT(Number(purchase.total_cost))}</div></div></div>
-      <div className="purchase-card-action"><span>{purchase.status === 'received' && purchase.payment_status === 'paid' ? 'View summary' : 'View purchase'}</span><ArrowRight size={15} aria-hidden="true" /></div>
+      {purchase.items.length > 0 && <div className="purchase-items-list" aria-label="Purchased products">
+        {purchase.items.map(item => <div key={item.purchase_item_id} className="purchase-item-pill">
+          <span className="pill-qty">{purchase.status === 'received' ? item.received_quantity ?? item.quantity : item.quantity}×</span>
+          <span className="pill-name">{item.size_kg} kg {item.mouth_size} {item.type === 'refill' ? 'refills' : 'new cylinders'}</span>
+        </div>)}
+      </div>}
+      <div className="purchase-card-footer"><span className="purchase-total-label">Total purchase cost</span>
+        <strong className="purchase-total-value">{formatBDT(Number(purchase.total_cost))}</strong></div>
     </button>)}</div>
     <UpdatePurchaseModal open={selected !== null} purchase={selected} onClose={() => setSelected(null)} />
   </div>;

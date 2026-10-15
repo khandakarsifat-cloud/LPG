@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronLeft,
@@ -7,9 +7,9 @@ import {
   Factory,
   LayoutDashboard,
   LogOut,
+  Menu,
   Moon,
   Package,
-  Search,
   Settings,
   ShoppingCart,
   Sun,
@@ -17,11 +17,15 @@ import {
   UserCircle,
   UserRound,
   Users,
+  Wallet,
+  X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { hasAnyPermission, routePermissions } from '../lib/authorization';
 import { applyTheme, getPreferredTheme, getStoredTheme, persistTheme, type AppTheme } from '../lib/theme';
+import { useWallets } from '../hooks/useLogistics';
+import { formatBDT } from '../lib/formatBDT';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -38,6 +42,15 @@ const navItems = [
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'lpg-sidebar-collapsed';
 
+function DealershipWallet() {
+  const { data, isLoading, isError } = useWallets();
+  const wallet = data?.find(wallet => wallet.type === 'dealership');
+  return <div className={`topbar-wallet${Number(wallet?.balance) < 0 ? ' negative' : ''}`}>
+    <Wallet size={19} aria-hidden="true" />
+    <div><span>Dealership wallet</span><strong>{isLoading ? '…' : isError || !wallet ? '—' : formatBDT(Number(wallet.balance))}</strong></div>
+  </div>;
+}
+
 const getStoredSidebarCollapsed = (): boolean => {
   if (typeof window === 'undefined') return false;
   return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
@@ -46,19 +59,33 @@ const getStoredSidebarCollapsed = (): boolean => {
 export const Layout = () => {
   const { profile, permissions, signOut } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [workspaceSearch, setWorkspaceSearch] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme() ?? getPreferredTheme());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getStoredSidebarCollapsed);
-  const availablePages = navItems.filter(item => hasAnyPermission(permissions, routePermissions[item.path]));
-  const matchingPages = availablePages.filter(item => item.label.toLowerCase().includes(workspaceSearch.trim().toLowerCase()));
-  const openPage = (path: string) => { navigate(path); setSearchOpen(false); setWorkspaceSearch(''); };
+  const currentPage = navItems.find(item => item.path === pathname);
+
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setMobileMenuOpen(false);
+  }
 
   useEffect(() => {
     applyTheme(theme);
     persistTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -77,7 +104,15 @@ export const Layout = () => {
 
   return (
     <div className="app-container">
-      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-backdrop mobile-only"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-logo">
           <div className="sidebar-logo-brand">
             <span className="sidebar-logo-text">
@@ -87,13 +122,22 @@ export const Layout = () => {
           </div>
           <button
             type="button"
-            className="sidebar-collapse-btn"
+            className="sidebar-collapse-btn desktop-only"
             onClick={() => setSidebarCollapsed((v) => !v)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-expanded={!sidebarCollapsed}
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+          <button
+            type="button"
+            className="sidebar-close-btn mobile-only"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close navigation menu"
+            title="Close navigation menu"
+          >
+            <X size={18} />
           </button>
         </div>
 
@@ -108,6 +152,7 @@ export const Layout = () => {
                 end={item.end}
                 className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                 title={sidebarCollapsed ? item.label : undefined}
+                onClick={() => setMobileMenuOpen(false)}
               >
                 <Icon size={18} />
                 <span>{item.label}</span>
@@ -116,52 +161,80 @@ export const Layout = () => {
           })}
         </nav>
 
-        <div
-          className="sidebar-tenant-card"
-          title={sidebarCollapsed ? (profile?.business_name ?? 'Business workspace') : undefined}
-        >
-          <div className="sidebar-tenant-info">
+        <div className="user-menu-wrapper sidebar-account" onBlur={event => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setUserMenuOpen(false);
+        }} onKeyDown={event => {
+          if (event.key === 'Escape') { setUserMenuOpen(false); event.currentTarget.querySelector<HTMLButtonElement>('.user-menu-trigger')?.focus(); }
+        }}>
+          <button
+            className="user-menu-trigger sidebar-tenant-card"
+            type="button"
+            aria-label={`Account: ${profile?.full_name ?? 'Signed in user'}`}
+            title={sidebarCollapsed ? profile?.full_name : undefined}
+            onClick={() => setUserMenuOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={userMenuOpen}
+          >
             <div className="sidebar-tenant-avatar">{initials}</div>
-            <div>
-              <div className="sidebar-tenant-name">
-                {profile?.business_name ?? 'Loading...'}
-              </div>
-              <div className="sidebar-tenant-role">Business workspace</div>
+            <div className="sidebar-account-info">
+              <span className="sidebar-tenant-name">{profile?.business_name ?? 'Loading…'}</span>
+              <span className="sidebar-tenant-role">{profile?.full_name ?? 'Signed in user'}</span>
             </div>
-          </div>
+            <ChevronDown
+              size={14}
+              style={{
+                color: 'var(--text-muted)',
+                transform: userMenuOpen ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.2s',
+              }}
+            />
+          </button>
+
+          {userMenuOpen && (
+            <div className="user-menu-dropdown glass-panel" role="menu">
+              <div className="user-menu-header">
+                <div className="user-avatar user-avatar-lg">
+                  {initials === '?' ? <UserCircle size={20} /> : initials}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700 }}>{profile?.full_name ?? 'Signed in user'}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {profile?.email ?? ''}
+                  </div>
+                </div>
+              </div>
+              <div className="user-menu-divider" />
+              <button
+                className="user-menu-item user-menu-item-danger"
+                onClick={handleSignOut}
+                role="menuitem"
+              >
+                <LogOut size={15} />
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
       <main className="main-content">
         <header className="topbar">
-          <div className="topbar-search workspace-search" onBlur={event => {
-            if (!event.currentTarget.contains(event.relatedTarget)) setSearchOpen(false);
-          }}>
-            <Search size={16} className="topbar-search-icon" />
-            <input
-              type="text"
-              placeholder="Find a page…"
-              className="input-field topbar-search-input"
-              aria-label="Search workspace"
-              aria-expanded={searchOpen}
-              aria-controls="workspace-search-results"
-              value={workspaceSearch}
-              onFocus={() => setSearchOpen(true)}
-              onChange={event => { setWorkspaceSearch(event.target.value); setSearchOpen(true); }}
-              onKeyDown={event => {
-                if (event.key === 'Escape') { setSearchOpen(false); event.currentTarget.blur(); }
-                if (event.key === 'Enter' && matchingPages.length) { openPage(matchingPages[0].path); event.currentTarget.blur(); }
-                if (event.key === 'ArrowDown') { event.preventDefault(); event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('.workspace-search-result')?.focus(); }
-              }}
-            />
-            {searchOpen && <div id="workspace-search-results" className="workspace-search-results">
-              {matchingPages.length ? matchingPages.map(item => <button key={item.path} type="button" className="workspace-search-result" onClick={() => openPage(item.path)}>
-                <item.icon size={16} aria-hidden="true" />{item.label}
-              </button>) : <p>No pages match your search.</p>}
-            </div>}
+          <div className="topbar-left">
+            <button
+              className="topbar-icon-btn topbar-menu-btn mobile-only"
+              type="button"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileMenuOpen}
+              title={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            >
+              <Menu size={20} />
+            </button>
+            <h1 className="topbar-page-title">{currentPage?.label ?? 'Workspace'}</h1>
           </div>
 
           <div className="topbar-actions">
+            {hasAnyPermission(permissions, ['logistics:view', 'logistics:manage', 'finance:view', 'finance:manage']) && <DealershipWallet />}
             <button
               className="topbar-icon-btn"
               type="button"
@@ -171,58 +244,6 @@ export const Layout = () => {
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-
-            <div className="user-menu-wrapper" onBlur={event => {
-              if (!event.currentTarget.contains(event.relatedTarget)) setUserMenuOpen(false);
-            }} onKeyDown={event => {
-              if (event.key === 'Escape') { setUserMenuOpen(false); event.currentTarget.querySelector<HTMLButtonElement>('.user-menu-trigger')?.focus(); }
-            }}>
-              <button
-                className="user-menu-trigger"
-                onClick={() => setUserMenuOpen((v) => !v)}
-                aria-haspopup="menu"
-                aria-expanded={userMenuOpen}
-              >
-                <div className="user-avatar">{initials === '?' ? <UserCircle size={18} /> : initials}</div>
-                <div className="user-menu-info">
-                  <span className="user-menu-name">{profile?.full_name ?? 'Signed in user'}</span>
-                  <span className="user-menu-email">{profile?.email ?? 'No email'}</span>
-                </div>
-                <ChevronDown
-                  size={14}
-                  style={{
-                    color: 'var(--text-muted)',
-                    transform: userMenuOpen ? 'rotate(180deg)' : 'none',
-                    transition: 'transform 0.2s',
-                  }}
-                />
-              </button>
-
-              {userMenuOpen && (
-                <div className="user-menu-dropdown glass-panel" role="menu">
-                  <div className="user-menu-header">
-                    <div className="user-avatar user-avatar-lg">
-                      {initials === '?' ? <UserCircle size={20} /> : initials}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{profile?.full_name ?? 'Signed in user'}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {profile?.business_name ?? 'Workspace'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="user-menu-divider" />
-                  <button
-                    className="user-menu-item user-menu-item-danger"
-                    onClick={handleSignOut}
-                    role="menuitem"
-                  >
-                    <LogOut size={15} />
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </header>
 

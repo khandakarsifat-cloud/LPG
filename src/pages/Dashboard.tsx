@@ -17,7 +17,6 @@ export const Dashboard = () => {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Operations Overview</h1>
           <p className="page-subtitle">Daily sales, stock activity, and customer coverage.</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>

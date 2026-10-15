@@ -1,0 +1,73 @@
+/* All fixed-choice fields share the same picker, including modal fields. */
+select.input-field, .date-calendar select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364748b' stroke-width='1.8' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right .75rem center;
+  background-repeat: no-repeat;
+  border-radius: .625rem;
+}
+select.input-field:disabled { cursor: not-allowed; }
+
+@supports (appearance: base-select) {
+  select.input-field, .date-calendar select, select::picker(select) { appearance: base-select; }
+  select.input-field, .date-calendar select { background-image: none; padding-right: .75rem; gap: .75rem; align-items: center; }
+  select::picker-icon { color: var(--text-muted); transition: rotate 150ms; margin-left: auto; flex-shrink: 0; }
+  select:open::picker-icon { rotate: 180deg; }
+  select::picker(select) {
+    margin-block: .375rem;
+    padding: .375rem;
+    border: 1px solid var(--border-strong);
+    border-radius: .875rem;
+    background: var(--surface-raised);
+    color: var(--text-main);
+    box-shadow: var(--shadow-lg);
+    max-height: min(22rem, 65dvh);
+    overflow: auto;
+    min-width: anchor-size(width);
+    max-width: calc(100vw - 1rem);
+  }
+  select option {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .625rem .75rem;
+    min-height: 2.5rem;
+    border-radius: .5rem;
+    font-size: .8125rem;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+  }
+  select option:hover, select option:focus { background: var(--surface-subtle); outline: none; }
+  select option:checked { background: var(--primary-weak); color: var(--primary); font-weight: 600; }
+  select option:disabled { color: var(--text-soft); cursor: not-allowed; }
+  select option::checkmark { color: var(--primary); margin-left: auto; order: 1; }
+}
+
+.date-field { position: relative; min-width: 0; width: 100%; }
+.date-field > .input-field { padding-right: 2.25rem; min-width: 0; width: 100%; }
+.date-field input::-webkit-calendar-picker-indicator { display: none; }
+.date-trigger { position: absolute; top: 50%; right: .375rem; transform: translateY(-50%); display: grid; place-items: center; width: 1.75rem; height: 1.75rem; padding: 0; border: 0; border-radius: .375rem; background: transparent; color: var(--primary); cursor: pointer; }
+.date-trigger:hover { background: var(--primary-weak); }
+.date-trigger:disabled { opacity: .5; cursor: not-allowed; }
+.date-calendar { position: fixed; inset: auto; margin: 0; width: min(20rem, calc(100vw - 1rem)); max-height: calc(100dvh - 1rem); overflow: auto; padding: .875rem; border: 1px solid var(--border-strong); border-radius: 1rem; background: var(--surface-raised); color: var(--text-main); box-shadow: var(--shadow-lg); }
+.date-calendar-heading { display: flex; align-items: center; justify-content: space-between; gap: .375rem; margin-bottom: .875rem; }
+.date-calendar-heading > button { display: grid; place-items: center; flex-shrink: 0; width: 1.875rem; height: 1.875rem; padding: 0; border: 1px solid var(--border-subtle); border-radius: .5rem; background: var(--surface); color: var(--text-muted); cursor: pointer; }
+.date-calendar-period { display: flex; align-items: center; gap: .25rem; min-width: 0; }
+.date-calendar-period select, .date-calendar-period input { min-width: 0; padding: .375rem; border: 0; border-radius: .375rem; background-color: var(--surface); color: var(--text-main); font-size: .8125rem; font-weight: 650; }
+.date-calendar-period input { width: 4.25rem; }
+.date-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .25rem; margin-bottom: .25rem; text-align: center; }
+.date-week [role="columnheader"] { padding-block: .25rem .5rem; color: var(--text-muted); font-size: .6875rem; font-weight: 600; }
+.date-week button { width: 100%; aspect-ratio: 1; padding: 0; border: 1px solid transparent; border-radius: .5rem; background: transparent; color: var(--text-main); font-size: .8125rem; cursor: pointer; }
+.date-week button.outside-month { color: var(--text-soft); }
+.date-week button.today { border-color: var(--primary); color: var(--primary); }
+.date-week button:hover { background: var(--primary-weak); color: var(--primary); }
+.date-week button.selected { background: var(--primary); color: var(--primary-contrast); font-weight: 700; }
+.date-week button[aria-disabled="true"] { opacity: .3; cursor: not-allowed; }
+.date-calendar-footer { display: flex; justify-content: space-between; margin-top: .75rem; padding-top: .625rem; border-top: 1px solid var(--border-subtle); }
+.date-calendar-footer button { border: 0; border-radius: .375rem; background: transparent; color: var(--primary); font-size: .75rem; font-weight: 600; padding: .375rem .5rem; cursor: pointer; }
+.date-calendar button:disabled { opacity: .4; cursor: not-allowed; }
+.date-calendar-heading > button:hover, .date-calendar-footer button:hover:not(:disabled), .date-calendar-period select:hover { background: var(--primary-weak); }

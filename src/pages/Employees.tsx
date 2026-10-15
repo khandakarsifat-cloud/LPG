@@ -1,3 +1,4 @@
+import { DatePicker } from '../components/ui/DatePicker';
 import { type FormEvent, useMemo, useState } from 'react';
 import { BadgeDollarSign, BriefcaseBusiness, Pencil, Plus, Search, Users, X } from 'lucide-react';
 import {
@@ -130,7 +131,6 @@ export const EmployeesPage = () => {
     <div className="employees-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Employees</h1>
           <p className="page-subtitle">Manage staff profiles, salary details, and employee payment history.</p>
         </div>
         <button className="btn btn-primary" type="button" onClick={() => setEmployeeModal({ mode: 'create' })}>
@@ -707,7 +707,7 @@ const PaymentModal = ({
             </div>
             <div className="input-group">
               <label className="input-label">Payment Date *</label>
-              <input className="input-field" type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
+              <DatePicker label="Payment date" value={paymentDate} onChange={setPaymentDate} required />
             </div>
           </div>
 

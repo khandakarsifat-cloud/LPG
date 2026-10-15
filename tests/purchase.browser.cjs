@@ -81,7 +81,7 @@ async page => {
   await page.reload();
   await page.goto(`${appUrl}/#/purchases`);
   const check=async(ok,label)=>{if(!ok)throw new Error('FAIL: '+label);};
-  const openPurchase=async()=>{await page.getByRole('button').filter({hasText:'Meghna Filling Plant'}).first().click();};
+  const openPurchase=async()=>{await page.locator('.purchase-card').first().click();};
   const selectPlant=async()=>{
     const input=page.getByRole('combobox',{name:'Destination plant'});
     await input.selectOption(plant);
@@ -252,11 +252,11 @@ async page => {
   await page.reload();
   await page.getByRole('heading',{name:'Purchases',exact:true}).waitFor();
   await page.setViewportSize({width:1366,height:646});
-  await check(await page.locator('.purchase-wallet').evaluate(el=>el.classList.contains('negative')),'negative wallet has deficit styling');
+  await check(await page.locator('.topbar-wallet').evaluate(el=>el.classList.contains('negative')),'negative wallet has deficit styling');
   await check(await page.locator('#purchase-search').evaluate(el=>parseFloat(getComputedStyle(el).paddingLeft)>=32),'search text clears its icon');
   await check(await page.locator('.purchases-grid').evaluate(el=>el.scrollHeight<=el.clientHeight),'purchase grid does not create a nested scrollbar');
-  await page.getByRole('button').filter({hasText:'Delivery plant 10'}).scrollIntoViewIfNeeded();
-  await check(await page.getByRole('button').filter({hasText:'Delivery plant 10'}).isVisible(),'last purchase remains reachable');
+  await page.locator('.purchase-card').last().scrollIntoViewIfNeeded();
+  await check(await page.locator('.purchase-card').last().isVisible(),'last purchase remains reachable');
   await page.locator('.page-content').evaluate(el=>el.scrollTop=0);
   await page.screenshot({path:'.temp/purchase-verification/list-desktop.png'});
   await page.getByLabel('Search purchases',{exact:true}).fill('not-a-plant');
@@ -273,47 +273,66 @@ async page => {
   await searchControl.fill('jamuna ashok, bashundhara 12kg');
   await check(await page.locator('.purchase-card').count()===5,'OR groups stay within active filters');
   await page.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('amount_desc');
-  await check((await page.locator('.purchase-card').first().innerText()).includes('Delivery plant 7'),'highest total first');
+  await check(await page.locator('.purchase-card').first().getAttribute('data-purchase-id')===purchases.find(p=>p.plant_name==='Delivery plant 7').purchase_id,'highest total first');
   await page.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('amount_asc');
-  await check((await page.locator('.purchase-card').first().innerText()).includes('Delivery plant 3'),'lowest total first');
+  await check(await page.locator('.purchase-card').first().getAttribute('data-purchase-id')===purchases.find(p=>p.plant_name==='Delivery plant 3').purchase_id,'lowest total first');
   await page.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('date_desc');
-  await check((await page.locator('.purchase-card').first().innerText()).includes('Delivery plant 7'),'newest date first');
+  await check(await page.locator('.purchase-card').first().getAttribute('data-purchase-id')===purchases.find(p=>p.plant_name==='Delivery plant 7').purchase_id,'newest date first');
   await page.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('date_asc');
-  await check((await page.locator('.purchase-card').first().innerText()).includes('Delivery plant 3'),'oldest date first');
+  await check(await page.locator('.purchase-card').first().getAttribute('data-purchase-id')===purchases.find(p=>p.plant_name==='Delivery plant 3').purchase_id,'oldest date first');
   await page.getByRole('combobox',{name:'Payment status',exact:true}).selectOption('unpaid');
   await check(await page.getByText('No purchases match these filters.',{exact:true}).isVisible(),'OR search cannot bypass payment filter');
   await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
   await check(await page.locator('.purchase-card').count()===purchases.length,'reset clears search, statuses, dates and sort');
-  const workspace=page.getByRole('textbox',{name:'Search workspace',exact:true});
-  await workspace.fill('Purchases');await workspace.press('Enter');
-  await check(await workspace.inputValue()===''&&!await page.locator('#workspace-search-results').count(),'workspace search navigates and closes');
-  // The landscape tablet has room for all header controls with a collapsed sidebar.
+  await check(await page.locator('.topbar h1').innerText()==='Purchases','page name replaces header search');
+  await check(await page.getByRole('textbox',{name:'Search workspace'}).count()===0,'workspace search removed');
+  await check(await page.locator('.purchase-card .purchase-items-count, .purchase-card-action').count()===0,'cards omit product count labels and summary links');
+  await check(await page.locator('.purchase-card').first().locator('.purchase-item-pill').count()===purchases[0].items.length,'cards show their product list');
+  await check(await page.locator('.purchase-card').first().innerText().then(text=>!text.includes('Meghna Filling Plant')&&!text.includes('Company payable')),'cards omit plant name and separate company payable');
+  await check(await page.locator('.purchase-card .purchase-card-footer').first().innerText().then(text=>text.includes('Total purchase cost')),'card shows one total row');
+  const dateInput=page.getByLabel('From',{exact:true});
+  await dateInput.fill('2026-10-05');
+  await page.getByRole('button',{name:'Choose date: From',exact:true}).click();
+  const calendar=page.getByRole('dialog',{name:'Choose date: From',exact:true});
+  await calendar.waitFor();
+  await calendar.getByRole('button',{name:'Monday, October 5, 2026',exact:true}).press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await check(await dateInput.inputValue()==='2026-10-06','calendar keyboard selects a date and updates filter');
+  await page.getByRole('button',{name:'Choose date: To',exact:true}).click();
+  const toCalendar=page.getByRole('dialog',{name:'Choose date: To',exact:true});
+  await toCalendar.getByRole('combobox',{name:'Calendar month',exact:true}).selectOption('9');
+  await toCalendar.getByRole('spinbutton',{name:'Calendar year',exact:true}).fill('2026');
+  await check(await toCalendar.getByRole('button',{name:'Monday, October 5, 2026',exact:true}).getAttribute('aria-disabled')==='true','calendar respects date range minimum');
+  await page.screenshot({path:'.temp/purchase-verification/calendar-desktop.png'});
+  await toCalendar.getByRole('button',{name:'Clear',exact:true}).click();
+  await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
+  await page.getByRole('combobox',{name:'Purchase status',exact:true}).click();
+  await page.screenshot({path:'.temp/purchase-verification/dropdown-desktop.png'});
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'Account: Purchase Operator',exact:true}).click();
+  await check(await page.getByRole('menuitem',{name:'Sign Out',exact:true}).isVisible(),'sidebar account opens signout');
+  await page.screenshot({path:'.temp/purchase-verification/sidebar-account.png'});
+  await page.keyboard.press('Escape');
+  await check(await page.locator('.sidebar-tenant-role').innerText()==='Purchase Operator','account name is below business name');
   await page.setViewportSize({width:1180,height:760});
   await page.getByRole('button',{name:'Collapse sidebar',exact:true}).click();
-  await page.evaluate(async()=>{await Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{})));});
-  const headerLayout=await page.locator('.purchases-header').evaluate(el=>{
-    const title=el.querySelector('h1').getBoundingClientRect();
-    const wallet=el.querySelector('.purchase-wallet').getBoundingClientRect();
-    const button=el.querySelector('.btn-primary').getBoundingClientRect();
-    const summary=el.querySelector('.purchase-list-summary').getBoundingClientRect();
-    const lastSummary=el.querySelector('.purchase-list-summary > div:last-child').getBoundingClientRect();
-    return {height:el.getBoundingClientRect().height,sameRow:Math.abs((title.top+title.bottom)/2-(wallet.top+wallet.bottom)/2)<12 && Math.abs((title.top+title.bottom)/2-(button.top+button.bottom)/2)<12,fillsMiddle:summary.left>title.right && summary.right<wallet.left && wallet.left-summary.right<=20 && Math.abs(lastSummary.right-summary.right)<2};
-  });
-  await page.screenshot({path:'.temp/purchase-verification/header-tablet.png'});
-  await check(headerLayout.sameRow && headerLayout.height<=60,'tablet title, wallet and New Purchase share one compact row');
-  await check(headerLayout.fillsMiddle,'summaries fill only the middle space reserved between the title and right-side actions');
+  await page.getByRole('button',{name:'Account: Purchase Operator',exact:true}).click();
+  await check(await page.getByRole('menu').evaluate(el=>{
+    const box=el.getBoundingClientRect();
+    return document.elementFromPoint(box.right-5,box.top+5)?.closest('[role=menu]')===el;
+  }),'collapsed sidebar account menu is not clipped');
+  await page.keyboard.press('Escape');
   // Exercise both sidebar states and text scaling without changing business data.
   for(const collapsed of [true,false]) {
     if(!collapsed) await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
     for(const width of [1024,1180,1250,1366,1600,2560]) {
       await page.setViewportSize({width,height:800});
       await page.evaluate(async()=>{await Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{})));});
-      await check(await page.locator('.purchases-header').evaluate(el=>{
+      await check(await page.locator('.topbar').evaluate(el=>{
         const title=el.querySelector('h1').getBoundingClientRect();
-        const wallet=el.querySelector('.purchase-wallet').getBoundingClientRect();
-        const action=el.querySelector('.btn-primary').getBoundingClientRect();
-        return Math.abs((title.top+title.bottom)/2-(wallet.top+wallet.bottom)/2)<12 && wallet.right<=action.left && action.right<=el.getBoundingClientRect().right+1;
-      }),`wallet and action stay with the heading at ${width}px, sidebar collapsed=${collapsed}`);
+        const wallet=el.querySelector('.topbar-wallet').getBoundingClientRect();
+        return title.right<=wallet.left && wallet.right<=el.getBoundingClientRect().right+1;
+      }),`title and wallet fit at ${width}px, sidebar collapsed=${collapsed}`);
     }
   }
   await page.setViewportSize({width:1180,height:760});
@@ -321,9 +340,9 @@ async page => {
   await page.evaluate(()=>document.documentElement.style.fontSize='20px');
   await page.evaluate(async()=>{await Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{})));});
   await check(await page.locator('.page-content').evaluate(el=>el.scrollWidth<=el.clientWidth),'tablet header has no overflow with 125 percent text');
-  await check(await page.locator('.purchases-header').evaluate(el=>{
+  await check(await page.locator('.topbar').evaluate(el=>{
     const title=el.querySelector('h1').getBoundingClientRect();
-    const wallet=el.querySelector('.purchase-wallet').getBoundingClientRect();
+    const wallet=el.querySelector('.topbar-wallet').getBoundingClientRect();
     return Math.abs((title.top+title.bottom)/2-(wallet.top+wallet.bottom)/2)<12;
   }),'enlarged tablet text keeps wallet on the heading row');
   await page.screenshot({path:'.temp/purchase-verification/header-tablet-large-text.png'});
@@ -334,14 +353,16 @@ async page => {
     await page.evaluate(async()=>{await Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})));});
     await check(await page.locator('.page-content').evaluate(el=>el.scrollWidth<=el.clientWidth),`purchase page has no horizontal overflow at ${width}px`);
     await check(await page.getByRole('button',{name:'Switch to dark theme'}).isVisible(),`theme control available at ${width}px`);
-    if(width<=768) await check(await page.locator('.purchases-header').evaluate(el=>{
-      const title=el.querySelector('h1').getBoundingClientRect();
-      const wallet=el.querySelector('.purchase-wallet').getBoundingClientRect();
-      const action=el.querySelector('.btn-primary').getBoundingClientRect();
-      const summaries=[...el.querySelectorAll('.purchase-list-summary > div')].map(node=>node.getBoundingClientRect());
-      const center=box=>(box.top+box.bottom)/2;
-      return Math.abs(center(title)-center(wallet))<12 && Math.abs(center(title)-center(action))<12 && summaries.every(box=>Math.abs(box.top-summaries[0].top)<2) && summaries[0].top>=Math.max(title.bottom,wallet.bottom,action.bottom);
-    }),`portrait ${width}px puts heading, wallet and action in one row with all four summaries in the next row`);
+    if(width<=1024) {
+      const menuBtn=page.getByRole('button',{name:'Open navigation menu',exact:true});
+      await check(await menuBtn.isVisible(),`menu button available at ${width}px`);
+      await menuBtn.click();
+      await check(await page.locator('.sidebar-account .user-menu-trigger').isVisible(),`sidebar account available in drawer at ${width}px`);
+      await page.getByRole('button',{name:'Close navigation menu',exact:true}).click();
+    } else {
+      await check(await page.locator('.sidebar-account .user-menu-trigger').isVisible(),`sidebar account available at ${width}px`);
+    }
+    await check(await page.locator('.topbar').evaluate(el=>el.scrollWidth<=el.clientWidth),`topbar fits at ${width}px`);
   }
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:'.temp/purchase-verification/list-mobile.png'});
@@ -360,5 +381,5 @@ async page => {
   await openPurchase();
   await check(await page.getByRole('button',{name:'Save changes',exact:true}).count()===0,'view-only summary has no mutation actions');
   await check(await page.getByRole('button',{name:'Receive shipment',exact:true}).count()===0,'view-only user cannot receive unfinished shipment');
-  return 'PASS: portrait two-row header at 320/390/768px, compact tablet header, summaries fill the remaining space beside reserved wallet/actions, both sidebar states at six desktop/tablet widths, 125 percent text, AND/OR search with status/payment/inclusive dates, four sort orders, automatic receipt defaults, single-quantity refill exchange, compact desktop product row, plant-only creation, native selections, staged editing, confirmations, failed dispatch recovery, payment before/after receipt, discrepancy billing, completed summary, five responsive widths, light/dark screenshots, list scrolling, negative wallet styling, search spacing/navigation, filter reset and unfinished view-only permissions (API fixtures).';
+  return 'PASS: purchase lifecycle, filters and sorting, compact cards, topbar/sidebar account, calendar keyboard/range limits, responsive 320-2560px, light/dark themes and view-only permissions (isolated API fixtures).';
 }

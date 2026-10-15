@@ -74,22 +74,19 @@
 .purchase-activity li { border-left: 2px solid var(--border-color); padding: .25rem 0 .75rem 1rem; margin-left: .25rem; font-size: .8125rem; }
 .purchase-activity time { display: block; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); font-size: .75rem; margin: .25rem 0; }
 .purchases-page { height: auto; overflow: visible; gap: .75rem; container-type: inline-size; container-name: purchases; }
-.purchases-header { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: .875rem; margin-bottom: 0; padding-block: .125rem .375rem; }
-.purchases-header .page-title { font-size: 1.375rem; margin: 0; }
-.purchases-header-actions { display: flex; align-items: center; justify-content: end; gap: .625rem; min-width: 0; flex-wrap: nowrap; }
-.purchases-header .btn { width: auto; white-space: nowrap; }
+.purchases-header { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 0; padding: 0; }
+.purchases-header-actions { display: flex; align-items: center; margin-left: auto; flex-shrink: 0; }
+.purchases-header .btn { width: auto; white-space: nowrap; min-height: 2.5rem; padding: .625rem .875rem; font-size: .8125rem; }
 .purchase-new-short { display: none; }
-.purchases-header .btn, .purchase-toolbar .btn, .purchase-dialog .btn { min-height: 2.125rem; padding: .375rem .625rem; font-size: .8125rem; }
-.purchase-list-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; width: 100%; max-width: 100%; margin: 0; min-width: 0; }
-.purchase-list-summary > div { flex: 0 0 auto; }
-.purchase-list-summary dt { color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); font-size: .6875rem; white-space: nowrap; }
-.purchase-list-summary dd { margin: .125rem 0 0; font-size: .9375rem; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.purchase-overview-payable dd { font-size: .9375rem; }
-.purchase-wallet { display: flex; align-items: center; gap: .5rem; }
-.purchase-wallet-icon { display: flex; color: var(--accent); }
-.purchase-wallet-label { font-size: .6875rem; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); margin-bottom: .25rem; }
-.purchase-wallet-value { font-size: .9375rem; font-weight: 650; color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.purchase-wallet.negative .purchase-wallet-value, .purchase-wallet.negative .purchase-wallet-icon { color: var(--danger); }
+.purchase-toolbar .btn, .purchase-dialog .btn { min-height: 2.125rem; padding: .375rem .625rem; font-size: .8125rem; }
+.purchase-list-summary { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: .75rem; flex: 1; margin: 0; min-width: 0; }
+.purchase-list-summary > div { min-width: 0; padding: .75rem 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface); border-left: 3px solid var(--primary); }
+.purchase-list-summary > div:nth-child(1) { background: color-mix(in srgb, var(--primary-weak) 45%, var(--surface)); }
+.purchase-list-summary > div:nth-child(2) { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent-weak) 45%, var(--surface)); }
+.purchase-list-summary > div:nth-child(3), .purchase-list-summary > div:nth-child(4) { border-left-color: var(--warning); background: color-mix(in srgb, var(--warning-weak) 38%, var(--surface)); }
+.purchase-list-summary dt { color: var(--text-muted); font-size: .75rem; }
+.purchase-list-summary dd { margin: .375rem 0 0; font-size: 1.125rem; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.purchase-overview-payable dd { font-size: 1rem; }
 .purchase-toolbar { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr) minmax(0,1fr); gap: .375rem .75rem; align-items: end; padding: .5rem .75rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); }
 .purchase-toolbar .input-group { margin-bottom: 0; min-width: 0; gap: 0; }
 .purchase-toolbar .input-label { font-size: .75rem; margin-bottom: .25rem; }
@@ -108,23 +105,22 @@
 .purchase-results-heading h2 { margin: 0; font-size: .875rem; font-weight: 600; }
 .purchase-results-heading h2 span { color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); font-weight: 400; margin-left: .5rem; }
 .purchases-list .purchases-grid { gap: .625rem; }
-.purchase-card-button { display: flex; text-align: left; width: 100%; min-width: 0; color: inherit; font: inherit; cursor: pointer; gap: .5rem; padding: .75rem; }
-.purchase-card-button .purchase-card-header { align-items: start; gap: .5rem; }
-.purchase-card-button .purchase-card-header strong { font-size: .9375rem; overflow-wrap: anywhere; }
-.purchase-card-button .purchase-card-header .purchase-hint { margin-top: .125rem; }
-.purchase-card-meta { display: flex; justify-content: space-between; align-items: start; gap: .5rem; }
-.purchase-card-meta .purchase-info-row { margin: 0; min-width: 0; font-size: .75rem; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); }
+.purchase-card-button { display: flex; text-align: left; width: 100%; min-width: 0; color: inherit; font: inherit; cursor: pointer; gap: 1rem; padding: 1rem; border-top: 3px solid var(--primary); box-shadow: none; }
+.purchase-card-button[data-status="received"] { border-top-color: var(--accent); }
+.purchase-card-button[data-status="in_transit"] { border-top-color: var(--warning); }
+.purchase-card-button[data-status="cancelled"] { border-top-color: var(--text-soft); }
+.purchase-card-button .purchase-card-header { align-items: start; gap: .75rem; }
+.purchase-card-button .purchase-card-header > div:first-child { min-width: 0; }
+.purchase-card-button .purchase-card-header strong { font-size: 1rem; overflow-wrap: anywhere; }
+.purchase-card-meta { display: flex; justify-content: space-between; align-items: start; gap: .75rem; }
+.purchase-card-meta .purchase-info-row { margin: 0; min-width: 0; font-size: .75rem; color: var(--text-muted); }
 .purchase-card-meta .purchase-info-row:last-child { text-align: right; justify-content: end; }
 .purchase-info-row svg { flex-shrink: 0; }
 .purchase-info-row span { overflow-wrap: anywhere; }
-.purchase-card-button .purchase-items-preview { flex: 1; padding-top: 0; border: 0; }
-.purchase-card-button .purchase-items-count { text-transform: none; letter-spacing: normal; font-weight: 500; font-size: .6875rem; margin-bottom: .25rem; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); }
 .purchase-card-button .purchase-item-pill { padding: .1875rem .375rem; line-height: 1.4; font-size: .75rem; }
-.purchase-card-button .purchase-card-footer { gap: .5rem; padding-top: .5rem; font-size: .8125rem; font-variant-numeric: tabular-nums; }
-.purchase-card-footer > :last-child { text-align: right; }
-.purchase-card-button .purchase-total-label { display: block; font-size: .75rem; margin-bottom: .125rem; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); }
-.purchase-card-button .purchase-total-value { font-size: .875rem; }
-.purchase-card-action { display: flex; align-items: center; justify-content: space-between; color: var(--primary); font-size: .75rem; font-weight: 600; width: 100%; }
+.purchase-card-button .purchase-card-footer { align-items: center; gap: .75rem; margin-top: auto; padding-top: .875rem; font-variant-numeric: tabular-nums; }
+.purchase-card-button .purchase-total-label { font-size: .75rem; color: var(--text-muted); }
+.purchase-card-button .purchase-total-value { font-size: 1rem; text-align: right; }
 .purchase-list-empty { padding: 2rem 1rem; flex-direction: column; text-align: center; }
 .purchase-card-button:focus-visible, .purchase-dialog button:focus-visible, .purchase-segmented button:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .purchase-segmented button:disabled { opacity: .5; cursor: not-allowed; }
@@ -132,33 +128,14 @@
 .purchase-receipt-row small { display: block; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); padding-top: .375rem; }
 .purchase-dialog .purchase-receipt-body { padding: .875rem 1rem; }
 .purchase-dialog .purchase-footer-hint { margin-right: auto; max-width: 23rem; }
-/* Respond to the page's actual space, including the sidebar and text scaling. */
-@container purchases (max-width: 58rem) {
-  .purchases-header { grid-template-columns: minmax(0,1fr) auto; gap: .5rem 1rem; }
-  .purchase-list-summary { grid-row: 2; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); }
-  .purchases-header-actions { grid-row: 1; grid-column: 2; }
-  .purchase-list-summary > div { min-width: 0; }
-  .purchase-list-summary dt { white-space: normal; }
-  .purchase-list-summary dd { margin: .125rem 0 0; white-space: normal; overflow-wrap: anywhere; }
+@container purchases (max-width: 52rem) {
+  .purchases-header { align-items: stretch; flex-direction: column-reverse; gap: .75rem; }
+  .purchase-list-summary { gap: .5rem; }
+  .purchase-list-summary > div { padding: .625rem .75rem; }
 }
-@container purchases (max-width: 28rem) {
-  .purchases-header { grid-template-columns: auto minmax(0,1fr); gap: .5rem; }
-  .purchases-header .page-title { font-size: 1rem; }
-  .purchases-header-actions { gap: .5rem; }
-  .purchases-header-actions > .btn { padding-inline: .5rem; font-size: .75rem; gap: .25rem; }
-  .purchase-wallet { gap: .25rem; }
-  .purchase-wallet-icon, .purchase-wallet-label { display: none; }
-  .purchase-wallet-value { font-size: .8125rem; }
-  .purchase-list-summary { gap: .375rem .5rem; }
-  .purchase-list-summary dt { min-height: 2.5em; line-height: 1.25; }
-  .purchase-list-summary dd { font-size: .8125rem; }
-  .purchase-overview-payable dd { font-size: .75rem; }
-}
-@container purchases (max-width: 22rem) {
-  .purchase-new-label { display: none; }
-  .purchase-new-short { display: inline; }
-  .purchases-header .page-title { font-size: .9375rem; }
-  .purchase-wallet-value { font-size: .75rem; }
+@container purchases (max-width: 30rem) {
+  .purchase-list-summary { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .purchase-list-summary dd { font-size: 1rem; }
 }
 @media (max-width: 800px) {
   .purchase-line-editable { grid-template-columns: minmax(0,2fr) minmax(0,1fr) minmax(0,1fr); }
