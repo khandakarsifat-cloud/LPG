@@ -36,10 +36,36 @@ export function purchaseAccess(purchase: Purchase, canManage = true) {
   const editable = canManage && !complete && purchase.status !== 'cancelled';
   return {
     complete, editable, products: editable && purchase.status === 'created',
+    cancel: canManage && purchase.status !== 'cancelled',
     financials: editable && purchase.payment_status === 'unpaid',
     dispatch: editable && purchase.status === 'created', receive: editable && purchase.status === 'in_transit',
     pay: editable && purchase.status !== 'created' && purchase.payment_status === 'unpaid',
   };
+}
+
+export interface EmptyShortage {
+  item_id: string; product: string; required: number; available: number; missing: number;
+}
+
+export class PurchaseStockError extends Error {
+  shortages: EmptyShortage[];
+  constructor(shortages: EmptyShortage[]) {
+    super('Not enough empty cylinders');
+    this.shortages = shortages;
+  }
+}
+
+export function purchaseEmptyShortages(lines: PurchaseLinePayload[], items: {
+  item_id: string; empty_quantity: number; brand: string; size_kg: number; mouth_size?: string | null;
+}[]): EmptyShortage[] {
+  const required = new Map<string, number>();
+  for (const line of lines) if (line.type === 'refill') required.set(line.item_id, (required.get(line.item_id) ?? 0) + line.quantity);
+  return items.flatMap(item => {
+    const quantity = required.get(item.item_id) ?? 0;
+    return quantity > item.empty_quantity ? [{ item_id: item.item_id,
+      product: `${item.brand} ${item.size_kg} kg ${item.mouth_size ?? ''}`.trim(),
+      required: quantity, available: item.empty_quantity, missing: quantity - item.empty_quantity }] : [];
+  });
 }
 
 export function validatePurchaseDraft(draft: PurchaseDraft, subtotal: number): string | null {

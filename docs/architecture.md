@@ -1,6 +1,6 @@
 # LPG Manager architecture
 
-Start here before changing a workflow. These documents describe the repository implementation reviewed on **2026-10-15**. The purchase lifecycle and refill exchange migration are deployed to the existing Azure backend and Cloudflare Worker. Source and ordered SQL migrations are authoritative. Purchase deployment was verified against VPS PostgreSQL 17.6 and real Auth/PostgREST with isolated fixture businesses and concurrent sessions. Full modal/browser scenarios use API fixtures; physical printing is a separate acceptance boundary. Supabase MCP tools were unavailable during this verification.
+Start here before changing a workflow. These documents describe the repository implementation reviewed on **2026-10-15**. The purchase workflow separates expected-quantity receipt, transport funding, cancellation reversals and transit cost closure. Its forward migration and dependent frontend are deployed to the existing Azure backend and Cloudflare Worker. Source and ordered SQL migrations are authoritative. Purchase/transit deployment was verified against VPS PostgreSQL 17.6 and real Auth/PostgREST with isolated fixture businesses and concurrent sessions. Full modal/browser scenarios use API fixtures; physical printing is a separate acceptance boundary. Supabase MCP tools were unavailable during this verification.
 
 ## Documentation map
 
@@ -29,6 +29,7 @@ flowchart LR
     REST --> DB
     UI -->|committed receipt| Bridge[Windows localhost print bridge]
     Bridge --> USB[Winspool RAW / USB printer]
+    UI -->|committed receipt| Dialog[Browser print dialog / installed printers / PDF]
 ```
 
 - The app is a React 19 / TypeScript SPA built by Vite, using React Router's `HashRouter`, TanStack Query, custom CSS, Lucide icons and toast feedback. [App.tsx](../src/App.tsx) composes the query client, Auth provider, layout and route tree. There is no application HTTP backend between the browser and Supabase.
@@ -49,7 +50,7 @@ flowchart LR
 | Purchases/logistics | Plant/truck selection, empty dispatch, receipt, transits, costs and two wallets | [usePurchases](../src/hooks/usePurchases.ts), [useLogistics](../src/hooks/useLogistics.ts), [purchase components](../src/components/purchases/), [logistics components](../src/components/logistics/) |
 | Brands/plants/officers | Tenant brand catalog, supplier plants and officer contacts; supplies inventory/POS/purchase selectors | [useBrands](../src/hooks/useBrands.ts), [useGasPlants](../src/hooks/useGasPlants.ts), [BrandManagement](../src/components/business/BrandManagement.tsx) |
 | Employees/payroll | Profiles, employee types/phones and immutable categorized payment history | [Employees](../src/pages/Employees.tsx), [useEmployees](../src/hooks/useEmployees.ts) |
-| Receipts | Read saved sales and latest tenant settings, build receipt content, request host printing | [useReceiptPrinter](../src/hooks/useReceiptPrinter.ts), [completeSale](../src/lib/completeSale.ts), [printBridge](../src/lib/printBridge.ts), [print-bridge](../print-bridge/) |
+| Receipts | Read saved sales, share receipt formatting, select browser dialog or configured USB transport | [useReceiptPrinter](../src/hooks/useReceiptPrinter.ts), [completeSale](../src/lib/completeSale.ts), [receipt](../src/lib/receipt.ts), [browserPrint](../src/lib/browserPrint.ts), [printBridge](../src/lib/printBridge.ts), [print-bridge](../print-bridge/) |
 
 ## Data and transaction model
 
@@ -74,9 +75,9 @@ Operational screens for sales, stock, customers, purchases, trucks/transits, bra
 
 - Finance is a placeholder route despite wallet/customer ledger tables and accounting effects. Business profile editing and Dashboard stock exceptions are placeholders.
 - Price-book reads exist; price maintenance, staff invitation/role administration, reporting and offline operation have no implemented UI/workflow. Employee profiles are not Auth memberships.
-- Manual inventory adjustment has a hook/RPC but no exposed adjustment dialog. Purchase status includes `cancelled`, but there is no purchase cancellation/reversal RPC in the migration chain.
+- Manual inventory adjustment has a hook/RPC but no exposed adjustment dialog. Purchase cancellation reverses recorded stock and payments atomically; transit completion releases trucks independently of confirmed expense closure.
 - [zk-test/test.cjs](../zk-test/test.cjs) is a standalone ZKTeco ADMS listener prototype. It acknowledges/logs attendance pushes without persistence or employee/payroll integration.
-- Printing is Windows USB only with manual bridge startup. Receipt persistence, local job acceptance and physical output are distinct boundaries; hardware/origin requirements and uncertainty handling belong to the [printing guide](../print-bridge/README.md).
+- Receipts support the browser print dialog and direct Windows USB with manual bridge startup. Output preference is stored per tenant in this browser; USB configuration stays tenant-wide in Supabase. Receipt persistence, dialog opening, local job acceptance and physical output are distinct boundaries; hardware/origin requirements and uncertainty handling belong to the [printing guide](../print-bridge/README.md).
 
 ## Verification entry points
 

@@ -2,14 +2,16 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, RefreshCw, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { usePrinterDiscovery, useReceiptPrinter, useSaveReceiptPrinter } from '../../hooks/useReceiptPrinter';
-import { PAPER_PROFILES, type PrinterIdentity, type ReceiptPrinterConfig } from '../../types/printing';
+import { usePrinterDiscovery, useReceiptPrinter, useReceiptPrintMethod, useSaveReceiptPrinter } from '../../hooks/useReceiptPrinter';
+import { PAPER_PROFILES, type PrinterIdentity, type ReceiptPrinterConfig, type ReceiptPrintMethod } from '../../types/printing';
 import { findPrinterQueue, findUSBDevice } from '../../lib/printerIdentity';
 
 export function PrinterConfigModal({ onClose }: { onClose: () => void }) {
   const saved = useReceiptPrinter();
   const discovery = usePrinterDiscovery();
   const save = useSaveReceiptPrinter();
+  const preference = useReceiptPrintMethod();
+  const [draftMethod, setDraftMethod] = useState<ReceiptPrintMethod | null>(null);
   const [draft, setDraft] = useState<Omit<ReceiptPrinterConfig, 'tenant_id'> | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const scan = discovery.mutate;
@@ -36,6 +38,7 @@ export function PrinterConfigModal({ onClose }: { onClose: () => void }) {
   }, [onClose, save.isPending]);
 
   const config = draft ?? saved.data;
+  const browser = (draftMethod ?? preference.method) === 'browser' || (!config && draftMethod !== 'windows_usb');
   const printers = discovery.data?.printers ?? [];
   const current = config && discovery.data ? findPrinterQueue(config.printer, discovery.data) : undefined;
   const devices = discovery.data?.usb_devices ?? [];
@@ -43,8 +46,11 @@ export function PrinterConfigModal({ onClose }: { onClose: () => void }) {
   const unavailable = Boolean(config && discovery.isSuccess && (!current?.available || !devicePresent));
 
   const selectPrinter = (queueId: string) => {
+    if (queueId === 'browser') { setDraftMethod('browser'); return; }
+    if (config?.printer.queue_id === queueId) { setDraftMethod('windows_usb'); return; }
     const printer = printers.find(candidate => candidate.queue_id === queueId);
     if (!printer) return;
+    setDraftMethod('windows_usb');
     const identity: PrinterIdentity = {
       queue_id: printer.queue_id, host_id: printer.host_id, queue_name: printer.queue_name,
       port_name: printer.port_name, driver_name: printer.driver_name,
@@ -59,8 +65,12 @@ export function PrinterConfigModal({ onClose }: { onClose: () => void }) {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!config) return;
-    try { await save.mutateAsync(config); toast.success('Receipt printer configuration saved.'); onClose(); }
+    if (!browser && !config) return;
+    try {
+      if (!browser && config) await save.mutateAsync(config);
+      preference.setMethod(browser ? 'browser' : 'windows_usb');
+      toast.success('Receipt printer configuration saved.'); onClose();
+    }
     catch (error) { toast.error(error instanceof Error ? error.message : 'Could not save printer configuration.'); }
   };
 
@@ -69,7 +79,7 @@ export function PrinterConfigModal({ onClose }: { onClose: () => void }) {
       <div className="modal-content glass-panel" role="dialog" aria-modal="true" aria-labelledby="printer-title" tabIndex={-1} ref={dialogRef}>
         <div className="modal-header">
           <div><h2 id="printer-title" className="modal-title"><Printer size={18} /> Receipt Printer</h2>
-            <p className="modal-subtitle">One USB receipt printer for this business</p></div>
+            <p className="modal-subtitle">Choose browser printing or a USB receipt printer</p></div>
           <button className="modal-close" onClick={onClose} disabled={save.isPending} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -82,22 +92,23 @@ export function PrinterConfigModal({ onClose }: { onClose: () => void }) {
             </div>
             {saved.isLoading && <p role="status">Loading saved configuration…</p>}
             {saved.error && <p role="alert">Could not load saved configuration: {saved.error.message}</p>}
-            {discovery.error && <p role="alert">{discovery.error.message}</p>}
+            {discovery.error && <p role="status">{discovery.error.message} Browser printing is still available below.</p>}
             {discovery.data?.warnings?.map(warning => <p role="status" key={warning}>{warning}</p>)}
             {discovery.isSuccess && printers.length === 0 && <p role="status">No Windows printers detected. Connect and install a USB ESC/POS printer, then Refresh.</p>}
             {discovery.isSuccess && printers.length > 0 && !printers.some(printer => printer.supported) &&
               <p role="status">No USB receipt queues detected. Install the printer's Windows USB driver, then Refresh.</p>}
             <div className="input-group">
               <label className="input-label" htmlFor="receipt-printer">Printer</label>
-              <select id="receipt-printer" className="input-field" value={current?.queue_id ?? config?.printer.queue_id ?? ''} onChange={event => selectPrinter(event.target.value)} disabled={save.isPending || saved.isLoading || Boolean(saved.error)}>
-                <option value="">Select a USB ESC/POS printer</option>
+              <select id="receipt-printer" className="input-field" value={browser ? 'browser' : current?.queue_id ?? config?.printer.queue_id ?? ''} onChange={event => selectPrinter(event.target.value)} disabled={save.isPending}>
+                <option value="browser">Browser printing (Chrome/system dialog)</option>
                 {config && !current && <option value={config.printer.queue_id}>{config.printer.queue_name} (saved, unavailable here)</option>}
                 {printers.map(printer => <option key={printer.queue_id} value={printer.queue_id} disabled={!printer.supported}>
                   {printer.queue_name} — {printer.supported ? (printer.available ? printer.port_name : 'unavailable') : 'unsupported transport'}
                 </option>)}
               </select>
             </div>
-            {config && <>
+            <small style={{ color: 'var(--text-muted)' }}>The printing method is remembered for this business in this browser. Browser printing needs no bridge; choose any installed printer or Save as PDF in the print dialog.</small>
+            {!browser && config && <>
               <p style={{ margin: 0, fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>{config.printer.driver_name} · {config.printer.port_name}</p>
               {unavailable && <p role="status">Configured printer unavailable on this computer. Its saved configuration is retained; you can still update paper settings.</p>}
               {!current?.device && <div className="input-group">
@@ -133,7 +144,7 @@ export function PrinterConfigModal({ onClose }: { onClose: () => void }) {
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={save.isPending}>Cancel</button>
-            <button className="btn btn-primary" type="submit" disabled={!config?.printer.device || saved.isLoading || Boolean(saved.error) || save.isPending}>{save.isPending ? 'Saving…' : 'Save Printer'}</button>
+            <button className="btn btn-primary" type="submit" disabled={(!browser && (!config?.printer.device || saved.isLoading || Boolean(saved.error))) || save.isPending}>{save.isPending ? 'Saving…' : 'Save Printer'}</button>
           </div>
         </form>
       </div>

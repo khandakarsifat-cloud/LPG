@@ -3,11 +3,32 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { discoverPrinters, sendReceipt } from '../lib/printBridge';
-import type { ReceiptPrinterConfig } from '../types/printing';
+import type { ReceiptPrinterConfig, ReceiptPrintMethod } from '../types/printing';
+import { readReceiptPrintMethod, writeReceiptPrintMethod } from '../lib/receiptPrintPreference';
+import { printBrowserReceipt } from '../lib/browserPrint';
 import type { ReceiptData } from '../types/receipt';
 import type { SaleTransaction } from './useDashboard';
 
 const configKey = (tenantId?: string) => ['receipt_printer', tenantId] as const;
+
+export function useReceiptPrintMethod() {
+  const { profile } = useAuth();
+  const tenantId = profile?.tenant_id;
+  const qc = useQueryClient();
+  const queryKey = ['receipt_print_method', tenantId] as const;
+  const preference = useQuery<ReceiptPrintMethod>({
+    queryKey, enabled: Boolean(tenantId), staleTime: 0,
+    queryFn: () => tenantId ? readReceiptPrintMethod(tenantId) : 'windows_usb',
+  });
+  return {
+    method: preference.data ?? 'windows_usb',
+    setMethod: (method: ReceiptPrintMethod) => {
+      if (!tenantId) throw new Error('Business profile unavailable.');
+      writeReceiptPrintMethod(tenantId, method);
+      qc.setQueryData(queryKey, method);
+    },
+  };
+}
 
 async function loadConfig(tenantId: string): Promise<ReceiptPrinterConfig | null> {
   const { data, error } = await supabase.from('receipt_printers')
@@ -58,10 +79,9 @@ export function usePrintSale() {
     mutationFn: async (saleId: string) => {
       if (!can('receipts:print')) throw new Error('Receipt printing access is required.');
       if (!profile) throw new Error('Business profile unavailable.');
-      const config = await loadConfig(profile.tenant_id);
-      if (!config) throw new Error(can('printers:manage')
-        ? 'Configure a receipt printer from the Dashboard first.'
-        : 'Ask your business manager to configure a receipt printer from the Dashboard.');
+      const method = readReceiptPrintMethod(profile.tenant_id);
+      // Browser printing also works before any USB printer is configured.
+      const config = method === 'browser' ? null : await loadConfig(profile.tenant_id);
       const { data, error } = await supabase.from('sales').select(`
         sale_id, created_at, subtotal, discount_amount, exchange_fee, total_amount, notes,
         customers(name, phone, tier),
@@ -89,6 +109,7 @@ export function usePrintSale() {
           };
         }),
       };
+      if (method === 'browser' || !config) return printBrowserReceipt(receipt);
       return sendReceipt(config, receipt);
     },
     onSuccess: result => { toast.success(result.message); },

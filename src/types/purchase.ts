@@ -41,6 +41,8 @@ export interface Purchase {
   paid_at: string | null;
   revision: number;
   legacy_record: boolean;
+  transport_funded?: number;
+  cancelled_at?: string | null;
   operating_cost?: number;
   items: PurchaseItem[];
 }

@@ -9,6 +9,9 @@ export interface USBDevice {
   port_name: string | null;
 }
 
+// The output choice belongs to this browser; USB hardware settings remain tenant-wide.
+export type ReceiptPrintMethod = 'browser' | 'windows_usb';
+
 export interface PrinterIdentity {
   queue_id: string;
   host_id: string;

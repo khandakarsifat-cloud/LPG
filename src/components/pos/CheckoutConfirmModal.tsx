@@ -6,6 +6,7 @@ import type { POSCustomerDraft } from './CustomerSelection';
 import { useInventoryBalances } from '../../hooks/useInventory';
 import { formatBDNumber } from '../../lib/formatBDT';
 import { useAuth } from '../../contexts/AuthContext';
+import { ReceiptPrintMethodSelect } from './ReceiptPrintMethodSelect';
 
 interface CheckoutConfirmModalProps {
   isOpen: boolean;
@@ -134,6 +135,7 @@ export const CheckoutConfirmModal = ({
 
         {/* ── Receipt Preview — scrollable ── */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem', minHeight: 0 }}>
+          {can('receipts:print') && <div style={{ marginBottom: '1rem' }}><ReceiptPrintMethodSelect disabled={isProcessing} /></div>}
           {/* Receipt paper */}
           <div style={{
             background: '#ffffff',

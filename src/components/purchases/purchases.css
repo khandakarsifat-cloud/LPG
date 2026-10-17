@@ -70,9 +70,22 @@
 .purchase-summary-table th:first-child, .purchase-summary-table td:first-child { text-align: left; }
 .purchase-summary-table th { color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); font-weight: 500; background: var(--surface-muted); }
 .purchase-summary-table small { display: block; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); }
-.purchase-activity { list-style: none; padding: 0; margin: 0; }
-.purchase-activity li { border-left: 2px solid var(--border-color); padding: .25rem 0 .75rem 1rem; margin-left: .25rem; font-size: .8125rem; }
-.purchase-activity time { display: block; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); font-size: .75rem; margin: .25rem 0; }
+.purchase-activity { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .625rem; list-style: none; padding: 0; margin: 0; }
+.purchase-activity > li { min-width: 0; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: .75rem; background: var(--surface-muted); font-size: .8125rem; overflow-wrap: anywhere; }
+.purchase-activity-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem .75rem; }
+.purchase-activity time, .purchase-activity-actor { color: var(--text-muted); font-size: .75rem; }
+.purchase-activity-actor { display: block; margin-top: .2rem; }
+.purchase-activity-changes { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .3rem; line-height: 1.5; }
+.purchase-activity details { margin-top: .5rem; }
+.purchase-activity summary { cursor: pointer; color: var(--primary); font-size: .75rem; }
+.purchase-history-pagination { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; margin-top: .75rem; font-size: .75rem; color: var(--text-muted); }
+.purchase-history-pagination .btn { padding: .375rem .625rem; font-size: .75rem; }
+.purchase-dialog .purchase-details-footer > .purchase-danger-action { margin-right: auto; }
+@media (max-width: 600px) {
+  .purchase-activity { grid-template-columns: minmax(0,1fr); }
+  .purchase-history .purchase-section-heading { flex-wrap: wrap; gap: .125rem; }
+  .purchase-dialog .purchase-details-footer > .purchase-danger-action { flex: 0 0 auto; }
+}
 .purchases-page { height: auto; overflow: visible; gap: .75rem; container-type: inline-size; container-name: purchases; }
 .purchases-header { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 0; padding: 0; }
 .purchases-header-actions { display: flex; align-items: center; margin-left: auto; flex-shrink: 0; }
@@ -177,4 +190,42 @@
   .purchase-summary-table td { display: block; text-align: left; padding: .625rem .75rem; border: 0; white-space: normal; }
   .purchase-summary-table td:first-child { grid-column: 1 / -1; background: var(--surface-muted); border-bottom: 1px solid var(--border-color); font-weight: 600; }
   .purchase-summary-table td[data-label]::before { content: attr(data-label); display: block; font-size: .75rem; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); margin-bottom: .25rem; }
+}
+/* Shipment blue, completion teal, warning amber: color follows the workflow. */
+.purchase-dialog .modal-header { border-top: 4px solid var(--primary); background: color-mix(in srgb, var(--primary-weak) 38%, var(--surface)); }
+.purchase-dialog .purchase-section > h3, .purchase-dialog .purchase-section-heading h3 { color: var(--primary); }
+.purchase-dialog .purchase-total { padding: .75rem; background: var(--primary-weak); border-radius: var(--radius-md); }
+.purchase-dialog .purchase-meta { padding: .75rem; background: var(--surface-muted); border-radius: var(--radius-md); }
+.purchase-dialog .purchase-alert { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.purchase-dialog .purchase-shortage, .purchase-dialog .purchase-danger-action { color: var(--danger); font-weight: 600; }
+.purchase-number[aria-invalid=true] { border-color: var(--danger); }
+.purchase-shortage-list { padding: 0; list-style: none; display: grid; gap: .75rem; }
+.purchase-shortage-list li { display: grid; gap: .375rem; padding: .875rem; background: var(--danger-weak); border-left: 3px solid var(--danger); border-radius: var(--radius-md); }
+.purchase-shortage-list span { font-size: .8125rem; }
+.transit-cost-fields, .transit-additional-row { border: 0; padding: 0; margin: .875rem 0; display: grid; gap: .75rem; min-width: 0; }
+.transit-cost-fields { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.transit-additional-row { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) auto; align-items: end; }
+.transit-additional-row .input-group { min-width: 0; }
+.transit-create-fields { display: grid; gap: .875rem; }
+.transit-cost-state { color: var(--primary); background: var(--primary-weak); }
+.transit-cancelled { color: var(--danger); background: var(--danger-weak); }
+.transit-settlement { border-left: 3px solid var(--accent); background: var(--accent-weak); border-radius: var(--radius-md); padding: .875rem; }
+.transit-settlement > div { display: flex; justify-content: space-between; gap: .75rem; }
+.transit-settlement dt { font-size: .8125rem; }
+.transit-settlement dd { margin: 0; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.transits-view { display: grid; gap: 1.5rem; }
+.transit-search { flex: 1; max-width: 24rem; }
+.transit-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(min(100%,19rem),1fr)); gap: 1rem; }
+.transit-card { color: var(--text-main); padding: 1rem; text-align: left; cursor: pointer; display: grid; gap: .875rem; border-top: 3px solid var(--accent); }
+.transit-card .purchase-section-heading { margin: 0; }
+.transit-card strong { display: inline-flex; align-items: center; gap: .5rem; }
+.transit-card p, .transit-card small { color: var(--text-muted); margin: 0; font-size: .8125rem; overflow-wrap: anywhere; }
+.transit-card-total { display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: .75rem; font-size: .875rem; }
+.transit-group-title { margin: 0 0 .875rem; font-size: 1rem; }
+.transit-group-title span { color: var(--text-muted); margin-left: .5rem; }
+@media (max-width: 480px) {
+  .transit-cost-fields { gap: .625rem; }
+  .transit-additional-row { grid-template-columns: minmax(0,1fr) 6rem auto; gap: .375rem; }
+  .transit-settlement dd { font-size: 1rem; }
+  .transits-view > .purchase-section-heading { flex-wrap: wrap; }
 }

@@ -1,6 +1,12 @@
 # Windows receipt print bridge
 
-Run this service on the same Windows computer as the browser and USB printer. It stays outside Docker; the frontend and Supabase remain in Compose.
+Run this service on the same Windows computer as the browser and USB printer for direct ESC/POS printing. It stays outside Docker; the deployed frontend is on Cloudflare and Supabase is on Azure.
+
+## Browser printing
+
+**Browser printing (Chrome/system dialog)** is always available in the Dashboard printer selector and alongside the configured USB printer in checkout/reprint controls. It needs no bridge and lets the browser select any installed printer or Save as PDF. The choice is stored per business in this browser, leaving the tenant's shared USB configuration intact. Cashiers with `receipts:print` can select browser printing without `printers:manage`. With no saved USB configuration, receipts use browser printing by default.
+
+Both methods read the completed sale. Browser printing builds a separate receipt-only document with escaped text and Unicode fonts, then calls the browser's print dialog; it does not print the app screen or open a popup. Select the desired paper size, margins and scale in the browser dialog. Browser feedback confirms only that the dialog opened, including if it is later cancelled. An uncertain USB result never automatically falls back to browser printing: explicitly choose browser printing before reprinting to avoid duplicate receipts.
 
 ## Setup
 
@@ -16,7 +22,7 @@ Run this service on the same Windows computer as the browser and USB printer. It
 4. In LPG Manager, open **Receipt Printer**, immediately left of **Open POS** on the Dashboard. Select the USB queue. If Windows cannot associate a custom port monitor with its physical device, also select the matching **Physical USB device**. Serial number plus USB vendor/product IDs are preferred; the USBPRINT device instance and a hashed host/queue identity are retained as fallbacks. No hardware association is guessed from the printer name alone.
 5. Select 80 mm or 58 mm paper. Defaults are **576** and **384** printable dots, respectively. Adjust this to the print head's documented width; dots must be a multiple of eight. Enable auto-cut only for hardware with a cutter, then save. The tenant-keyed Supabase upsert keeps one configuration per business, including when the device is disconnected.
 
-The bridge allows exact loopback frontend origins on ports 3001 and 5173. For another local frontend port or an externally hosted HTTPS frontend, set a comma-separated list of additional exact origins before starting it:
+The bridge allows exact loopback frontend origins on ports 3001 and 5173, plus the existing deployed app at `https://floral-dew-443b.khandakarsifat.workers.dev`. Restart a running bridge after code updates. For another local frontend port or HTTPS frontend, set a comma-separated list of additional exact origins before starting it:
 
 ```powershell
 $env:LPG_PRINT_ORIGINS = 'http://127.0.0.1:5174,http://localhost:5174'
@@ -28,6 +34,8 @@ Allow local-network access for LPG Manager if the browser requests it. The bridg
 Discovery uses Windows `Get-Printer`, independently of the saved configuration. Each modal open or Refresh sends an uncached request and enumerates Windows again. Installed queues remain listed when disconnected; the saved physical USB identity determines whether they can be used for printing. A USB or port metadata failure shows a warning while preserving the installed queue list. A queue enumeration failure is an API error, not an empty list.
 
 If Windows sees the printer but the app cannot, first check that the host bridge is running: Docker does not start it. Start `npm run print:bridge`, leave it running, and Refresh; no configuration/data change is needed. Startup/listener and enumeration failures are logged. For temporary discovery request/response counts and timings, set `$env:LPG_PRINT_DIAGNOSTICS = '1'` before starting the bridge. Clear that variable or start a fresh terminal afterward to return to normal logging. Receipt content and print payloads are not logged.
+
+A discovery `403 FORBIDDEN` occurs before Windows enumeration. The bridge log now includes whether the Host, application origin or client header was rejected; an unapproved origin message explains how to configure `LPG_PRINT_ORIGINS`. Keep this list restricted to trusted exact app origins.
 
 ## Checkout and reprinting
 
@@ -45,7 +53,8 @@ The bridge stores only request hashes and job outcomes under `%LOCALAPPDATA%\LPG
 | `src/types/printing.ts`, `src/lib/printerIdentity.ts` | Settings and stable device/queue matching |
 | `src/hooks/useReceiptPrinter.ts` | Tenant configuration upsert and completed-sale reads |
 | `src/lib/printBridge.ts` | Browser localhost client and feedback |
-| `print-bridge/receipt.ts` | Receipt content formatting, independent of printer discovery |
+| `src/lib/receipt.ts`, `print-bridge/receipt.ts` | Shared receipt formatting and bridge re-export, independent of printer discovery |
+| `src/lib/browserPrint.ts`, `receiptPrintPreference.ts` | Receipt-only browser dialog and per-business browser preference |
 | `print-bridge/windows.ts`, `windows.ps1` | Windows queue/USB discovery and device availability |
 | `print-bridge/WindowsPrinting.cs` | Unicode raster rendering, ESC/POS encoding, Winspool RAW writes |
 | `print-bridge/transport.ts` | Byte transport interface; Windows USB implementation |
@@ -65,5 +74,7 @@ npx eslint src/hooks/useReceiptPrinter.ts src/lib/printBridge.ts src/lib/printer
 ```
 
 Bridge tests cover formatting, paper validation, device disconnection/matching, checkout/print failure separation, persistent deduplication, and real Windows raster rendering for both profiles. They do not dispatch physical print jobs. The SQL integration check in `supabase/tests/receipt_printers.sql` uses isolated transaction fixtures and rolls them back.
+
+`tests/printing.browser.cjs` runs through `playwright-cli run-code` on local Vite using isolated Auth/API/device fixtures and intercepted browser print calls. It checks stopped-bridge browser selection, preference persistence, cashier access, saved-sale reprinting and the retained USB path without physical dispatch.
 
 Interactive acceptance checks still require a browser: open/refresh the modal, save and reload configuration, update the same row, disconnect/reconnect the device, checkout with printing, and reprint the completed sale. On 2026-10-02, Windows discovery and RAW dispatch of one marked test receipt were exercised; the same request returned the original Windows job without a second dispatch. The user confirmed that the receipt printed correctly, including Bengali text and cutting. Interactive browser flows were not observed by the agent because no browser was exposed by the computer-use connection.

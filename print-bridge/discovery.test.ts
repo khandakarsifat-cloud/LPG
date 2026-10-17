@@ -9,6 +9,37 @@ import { PrintError } from './errors.ts';
 import { discoverPrinters } from '../src/lib/printBridge.ts';
 import type { PrinterDiscovery } from '../src/types/printing.ts';
 
+test('deployed app preflight and discovery are allowed while foreign origins, hosts and missing client headers are denied', async () => {
+  let scans = 0;
+  const server = createPrintServer(async () => { scans++; return { printers: [], usb_devices: [] }; });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as AddressInfo).port;
+  const origin = 'https://floral-dew-443b.khandakarsifat.workers.dev';
+  const call = (method = 'GET', requestOrigin = origin, host = '127.0.0.1:17891', client = true) =>
+    new Promise<{ status: number; origin?: string; body: string }>((resolve, reject) => {
+      const req = request({ hostname: '127.0.0.1', port, path: '/printers', method, headers: {
+        Host: host, Origin: requestOrigin, ...(client ? { 'X-LPG-Print-Client': '1' } : {}),
+        ...(method === 'OPTIONS' ? { 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'x-lpg-print-client' } : {}),
+      } }, response => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', chunk => { body += chunk; });
+        response.on('end', () => resolve({ status: response.statusCode!, origin: response.headers['access-control-allow-origin'], body }));
+      });
+      req.on('error', reject); req.end();
+    });
+  try {
+    assert.deepEqual(await call('OPTIONS'), { status: 204, origin, body: '' });
+    const discovered = await call();
+    assert.equal(discovered.status, 200);
+    assert.equal(discovered.origin, origin);
+    assert.equal((await call('GET', 'https://untrusted.example')).status, 403);
+    assert.equal((await call('GET', origin, 'attacker.example:17891')).status, 403);
+    assert.equal((await call('GET', origin, undefined, false)).status, 403);
+    assert.equal(scans, 1);
+  } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
+});
+
 test('discovery API rescans on every request and recovers after enumeration failure', async () => {
   let scans = 0;
   const server = createPrintServer(async () => {

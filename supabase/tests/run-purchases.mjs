@@ -42,7 +42,17 @@ if (replayIndex === -1) {
       select set_config('lpg.disposable_replay','on',false);`);
     const names=readdirSync(new URL('../migrations/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort();
     let exchangeCompatibility = false;
+    let workflowCompatibility = false;
     for(const name of names) {
+      if(name.endsWith('_purchase_transit_workflow.sql')) {
+        report('exchange compatibility',await db.exec(read('purchases-exchange.after.sql')));
+        await db.exec(`create temp table workflow_preservation as select
+          (select md5(coalesce(jsonb_agg(to_jsonb(i) order by tenant_id,item_id)::text,'')) from public.items i) stock,
+          (select md5(coalesce(jsonb_agg(to_jsonb(w) order by tenant_id,wallet_id)::text,'')) from public.wallets w) wallets,
+          (select md5(coalesce(jsonb_agg(to_jsonb(m) order by tenant_id,movement_id)::text,'')) from public.inventory_movements m) movements,
+          (select md5(coalesce(jsonb_agg(to_jsonb(w) order by tenant_id,transaction_id)::text,'')) from public.wallet_transactions w) transactions;`);
+        workflowCompatibility = true;
+      }
       if(name.endsWith('_purchase_refill_exchange.sql')) {
         report('historical compatibility',await db.exec(read('purchases-legacy.after.sql')));
         await db.exec(read('purchases-exchange.before.sql'));
@@ -64,9 +74,21 @@ if (replayIndex === -1) {
     if(process.argv.includes('--deployment-batch')) await db.exec('commit;');
     console.log('Migration replay:', (await db.query('select version()')).rows[0].version);
     await db.exec('set row_security=on; set check_function_bodies=on;');
-    if(exchangeCompatibility) report('exchange compatibility',await db.exec(read('purchases-exchange.after.sql')));
+    if(workflowCompatibility) {
+      await db.exec(`do $$ begin if exists(select 1 from workflow_preservation s where
+        s.stock is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(i) order by tenant_id,item_id)::text,'')) from public.items i)
+        or s.wallets is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(w) order by tenant_id,wallet_id)::text,'')) from public.wallets w)
+        or s.movements is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(m) order by tenant_id,movement_id)::text,'')) from public.inventory_movements m)
+        or s.transactions is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(w) order by tenant_id,transaction_id)::text,'')) from public.wallet_transactions w))
+        then raise exception 'Workflow migration changed stock or money'; end if; end $$;`);
+      console.log('Workflow migration preserves stock, wallet balances and all ledger history.');
+    }
+    else if(exchangeCompatibility) report('exchange compatibility',await db.exec(read('purchases-exchange.after.sql')));
     else report('historical compatibility',await db.exec(read('purchases-legacy.after.sql')));
-    for(const name of ['purchases.sql','authorization.sql','receipt_printers.sql']) report(name,await db.exec(read(name)));
+    for(const name of ['purchases.sql','authorization.sql','receipt_printers.sql']) {
+      await db.exec('set row_security=on;');
+      report(name,await db.exec(read(name)));
+    }
   } catch(error) {
     console.error({ message:error.message,detail:error.detail,where:error.where });
     process.exitCode=1;

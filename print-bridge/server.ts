@@ -10,7 +10,11 @@ import { formatReceipt } from './receipt.ts';
 import { renderEscPos, windowsUSBTransport } from './transport.ts';
 
 const PORT = 17891;
-const defaultOrigins = ['http://127.0.0.1:3001', 'http://localhost:3001', 'http://127.0.0.1:5173', 'http://localhost:5173'];
+const defaultOrigins = [
+  'http://127.0.0.1:3001', 'http://localhost:3001',
+  'http://127.0.0.1:5173', 'http://localhost:5173',
+  'https://floral-dew-443b.khandakarsifat.workers.dev',
+];
 
 export function allowedOrigins(extra = process.env.LPG_PRINT_ORIGINS || '') {
   const values = [...defaultOrigins, ...extra.split(',').map(value => value.trim()).filter(Boolean)];
@@ -50,7 +54,7 @@ export function createPrintServer(discover = discoverWindowsPrinters) {
       // Reject DNS rebinding and browser requests from unapproved origins.
       if (request.headers.host !== `127.0.0.1:${PORT}`) throw new PrintError('FORBIDDEN', 'Loopback host required.', 403);
       const origin = request.headers.origin;
-      if (origin && !origins.has(origin)) throw new PrintError('FORBIDDEN', 'Application origin is not allowed.', 403);
+      if (origin && !origins.has(origin)) throw new PrintError('FORBIDDEN', `Application origin is not allowed. Add ${origin} to LPG_PRINT_ORIGINS before starting npm run print:bridge.`, 403);
       if (origin) {
         response.setHeader('Access-Control-Allow-Origin', origin);
         response.setHeader('Vary', 'Origin');
@@ -79,7 +83,7 @@ export function createPrintServer(discover = discoverWindowsPrinters) {
       reply(200, { ...result, message: `Receipt sent to printer (Windows job ${result.job_id}).` });
     } catch (error) {
       const failure = error instanceof PrintError ? error : new PrintError('BRIDGE_FAILED', 'Local print service failed. Check Windows Print Spooler and restart the bridge.', 503);
-      if (request.url === '/printers') console.error(`[LPG print bridge] Discovery API failed: ${failure.status} ${failure.code} (${Date.now() - started}ms).`);
+      if (request.url === '/printers') console.error(`[LPG print bridge] Discovery API failed: ${failure.status} ${failure.code} (${Date.now() - started}ms). ${failure.message}`);
       reply(failure.status, { code: failure.code, message: failure.message });
     }
   });

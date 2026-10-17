@@ -166,19 +166,19 @@ begin
  perform pg_temp.assert_true(jsonb_array_length(r->'items')=1 and r->'items'->0->>'brand_name'='Brand A'
    and (r->'items'->0->>'quantity')::int=1,'tenant-qualified purchase lines');
 end $$;
-select public.update_transit_costs('cccccccc-cccc-4ccc-8ccc-cccccccccccc',10,20,30,'[]','active');
-select public.update_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc','{"transport_cost":20,"labour_cost":30}',2);
-select public.receive_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc','[{"purchase_item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","received_quantity":1}]',null,3);
-select public.pay_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc',4);
+select public.save_transit_costs('cccccccc-cccc-4ccc-8ccc-cccccccccccc','{"driver_cost":10,"helper_cost":20,"oil_cost":30,"others_cost":0}',1);
+select public.update_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc','{"transport_cost":20,"labour_cost":30}',1);
+select public.receive_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc',2);
+select public.pay_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc',3);
 update authorization_context set purchase_id=(public.create_purchase(
  '{"plant_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","request_id":"a1111111-1111-4111-8111-111111111111","transport_cost":10,"labour_cost":5,"items":[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"empty_dispatched":1,"unit_price":100}]}'
  )->>'purchase_id')::uuid;
 select public.dispatch_purchase(purchase_id,1) from authorization_context;
-select public.receive_purchase(c.purchase_id,jsonb_build_array(jsonb_build_object('purchase_item_id',p.value->'items'->0->>'purchase_item_id','received_quantity',1)),null,2)
+select public.receive_purchase(c.purchase_id,2)
  from authorization_context c join public.list_purchases() p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
 select public.pay_purchase(purchase_id,3) from authorization_context;
-select public.create_custom_transit('cccccccc-cccc-4ccc-8ccc-cccccccccccc',25,'Test');
-select public.update_transit_costs(transit_id,0,0,0,'[]','completed') from public.transits where purchase_id is null;
+select public.create_custom_transit('{"truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","fee":25,"client_name":"Test client"}');
+select public.transition_transit(transit_id,'complete',revision) from public.transits where purchase_id is null and status='active';
 select public.create_lpg_brand('New brand','Test');
 select public.update_lpg_brand('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Brand A updated',null,true);
 select public.create_gas_plant('New plant','cccccccc-cccc-4ccc-8ccc-cccccccccccc',null);
@@ -227,7 +227,7 @@ update authorization_context set purchase_id=(public.create_purchase(
  '{"plant_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","request_id":"a1111111-1111-4111-8111-111111111112","items":[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"empty_dispatched":1,"unit_price":100}]}'
  )->>'purchase_id')::uuid;
 select public.dispatch_purchase(purchase_id,1) from authorization_context;
-select public.receive_purchase(c.purchase_id,jsonb_build_array(jsonb_build_object('purchase_item_id',p.value->'items'->0->>'purchase_item_id','received_quantity',1)),null,2)
+select public.receive_purchase(c.purchase_id,2)
  from authorization_context c join public.list_purchases() p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
 select public.pay_purchase(purchase_id,3) from authorization_context;
 

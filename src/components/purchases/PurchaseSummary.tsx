@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { usePurchaseActivity } from '../../hooks/usePurchases';
 import { purchaseDraft } from '../../lib/purchase';
+import { describePurchaseActivity } from '../../lib/purchaseActivity';
 import { formatBDT } from '../../lib/formatBDT';
 import { PurchaseFinancials, PurchaseStatuses } from './PurchaseControls';
 import type { Purchase } from '../../types/purchase';
@@ -45,22 +47,34 @@ export function PurchaseSummary({ purchase, showNotes = true }: { purchase: Purc
   </>;
 }
 
-const actions: Record<string, string> = {
-  created: 'Purchase created', updated: 'Purchase updated', dispatched: 'Truck dispatched',
-  received: 'Shipment received', paid: 'Full payment recorded', logistics_updated: 'Shipment operating costs updated', legacy_import: 'Historical purchase retained',
-};
-
-export function PurchaseHistory({ purchaseId }: { purchaseId: string }) {
-  const query = usePurchaseActivity(purchaseId);
-  return <section className="purchase-section"><h3>Activity history</h3>
+export function PurchaseHistory({ purchase }: { purchase: Purchase }) {
+  const [page, setPage] = useState(0);
+  const query = usePurchaseActivity(purchase.purchase_id, page);
+  const entries = query.data?.entries ?? [];
+  return <section className="purchase-section purchase-history" aria-label="Activity history" aria-busy={query.isFetching}>
+    <div className="purchase-section-heading"><h3>Activity history</h3><span className="purchase-hint">Oldest first · 6 per page</span></div>
     {query.isLoading && <p className="purchase-hint">Loading activity…</p>}
     {query.isError && <p role="alert" className="purchase-error">Activity could not be loaded. <button type="button" className="btn btn-ghost" onClick={() => void query.refetch()}>Retry</button></p>}
-    <ol className="purchase-activity">{query.data?.map(activity => <li key={activity.activity_id}>
-      <strong>{actions[activity.action] ?? 'Purchase activity'}</strong><time dateTime={activity.created_at}>{purchaseDate(activity.created_at)} · {activity.actor_name}</time>
-      {typeof activity.details.notes === 'string' && activity.details.notes && <p className="purchase-hint">{activity.details.notes}</p>}
-      {typeof activity.details.total_cost === 'number' && <p className="purchase-hint">Settled total: {formatBDT(activity.details.total_cost)}</p>}
-      {typeof activity.details.empty_cylinders === 'number' && <p className="purchase-hint">{activity.details.empty_cylinders} empty cylinders dispatched</p>}
-      {typeof activity.details.operating_cost === 'number' && <p className="purchase-hint">Operating costs: {formatBDT(activity.details.operating_cost)}</p>}
-    </li>)}</ol>
+    {!query.isError && !query.isLoading && entries.length === 0 && <p className="purchase-hint">No activity on this page.</p>}
+    {!query.isError && <ol className="purchase-activity">{entries.map((activity, index) => {
+      const previous = entries.slice(0, index).reverse().find(entry => Array.isArray(entry.details?.items));
+      const summary = describePurchaseActivity(activity, purchase, previous?.details.items);
+      return <li key={activity.activity_id}>
+        <div className="purchase-activity-heading"><strong>{summary.title}</strong><time dateTime={activity.created_at}>{purchaseDate(activity.created_at)}</time></div>
+        <span className="purchase-activity-actor">{activity.actor_name}</span>
+        <ul className="purchase-activity-changes">{summary.changes.slice(0, 3).map((change, i) => <li key={i}>{change}</li>)}</ul>
+        {summary.changes.length > 3 && <details><summary>{summary.changes.length - 3} more changes</summary>
+          <ul className="purchase-activity-changes">{summary.changes.slice(3).map((change, i) => <li key={i}>{change}</li>)}</ul>
+        </details>}
+        {summary.snapshots.length > 0 && <details><summary>Saved products ({summary.snapshots.length})</summary>
+          <ul className="purchase-activity-changes">{summary.snapshots.map((snapshot, i) => <li key={i}>{snapshot}</li>)}</ul>
+        </details>}
+      </li>;
+    })}</ol>}
+    <nav className="purchase-history-pagination" aria-label="Activity history pages">
+      <button type="button" className="btn btn-secondary" disabled={page === 0 || query.isFetching} onClick={() => setPage(page - 1)}>Previous</button>
+      <span role="status">Page {page + 1}</span>
+      <button type="button" className="btn btn-secondary" disabled={!query.data?.hasMore || query.isFetching || query.isError} onClick={() => setPage(page + 1)}>Next</button>
+    </nav>
   </section>;
 }

@@ -5,6 +5,7 @@ import { POSItemsGrid } from '../components/pos/POSItemsGrid';
 import { POSCart } from '../components/pos/POSCart';
 import { CustomerSelection } from '../components/pos/CustomerSelection';
 import { CheckoutConfirmModal } from '../components/pos/CheckoutConfirmModal';
+import { ReceiptPrintMethodSelect } from '../components/pos/ReceiptPrintMethodSelect';
 import type { POSCustomerDraft } from '../components/pos/CustomerSelection';
 import { useCreatePOSSale } from '../hooks/usePOS';
 import { useInventoryBalances } from '../hooks/useInventory';
@@ -298,8 +299,9 @@ export const POSPage = () => {
       </div>
 
       {saleResult && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingTop: '0.5rem', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', paddingTop: '0.5rem', flexShrink: 0 }}>
           <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Saved sale #{saleResult.sale_id.slice(0, 8).toUpperCase()}</span>
+          {can('receipts:print') && <ReceiptPrintMethodSelect disabled={printSale.isPending || isProcessing} />}
           {can('receipts:print') && <button className="btn btn-secondary" disabled={printSale.isPending || isProcessing} onClick={() => printSale.mutate(saleResult.sale_id)}>
             <ReceiptText size={14} /> {printSale.isPending ? 'Printing…' : 'Reprint Last Sale'}
           </button>}

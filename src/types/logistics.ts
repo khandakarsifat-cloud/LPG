@@ -107,6 +107,12 @@ export interface Transit {
   driver_cost: number;
   helper_cost: number;
   oil_cost: number;
+  others_cost: number;
+  client_name: string | null;
+  destination: string | null;
+  description: string | null;
+  revision: number;
+  closed_at: string | null;
   additional_costs: AdditionalCost[];
   total_cost: number;
   created_at: string;

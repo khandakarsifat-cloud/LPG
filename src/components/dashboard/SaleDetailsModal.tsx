@@ -5,6 +5,7 @@ import { formatBDNumber } from '../../lib/formatBDT';
 import { usePrintSale } from '../../hooks/useReceiptPrinter';
 import type { SaleTransaction } from '../../hooks/useDashboard';
 import { useAuth } from '../../contexts/AuthContext';
+import { ReceiptPrintMethodSelect } from '../pos/ReceiptPrintMethodSelect';
 
 interface SaleDetailsModalProps {
   isOpen: boolean;
@@ -116,6 +117,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
 
         {/* ── Receipt Preview — scrollable ── */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem', minHeight: 0 }}>
+          {can('receipts:print') && <div style={{ marginBottom: '1rem' }}><ReceiptPrintMethodSelect disabled={printSale.isPending} /></div>}
           <div style={{
             background: '#ffffff',
             color: '#111',

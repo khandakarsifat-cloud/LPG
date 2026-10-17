@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyPurchaseDraft, filterPurchases, purchaseAccess, purchaseDay, purchaseDraft, purchaseTotals, validatePurchaseDraft, type PurchaseFilters } from '../src/lib/purchase.ts';
+import { emptyPurchaseDraft, filterPurchases, purchaseAccess, purchaseDay, purchaseDraft, purchaseTotals, purchaseEmptyShortages, validatePurchaseDraft, type PurchaseFilters } from '../src/lib/purchase.ts';
 import { inventoryMovementLabel } from '../src/lib/inventoryMovement.ts';
 import type { Purchase } from '../src/types/purchase.ts';
+import { describePurchaseActivity } from '../src/lib/purchaseActivity.ts';
 
 const purchase: Purchase = {
   purchase_id: 'purchase', plant_id: 'plant', plant_name: 'Plant', brand_id: 'brand', company_name: 'Company',
@@ -14,6 +15,63 @@ const purchase: Purchase = {
     { purchase_item_id: 'new', item_id: 'item', brand_name: 'Company', size_kg: 12, mouth_size: '22mm', type: 'package', quantity: 2, empty_dispatched: 0, billed_quantity: 2, received_quantity: null, unit_price: 200, line_total: 400 },
   ],
 };
+
+test('activity describes financial, note and truck changes without substituting current amounts', () => {
+  const summary = describePurchaseActivity({ activity_id: 'a', action: 'updated', actor_name: 'Operator', created_at: '', details: {
+    before: { commission: '10', notes: 'old', truck_id: null },
+    after: { commission: 20, notes: 'Bring refills', truck_id: 'truck' },
+  } }, purchase);
+  assert.deepEqual(summary.changes, ['Commission: Tk 10.00 → Tk 20.00', 'Truck assigned: Truck', 'Notes updated: Bring refills']);
+  assert.ok(!summary.changes.join(' ').includes('Tk 50.00'));
+});
+
+test('activity compares product quantities, prices, empties, additions and removals by SKU and type', () => {
+  const summary = describePurchaseActivity({ activity_id: 'a', action: 'updated', actor_name: '', created_at: '', details: {
+    before_items: [{ item_id: 'item', type: 'refill', quantity: 4, empty_dispatched: 4, unit_price: 100 },
+      { item_id: 'removed', type: 'package', quantity: 1 }],
+    items: [{ item_id: 'item', type: 'refill', quantity: 5, empty_dispatched: 5, unit_price: 110 },
+      { item_id: 'item', type: 'package', quantity: 2, unit_price: 200 }],
+  } }, purchase);
+  assert.ok(summary.changes.some(line => line.includes('quantity: 4 → 5')));
+  assert.ok(summary.changes.some(line => line.includes('price: Tk 100.00 → Tk 110.00')));
+  assert.ok(summary.changes.some(line => line.includes('empties: 4 → 5')));
+  assert.ok(summary.changes.some(line => line.startsWith('Added Company 12 kg 22mm new cylinders')));
+  assert.ok(summary.changes.some(line => line.startsWith('Removed Product new cylinders')));
+});
+
+test('older activity shows saved products without claiming an unknown product change', () => {
+  const summary = describePurchaseActivity({ activity_id: 'a', action: 'updated', actor_name: '', created_at: '', details: {
+    items: [{ item_id: 'item', type: 'refill', quantity: 4, unit_price: 90 }],
+  } }, purchase);
+  assert.match(summary.changes[0], /earlier product values were not captured/);
+  assert.match(summary.snapshots[0], /4 × Tk 90.00/);
+});
+
+test('activity handles notes-only saves, no-op saves, payment and lifecycle evidence', () => {
+  const describe = (action: string, details: Record<string, unknown>) => describePurchaseActivity({ activity_id: 'a', action, details, actor_name: '', created_at: '' }, purchase);
+  assert.deepEqual(describe('updated', { before: { notes: 'old' }, after: { notes: '' } }).changes, ['Notes cleared']);
+  assert.deepEqual(describe('updated', { before: { commission: '5.00' }, after: { commission: 5 } }).changes, ['Purchase saved; no recorded field changes.']);
+  assert.deepEqual(describe('paid', { total_cost: '123', company_payable: 100 }).changes, ['Company payment: Tk 100.00', 'Settled total: Tk 123.00']);
+  assert.deepEqual(describe('dispatched', { empty_cylinders: 4 }).changes, ['4 empty cylinders dispatched']);
+  assert.deepEqual(describe('logistics_updated', { operating_cost: 0 }).changes, ['Operating costs: Tk 0']);
+  assert.deepEqual(describe('cancelled', { previous_status: 'in_transit', notes: 'Stock reversed' }).changes, ['Cancelled from in transit.', 'Stock reversed']);
+  assert.equal(describe('future_event', {}).title, 'Purchase activity');
+});
+
+test('all refill shortages are grouped by product and new cylinders do not consume empties', () => {
+  const lines = purchaseDraft(purchase).items;
+  const inventory = [{ item_id: 'item', brand: 'Company', size_kg: 12, mouth_size: '22mm', empty_quantity: 2 },
+    { item_id: 'second', brand: 'Company', size_kg: 25, empty_quantity: 0 }];
+  const shortages = purchaseEmptyShortages([...lines, { ...lines[0], item_id: 'second', quantity: 3 }], inventory);
+  assert.deepEqual(shortages.map(s => [s.required, s.available, s.missing]), [[4, 2, 2], [3, 0, 3]]);
+  assert.deepEqual(purchaseEmptyShortages(lines.filter(l => l.type === 'package'), inventory), []);
+});
+
+test('cancellation remains available after receipt and payment, subject to manage permission', () => {
+  assert.equal(purchaseAccess({ ...purchase, status: 'received', payment_status: 'paid' }).cancel, true);
+  assert.equal(purchaseAccess({ ...purchase, status: 'cancelled' }).cancel, false);
+  assert.equal(purchaseAccess(purchase, false).cancel, false);
+});
 
 test('Created allows a plant-only draft and separate refill/new lines for one SKU', () => {
   assert.equal(validatePurchaseDraft(emptyPurchaseDraft(),0),null);

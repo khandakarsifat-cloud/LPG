@@ -1,131 +1,40 @@
 import { useState } from 'react';
-import { X, Navigation, Truck, FileText, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useCreateCustomTransit, useTrucks } from '../../hooks/useLogistics';
+import { PurchaseDialog, PurchaseNumber, PurchaseSelect } from '../purchases/PurchaseControls';
+import '../purchases/purchases.css';
 
-interface CreateCustomTransitModalProps {
-  open: boolean;
-  onClose: () => void;
+export function CreateCustomTransitModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return open ? <CustomTransitForm onClose={onClose} /> : null;
 }
-
-export const CreateCustomTransitModal = ({ open, onClose }: CreateCustomTransitModalProps) => {
-  const createTransit = useCreateCustomTransit();
-  const { data: trucks = [] } = useTrucks();
-
+function CustomTransitForm({ onClose }: { onClose: () => void }) {
+  const create = useCreateCustomTransit();
+  const trucks = useTrucks();
   const [truckId, setTruckId] = useState('');
-  const [fee, setFee] = useState<number>(0);
-  const [notes, setNotes] = useState('');
-
-  const idleTrucks = trucks.filter(t => t.status === 'idle');
-
-  if (!open) return null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!truckId) return;
-
+  const [clientName, setClientName] = useState('');
+  const [destination, setDestination] = useState('');
+  const [description, setDescription] = useState('');
+  const [fee, setFee] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  async function submit() {
+    if (!truckId || !clientName.trim()) { setError('Client name and truck are required.'); return; }
     try {
-      await createTransit.mutateAsync({
-        truckId,
-        fee,
-        notes
-      });
-      onClose();
-      setTruckId('');
-      setFee(0);
-      setNotes('');
-    } catch (err: unknown) {
-      alert(`Error creating transit: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div 
-        className="modal-content glass-panel" 
-        onClick={e => e.stopPropagation()}
-        style={{ maxWidth: 'min(92vw, 28.125rem)' }}
-      >
-        <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="modal-icon" style={{ background: 'rgba(59,130,246,0.1)', color: 'var(--primary)' }}>
-              <Navigation size={18} />
-            </div>
-            <div>
-              <h2 className="modal-title">New Custom Transit</h2>
-              <p className="modal-subtitle">Start a transit without a purchase order</p>
-            </div>
-          </div>
-          <button className="modal-close" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            
-            <div className="input-group">
-              <label className="input-label">Select Truck <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <div className="input-icon-wrapper">
-                <Truck size={16} className="input-icon" />
-                <select 
-                  className="input-field" 
-                  value={truckId} 
-                  onChange={e => setTruckId(e.target.value)}
-                  required
-                  style={{ paddingLeft: '2.5rem' }}
-                >
-                  <option value="">-- Choose an idle truck --</option>
-                  {idleTrucks.map(t => (
-                    <option key={t.truck_id} value={t.truck_id}>{t.name} ({t.serial_no})</option>
-                  ))}
-                </select>
-              </div>
-              {idleTrucks.length === 0 && <span style={{ fontSize: '0.75rem', color: 'var(--warning)' }}>No idle trucks available!</span>}
-            </div>
-
-            <div className="input-group">
-              <label className="input-label">Transport Fee (Income) (Tk)</label>
-              <div className="input-icon-wrapper">
-                <span className="input-icon" style={{ padding: '0 0.5rem', fontWeight: 600 }}>Tk</span>
-                <input 
-                  type="number"
-                  className="input-field" 
-                  value={fee || ''} 
-                  onChange={e => setFee(parseInt(e.target.value) || 0)}
-                  min="0"
-                  placeholder="e.g. 5000"
-                  style={{ paddingLeft: '2.5rem' }}
-                />
-              </div>
-            </div>
-
-            <div className="input-group">
-              <label className="input-label">Destination / Notes</label>
-              <div className="input-icon-wrapper">
-                <FileText size={16} className="input-icon" style={{ top: '12px', transform: 'none' }} />
-                <textarea 
-                  className="input-field" 
-                  value={notes} 
-                  onChange={e => setNotes(e.target.value)}
-                  rows={3}
-                  placeholder="e.g. Empty trip to warehouse..."
-                  style={{ paddingLeft: '2.5rem', resize: 'vertical' }}
-                />
-              </div>
-            </div>
-
-          </div>
-          
-          <div className="modal-footer">
-            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={createTransit.isPending}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={createTransit.isPending || !truckId}>
-              {createTransit.isPending ? <><Loader2 size={16} className="spin" /> Creating...</> : 'Start Transit'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+      await create.mutateAsync({ truckId, clientName: clientName.trim(), destination, description, fee });
+      toast.success('Transit started'); onClose();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Transit could not be created.'); }
+  }
+  return <PurchaseDialog title="New custom transit" subtitle="Client trip" onClose={onClose} busy={create.isPending} compact>
+    <form onSubmit={e => { e.preventDefault(); void submit(); }}><div className="modal-body">
+      <p className="purchase-alert">Starting the transit reserves the truck and adds the client fee to the logistics wallet.</p>
+      {error && <p role="alert" className="purchase-error">{error}</p>}
+      <section className="purchase-section transit-create-fields">
+        <label className="input-group"><span className="input-label">Client name *</span><input required className="input-field" value={clientName} onChange={e => setClientName(e.target.value)} /></label>
+        <PurchaseSelect label="Truck *" value={truckId} onChange={setTruckId} placeholder={trucks.isLoading ? 'Loading trucks…' : 'Choose an idle truck'} options={(trucks.data ?? []).filter(t => t.status === 'idle').map(t => ({ value: t.truck_id, label: t.name, description: t.serial_no }))} />
+        {trucks.isError && <p className="purchase-error">Trucks could not be loaded. <button type="button" className="btn btn-ghost" onClick={() => void trucks.refetch()}>Retry</button></p>}
+        <label className="input-group"><span className="input-label">Destination</span><input className="input-field" value={destination} onChange={e => setDestination(e.target.value)} /></label>
+        <label className="input-group"><span className="input-label">Description</span><textarea rows={2} className="input-field" value={description} onChange={e => setDescription(e.target.value)} /></label>
+        <PurchaseNumber label="Client transport fee (Tk)" value={fee} money onChange={value => setFee(value ?? 0)} />
+      </section>
+    </div><div className="modal-footer"><button type="button" className="btn btn-secondary" disabled={create.isPending} onClick={onClose}>Go back</button><button type="submit" className="btn btn-primary" disabled={create.isPending || !truckId || !clientName.trim()}>{create.isPending ? 'Starting…' : 'Start transit'}</button></div></form>
+  </PurchaseDialog>;
+}

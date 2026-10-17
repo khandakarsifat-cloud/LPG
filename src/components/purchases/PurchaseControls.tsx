@@ -57,14 +57,14 @@ export function PurchaseSelect({ label, value, options, placeholder = 'Select…
   </div>;
 }
 
-export function PurchaseNumber({ label, value, onChange, money = false, hint }: {
-  label: string; value: number | null; onChange: (value: number | null) => void; money?: boolean; hint?: string;
+export function PurchaseNumber({ label, value, onChange, money = false, hint, invalid = false }: {
+  label: string; value: number | null; onChange: (value: number | null) => void; money?: boolean; hint?: string; invalid?: boolean;
 }) {
   const id = useId();
   const [text, setText] = useState<string | null>(null);
   return <div className="input-group">
     <label className="input-label" htmlFor={id}>{label}</label>
-    <input id={id} className="input-field purchase-number" type="text" inputMode={money ? 'decimal' : 'numeric'}
+    <input id={id} className="input-field purchase-number" type="text" aria-invalid={invalid} aria-describedby={hint ? `${id}-hint` : undefined} inputMode={money ? 'decimal' : 'numeric'}
       autoComplete="off" placeholder={money ? '0.00' : '0'} value={text ?? (value === null ? '' : money ? formatBDNumber(value) : formatBDQty(value))}
       onFocus={event => event.currentTarget.select()}
       onBlur={() => setText(null)} onChange={event => {
@@ -73,7 +73,7 @@ export function PurchaseNumber({ label, value, onChange, money = false, hint }: 
           setText(next); onChange(next === '' || next === '.' ? null : Number(next));
         }
       }} />
-    {hint && <span className="purchase-hint">{hint}</span>}
+    {hint && <span id={`${id}-hint`} className={`purchase-hint${invalid ? ' purchase-shortage' : ''}`}>{hint}</span>}
   </div>;
 }
 

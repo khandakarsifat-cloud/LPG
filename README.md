@@ -1,6 +1,6 @@
 # LPG Manager
 
-LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Workers Static Assets. Production deployment and purchase acceptance were verified on **2026-10-15**; older security advisor snapshots retain their original dates below.
+LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Workers Static Assets. The purchase/transit workflow and production deployment were verified on **2026-10-15** against the existing Azure backend and Cloudflare frontend; older security advisor snapshots retain their original dates below.
 
 ## Current status
 
@@ -14,8 +14,8 @@ The current local deployment uses the root [`compose.yml`](compose.yml) with a s
 | POS | Product selection by cylinder mouth size; refill, package, and empty return line types; customer lookup or creation; retail and wholesale pricing; discounts, exchange fees, notes, and checkout. Refill quantity must match empty returns. Confirm & Print sends the completed sale directly to the configured USB ESC/POS printer through a Windows host bridge. Saved sales can be reprinted without creating another sale. |
 | Inventory | Item registry, filled and empty balances, stock summaries, recent movement feed, and per item history. No manual adjustment dialog is exposed in the current UI. |
 | Customers | Customer list, search, creation, and phone based matching. Customer phone numbers accept numeric Bangladesh mobile formats `01XXXXXXXXX` and `08801XXXXXXXXX`. |
-| Purchases | Compact searchable Created orders, one-empty-per-refill dispatch to In Transit, editable expected-default receipt quantities and independent full payment. Commission reduces company payable; money locks on payment and Received + Paid purchases show a read-only summary and activity history. |
-| Logistics | Truck registry, status and location changes, transits, cost breakdowns, and wallet balance display. |
+| Purchases | Compact searchable orders, grouped refill-shortage warnings, one-empty-per-refill dispatch, automatic expected-quantity receipt, independent full payment and staged cancellation with stock/payment reversals. Detail modals stay open after saves and payment. |
+| Logistics | Truck registry, client/destination transit details, completion/cancellation workflow, editable operating costs until confirmed closure, client refunds and wallet balances. |
 | Gas plants | Plant directory with LPG brand association and area officer contacts. |
 | Employees | Employee profiles, multiple phone numbers, employee types, business units, activation status, payment categories, and payment history. |
 | Settings | LPG brand management. The business profile tab is a placeholder. |
@@ -106,9 +106,11 @@ npm run auth:db:test
 npm run auth:api:test
 ```
 
-### Direct USB receipt printing
+### Receipt printing
 
-Install the printer's Windows USB driver and Node.js 22.18 or newer on the host. With dependencies installed, run `npm run print:bridge` from the repository root and leave it running. The bridge listens only on `http://127.0.0.1:17891`; it is separate from Docker and uses no Supabase credentials. In Dashboard, open **Receipt Printer** to select the queue/device, paper width, printable dots, and optional cutter. **Refresh** rescans Windows without closing the modal. Disconnected configuration is retained.
+Choose **Browser printing (Chrome/system dialog)** alongside the USB printer in Dashboard printer settings, checkout, or reprint controls. It needs no bridge and opens a receipt-only print dialog with the browser's installed printers and Save as PDF. The output method is remembered per business in this browser; shared USB configuration is retained. With no USB configuration, printing defaults to the browser dialog.
+
+For direct USB printing, install the printer's Windows USB driver and Node.js 22.18 or newer on the host. With dependencies installed, run `npm run print:bridge` from the repository root and leave it running. The bridge listens only on `http://127.0.0.1:17891`; it is separate from Docker and uses no Supabase credentials. Its default origin allowlist includes the existing Cloudflare frontend. In Dashboard, open **Receipt Printer** to select the queue/device, paper width, printable dots, and optional cutter. **Refresh** rescans Windows without closing the modal. Disconnected configuration is retained.
 
 Discovery reads installed Windows queues independently of saved configuration and bypasses browser caching. USB/port metadata failures show warnings while retaining the queue list; Windows queue enumeration errors are reported separately from having no printers. If the bridge stops, start it again and Refresh. Temporary diagnostics are available through `LPG_PRINT_DIAGNOSTICS=1`.
 

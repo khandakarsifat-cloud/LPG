@@ -59,6 +59,6 @@ export function PurchasesList({ query }: { query: UseQueryResult<Purchase[], Err
       <div className="purchase-card-footer"><span className="purchase-total-label">Total purchase cost</span>
         <strong className="purchase-total-value">{formatBDT(Number(purchase.total_cost))}</strong></div>
     </button>)}</div>
-    <UpdatePurchaseModal open={selected !== null} purchase={selected} onClose={() => setSelected(null)} />
+    <UpdatePurchaseModal open={selected !== null} purchase={purchases.find(p => p.purchase_id === selected?.purchase_id) ?? selected} onClose={() => setSelected(null)} />
   </div>;
 }

@@ -120,12 +120,11 @@ export const useSetTruckLocation = () => {
 /** Create custom transit */
 export const useCreateCustomTransit = () => {
   const qc = useQueryClient();
-  return useMutation<unknown, Error, { truckId: string; fee: number; notes: string }>({
+  return useMutation<unknown, Error, { truckId: string; fee: number; clientName: string; destination: string; description: string }>({
     mutationFn: async (payload) => {
       const { data, error } = await supabase.rpc('create_custom_transit', {
-        p_truck_id: payload.truckId,
-        p_fee: payload.fee,
-        p_notes: payload.notes,
+        p_payload: { truck_id: payload.truckId, fee: payload.fee, client_name: payload.clientName,
+          destination: payload.destination, description: payload.description },
       });
       if (error) throw error;
       return data;
@@ -143,29 +142,40 @@ export const useUpdateTransitCosts = () => {
   const qc = useQueryClient();
   return useMutation<unknown, Error, {
     transitId: string;
+    revision: number;
     driverCost: number;
     helperCost: number;
     oilCost: number;
+    othersCost: number;
     additionalCosts: AdditionalCost[];
-    status: string;
   }>({
     mutationFn: async (payload) => {
-      const { data, error } = await supabase.rpc('update_transit_costs', {
+      const { data, error } = await supabase.rpc('save_transit_costs', {
         p_transit_id: payload.transitId,
-        p_driver_cost: payload.driverCost,
-        p_helper_cost: payload.helperCost,
-        p_oil_cost: payload.oilCost,
-        p_additional_costs: payload.additionalCosts,
-        p_status: payload.status,
+        p_revision: payload.revision,
+        p_costs: { driver_cost: payload.driverCost, helper_cost: payload.helperCost, oil_cost: payload.oilCost,
+          others_cost: payload.othersCost, additional_costs: payload.additionalCosts },
       });
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: logisticsKeys.transits });
-      qc.invalidateQueries({ queryKey: logisticsKeys.wallets });
-      qc.invalidateQueries({ queryKey: logisticsKeys.trucks });
-      qc.invalidateQueries({ queryKey: ['purchases'] });
+    onSettled: async () => {
+      await Promise.all([qc.invalidateQueries({ queryKey: logisticsKeys.transits }),
+        qc.invalidateQueries({ queryKey: ['purchases'] })]);
+    },
+  });
+};
+
+export const useTransitionTransit = () => {
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, { transitId: string; revision: number; action: 'complete' | 'cancel' | 'close' }>({
+    mutationFn: async ({ transitId, revision, action }) => {
+      const { data, error } = await supabase.rpc('transition_transit', { p_transit_id: transitId, p_action: action, p_revision: revision });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSettled: async () => {
+      await Promise.all([qc.invalidateQueries({ queryKey: logisticsKeys.all }), qc.invalidateQueries({ queryKey: ['purchases'] })]);
     },
   });
 };

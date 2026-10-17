@@ -5,6 +5,7 @@ export function inventoryMovementLabel(movement: Pick<InventoryMovement, 'refere
     case 'purchase_dispatch': return 'Purchase dispatch';
     case 'purchase_receipt_refill': return 'Refills received';
     case 'purchase_receipt_new': return 'New cylinders received';
+    case 'purchase_cancellation': return 'Purchase cancelled';
     default: return MOVEMENT_TYPE_LABELS[movement.movement_type] ?? movement.movement_type;
   }
 }

@@ -61,7 +61,9 @@ export function PurchaseForm({ draft, onChange, companyId, purchase, showShipmen
               </div></fieldset>}
             {productsEditable ?
               <PurchaseNumber label={line.type === 'refill' ? 'Expected refills' : 'Expected new cylinders'} value={line.quantity}
-                onChange={n => updateLine(index, { quantity: n ?? 0 })} hint={line.type === 'refill' && item ? `${item.empty_quantity} empties available` : undefined} />
+                onChange={n => updateLine(index, { quantity: n ?? 0 })}
+                invalid={line.type === 'refill' && !!item && line.quantity > item.empty_quantity}
+                hint={line.type === 'refill' && item ? `${line.quantity > item.empty_quantity ? 'Only ' : ''}${item.empty_quantity} empties available` : undefined} />
              : <dl className="purchase-line-quantities">
               <div><dt>Expected</dt><dd>{line.quantity}</dd></div><div><dt>Empties sent</dt><dd>{line.empty_dispatched}</dd></div>
               <div><dt>Received</dt><dd>{saved?.received_quantity ?? 'Pending'}</dd></div><div><dt>Billed</dt><dd>{saved?.billed_quantity}</dd></div>
