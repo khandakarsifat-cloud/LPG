@@ -30,7 +30,7 @@ export function formatReceipt(data: ReceiptData): ReceiptLine[] {
   for (const item of data.items) {
     lines.push({ text: item.name, bold: true });
     lines.push({ text: `${labels[item.type]} x${item.quantity}` });
-    lines.push({ text: item.type === 'empty_return' ? 'Free' : `@ ${money(item.unit_price)}`, right: item.type === 'empty_return' ? '-' : money(item.line_total) });
+    lines.push({ text: item.type === 'empty_return' ? 'Free' : `Price: ${money(item.unit_price)}`, right: item.type === 'empty_return' ? '-' : money(item.line_total) });
   }
   lines.push({ text: '────────────────────────' }, { text: 'Subtotal', right: money(data.subtotal) });
   if (data.discount_amount > 0) lines.push({ text: 'Discount', right: `-${money(data.discount_amount)}` });

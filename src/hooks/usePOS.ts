@@ -8,7 +8,9 @@ export interface PriceBook {
   customer_tier: string;
   price_type: 'refill' | 'package';
   price: number;
+  mrp?: number | null;
   effective_from: string;
+  effective_to?: string | null;
 }
 
 export const posKeys = {

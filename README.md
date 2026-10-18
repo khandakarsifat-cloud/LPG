@@ -1,6 +1,6 @@
 # LPG Manager
 
-LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Workers Static Assets. The purchase/transit workflow and production deployment were verified on **2026-10-15** against the existing Azure backend and Cloudflare frontend; older security advisor snapshots retain their original dates below.
+LPG Manager is a browser based operations app for LPG dealerships in Bangladesh. It covers sales, cylinder stock, purchases, suppliers, trucks, customers, and employees. The React frontend talks directly to self hosted Supabase: local Docker for development and Azure for production. The production frontend is hosted separately on Cloudflare Workers Static Assets. The inventory pricing/history release and current production deployment were verified on **2026-10-18** against the existing Azure backend and Cloudflare frontend; older security advisor snapshots retain their original dates below.
 
 ## Current status
 
@@ -12,7 +12,7 @@ The current local deployment uses the root [`compose.yml`](compose.yml) with a s
 | --- | --- |
 | Dashboard | Today's completed sales revenue, inventory movement count, active customer count, and sales feed with sale details. Receipt Printer configuration beside Open POS saves one USB printer per business. The stock exceptions panel is a placeholder. |
 | POS | Product selection by cylinder mouth size; refill, package, and empty return line types; customer lookup or creation; retail and wholesale pricing; discounts, exchange fees, notes, and checkout. Refill quantity must match empty returns. Confirm & Print sends the completed sale directly to the configured USB ESC/POS printer through a Windows host bridge. Saved sales can be reprinted without creating another sale. |
-| Inventory | Item registry, filled and empty balances, stock summaries, recent movement feed, and per item history. No manual adjustment dialog is exposed in the current UI. |
+| Inventory | Compact filled/empty summaries; product details with retail/wholesale MRP and selling prices, latest received buying-cost estimates, and eight Saturday–Friday stock-history weeks. Recent movement feed remains available. No manual adjustment dialog is exposed. |
 | Customers | Customer list, search, creation, and phone based matching. Customer phone numbers accept numeric Bangladesh mobile formats `01XXXXXXXXX` and `08801XXXXXXXXX`. |
 | Purchases | Compact searchable orders, grouped refill-shortage warnings, one-empty-per-refill dispatch, automatic expected-quantity receipt, independent full payment and staged cancellation with stock/payment reversals. Detail modals stay open after saves and payment. |
 | Logistics | Truck registry, client/destination transit details, completion/cancellation workflow, editable operating costs until confirmed closure, client refunds and wallet balances. |

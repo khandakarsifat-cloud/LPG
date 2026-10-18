@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Plus, Package, Activity, LayoutGrid, ShieldAlert } from 'lucide-react';
-import { useItems } from '../hooks/useInventory';
+import { Plus, Activity, LayoutGrid, Droplets, Box } from 'lucide-react';
+import { useInventoryBalances } from '../hooks/useInventory';
+import { useAuth } from '../contexts/AuthContext';
 import { BalancesGrid } from '../components/inventory/BalancesGrid';
 import { MovementsFeed } from '../components/inventory/MovementsFeed';
 import { AddItemModal } from '../components/inventory/AddItemModal';
@@ -8,19 +9,17 @@ import { AddItemModal } from '../components/inventory/AddItemModal';
 type Tab = 'balances' | 'history';
 
 export const InventoryPage = () => {
-  const { data: items = [] } = useItems();
+  const { data: items = [], isPending, isError } = useInventoryBalances();
+  const { can } = useAuth();
 
   const [tab, setTab]                 = useState<Tab>('balances');
   const [addItemOpen, setAddItemOpen] = useState(false);
 
-  // Summary stats
-  const totalSkus  = items.length;
-  const totalUnits = items.reduce((s, item) => s + (item.filled_quantity || 0) + (item.empty_quantity || 0), 0);
-  const outOfStock = items.filter((item) => (item.filled_quantity || 0) + (item.empty_quantity || 0) <= 0).length;
-  const lowStock   = items.filter((item) => {
-    const total = (item.filled_quantity || 0) + (item.empty_quantity || 0);
-    return total > 0 && total <= 10;
-  }).length;
+  const summaries = [
+    { label: 'Total Units', filled: items.reduce((sum, i) => sum + i.filled_quantity, 0), empty: items.reduce((sum, i) => sum + i.empty_quantity, 0), hint: 'Units on hand' },
+    { label: 'Low Stock', filled: items.filter(i => i.filled_quantity > 0 && i.filled_quantity <= 5).length, empty: items.filter(i => i.empty_quantity > 0 && i.empty_quantity <= 5).length, hint: 'Products with 1–5 units' },
+    { label: 'Out of Stock', filled: items.filter(i => i.filled_quantity === 0).length, empty: items.filter(i => i.empty_quantity === 0).length, hint: 'Products with zero units' },
+  ];
 
   return (
     <div className="inventory-page">
@@ -28,55 +27,30 @@ export const InventoryPage = () => {
       <div className="page-header">
         <div>
           <p className="page-subtitle">
-            Immutable event-sourced stock tracking. Every movement is permanent.
+            Stock, pricing and weekly product activity.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-primary" onClick={() => setAddItemOpen(true)}>
+          {can('inventory:manage') && <button className="btn btn-primary" onClick={() => setAddItemOpen(true)}>
             <Plus size={16} />
             Add Item
-          </button>
+          </button>}
         </div>
       </div>
 
       {/* ── Stats Row ── */}
-      <div className="inv-stats-row">
-        <div className="glass-panel inv-stat">
-          <div className="inv-stat-icon" style={{ background: 'rgba(59,130,246,0.1)', color: 'var(--primary)' }}>
-            <Package size={18} />
+      <div className="inv-overview">
+        {summaries.map(summary => <div className="inv-overview-box" key={summary.label} title={summary.hint}>
+          <span className="inv-overview-label">{summary.label}</span>
+          <div className="inv-overview-counts">
+            <span className="inv-overview-filled" aria-label={`${summary.label}: ${summary.filled} filled`} title="Filled">
+              <Droplets size={15} aria-hidden="true" />{isPending || isError ? '—' : summary.filled.toLocaleString()}
+            </span>
+            <span className="inv-overview-empty" aria-label={`${summary.label}: ${summary.empty} empty`} title="Empty">
+              <Box size={15} aria-hidden="true" />{isPending || isError ? '—' : summary.empty.toLocaleString()}
+            </span>
           </div>
-          <div>
-            <div className="inv-stat-value">{totalSkus}</div>
-            <div className="inv-stat-label">Product SKUs</div>
-          </div>
-        </div>
-        <div className="glass-panel inv-stat">
-          <div className="inv-stat-icon" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--accent)' }}>
-            <LayoutGrid size={18} />
-          </div>
-          <div>
-            <div className="inv-stat-value">{totalUnits.toLocaleString()}</div>
-            <div className="inv-stat-label">Total Units on Hand</div>
-          </div>
-        </div>
-        <div className="glass-panel inv-stat">
-          <div className="inv-stat-icon" style={{ background: 'rgba(245,158,11,0.1)', color: 'var(--warning)' }}>
-            <Activity size={18} />
-          </div>
-          <div>
-            <div className="inv-stat-value">{lowStock}</div>
-            <div className="inv-stat-label">Low Stock Items</div>
-          </div>
-        </div>
-        <div className="glass-panel inv-stat">
-          <div className="inv-stat-icon" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
-            <ShieldAlert size={18} />
-          </div>
-          <div>
-            <div className="inv-stat-value">{outOfStock}</div>
-            <div className="inv-stat-label">Out of Stock</div>
-          </div>
-        </div>
+        </div>)}
       </div>
 
       {/* ── Tabs ── */}

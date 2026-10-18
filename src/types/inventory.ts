@@ -12,6 +12,47 @@ export type MovementType =
 export type CylinderWeight = '5kg' | '12kg' | '25kg' | '35kg';
 export type MouthSize = '20mm' | '22mm';
 export type PriceType = 'refill' | 'package';
+export type CustomerTier = 'retail' | 'wholesale';
+
+export interface ProductPrice {
+  customer_tier: CustomerTier;
+  price_type: PriceType;
+  price: number;
+  mrp: number | null;
+  effective_from: string;
+}
+
+export interface ProductBuyingCost {
+  type: PriceType;
+  received_at: string | null;
+  bottle_cost: number;
+  overhead_per_unit: number;
+  commission_per_unit: number;
+  estimated_unit_cost: number;
+}
+
+export interface ProductWeek {
+  start_date: string;
+  end_date: string;
+  sold_refill: number;
+  sold_package: number;
+  empty_return: number;
+  bought_package: number;
+  bought_refill: number;
+}
+
+export interface ProductInventory {
+  prices: ProductPrice[];
+  buying_costs: ProductBuyingCost[];
+  weeks: ProductWeek[];
+}
+
+export interface SaveProductPrices {
+  itemId: string;
+  tier: CustomerTier;
+  prices: Record<PriceType, { price: number; mrp: number | null }>;
+  expected: Record<PriceType, string | null>;
+}
 
 export interface LPGBrand {
   tenant_id: string;

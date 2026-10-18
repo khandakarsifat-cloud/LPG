@@ -85,7 +85,7 @@ if (replayIndex === -1) {
     }
     else if(exchangeCompatibility) report('exchange compatibility',await db.exec(read('purchases-exchange.after.sql')));
     else report('historical compatibility',await db.exec(read('purchases-legacy.after.sql')));
-    for(const name of ['purchases.sql','authorization.sql','receipt_printers.sql']) {
+    for(const name of ['purchases.sql','authorization.sql','receipt_printers.sql','inventory.sql']) {
       await db.exec('set row_security=on;');
       report(name,await db.exec(read(name)));
     }

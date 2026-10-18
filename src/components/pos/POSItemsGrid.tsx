@@ -4,6 +4,7 @@ import { usePriceBooks } from '../../hooks/usePOS';
 import type { POSSalePayload } from '../../hooks/usePOS';
 import type { MouthSize } from '../../types/inventory';
 import { formatBDNumber } from '../../lib/formatBDT';
+import { getSellingPrice } from '../../lib/productPricing';
 
 interface ProductOptionRowProps {
   icon: React.ReactNode;
@@ -123,12 +124,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
   }
 
   const getPrice = (itemId: string, type: 'refill' | 'package') => {
-    const pb = priceBooks?.find(p => p.item_id === itemId && p.customer_tier === tier && p.price_type === type);
-    if (!pb && tier !== 'retail') {
-      const retailPb = priceBooks?.find(p => p.item_id === itemId && p.customer_tier === 'retail' && p.price_type === type);
-      return Number(retailPb?.price || 0);
-    }
-    return Number(pb?.price || 0);
+    return getSellingPrice(priceBooks ?? [], itemId, type, tier);
   };
 
   if (!items || items.length === 0) {

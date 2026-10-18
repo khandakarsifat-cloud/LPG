@@ -1,148 +1,216 @@
-import { X, ArrowUpCircle, ArrowDownCircle, Activity, Loader2, Package } from 'lucide-react';
-import { useItemMovements } from '../../hooks/useInventory';
-import { MOVEMENT_TYPE_COLORS, type MovementType, type ItemWithBrand } from '../../types/inventory';
-import { inventoryMovementLabel } from '../../lib/inventoryMovement';
-import { formatDistanceToNow, format } from 'date-fns';
+import { useLayoutEffect, useRef, useState, type FormEvent } from 'react';
+import { X, Droplets, Box, RefreshCw, RotateCcw, Pencil, Loader2, Package, CalendarDays, Info } from 'lucide-react';
+import { format } from 'date-fns';
+import toast from 'react-hot-toast';
+import { useProductInventory, useSaveProductPrices } from '../../hooks/useInventory';
+import { useAuth } from '../../contexts/AuthContext';
+import { formatBDNumber } from '../../lib/formatBDT';
+import type { CustomerTier, ItemWithBrand, PriceType, ProductPrice } from '../../types/inventory';
 import './inventory.css';
 
-interface ProductHistoryModalProps {
-  item: ItemWithBrand;
-  onClose: () => void;
+const kinds: PriceType[] = ['refill', 'package'];
+const kindLabel = { refill: 'Refill', package: 'Package' };
+const money = (value: number) => `Tk ${formatBDNumber(Number(value))}`;
+const dateLabel = (value: string, pattern = 'dd MMM yyyy') => format(new Date(`${value.slice(0, 10)}T12:00:00`), pattern);
+const weekRange = (start: string, end: string) => {
+  if (start.slice(0, 4) !== end.slice(0, 4)) return `${dateLabel(start, 'dd MMM yy')} – ${dateLabel(end, 'dd MMM yy')}`;
+  if (start.slice(0, 7) !== end.slice(0, 7)) return `${dateLabel(start, 'dd MMM')} – ${dateLabel(end, 'dd MMM')}`;
+  return `${dateLabel(start, 'dd')}–${dateLabel(end, 'dd MMM')}`;
+};
+const historyFields = [
+  { key: 'sold_refill', label: 'Sold refill', shortLabel: 'Refill', icon: RefreshCw, direction: 'out' },
+  { key: 'sold_package', label: 'Sold package', shortLabel: 'Package', icon: Box, direction: 'out' },
+  { key: 'empty_return', label: 'Empty return', shortLabel: 'Empty', icon: RotateCcw, direction: 'in' },
+  { key: 'bought_package', label: 'Bought package', shortLabel: 'Package', icon: Box, direction: 'in' },
+  { key: 'bought_refill', label: 'Bought refill', shortLabel: 'Refill', icon: RefreshCw, direction: 'in' },
+] as const;
+
+function PricingEditor({ itemId, tier, prices, onCancel, onSaved, onPending }: {
+  itemId: string; tier: CustomerTier; prices: ProductPrice[];
+  onCancel: () => void; onSaved: () => void; onPending: (pending: boolean) => void;
+}) {
+  const save = useSaveProductPrices();
+  const [baseline] = useState(() => ({
+    refill: prices.find(p => p.customer_tier === tier && p.price_type === 'refill')?.effective_from ?? null,
+    package: prices.find(p => p.customer_tier === tier && p.price_type === 'package')?.effective_from ?? null,
+  }));
+  const [fields, setFields] = useState(() => {
+    const values = (kind: PriceType) => {
+      const current = prices.find(p => p.customer_tier === tier && p.price_type === kind)
+        ?? prices.find(p => p.customer_tier === 'retail' && p.price_type === kind);
+      return { price: current ? String(current.price) : '', mrp: current?.mrp == null ? '' : String(current.mrp) };
+    };
+    return { refill: values('refill'), package: values('package') };
+  });
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (save.isPending) return;
+    onPending(true);
+    try {
+      await save.mutateAsync({ itemId, tier, expected: baseline, prices: {
+        refill: { price: Number(fields.refill.price), mrp: fields.refill.mrp === '' ? null : Number(fields.refill.mrp) },
+        package: { price: Number(fields.package.price), mrp: fields.package.mrp === '' ? null : Number(fields.package.mrp) },
+      } });
+      toast.success('Prices saved');
+      onSaved();
+    } catch { /* Keep all entered prices; show the server error below. */ }
+    finally { onPending(false); }
+  };
+
+  return <form onSubmit={submit} className="product-price-form">
+    <div className="product-price-table product-price-editor">
+      <span /> <span>MRP</span> <span>Selling price</span>
+      {kinds.map(kind => <div className="product-price-row" key={kind}>
+        <strong>{kindLabel[kind]}</strong>
+        {(['mrp', 'price'] as const).map(field => <input key={field} className="input-field" type="number" min="0" max="9999999999.99" step="0.01"
+          required={field === 'price'} disabled={save.isPending} aria-label={`${kindLabel[kind]} ${field === 'mrp' ? 'MRP' : 'selling price'}`}
+          placeholder={field === 'mrp' ? 'Optional' : 'Required'} value={fields[kind][field]}
+          onChange={event => setFields(previous => ({ ...previous, [kind]: { ...previous[kind], [field]: event.target.value } }))} />)}
+      </div>)}
+    </div>
+    {save.isError && <p role="alert" className="product-error">{save.error.message}</p>}
+    <div className="product-price-actions">
+      <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={save.isPending}>Cancel</button>
+      <button className="btn btn-primary" disabled={save.isPending}>{save.isPending && <Loader2 size={14} className="spin" />}Save prices</button>
+    </div>
+  </form>;
 }
 
-export const ProductHistoryModal = ({ item, onClose }: ProductHistoryModalProps) => {
-  const { data: movements = [], isLoading } = useItemMovements(item.item_id);
-
+export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; onClose: () => void }) => {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const { can } = useAuth();
+  const product = useProductInventory(item.item_id);
+  const [tier, setTier] = useState<CustomerTier>('retail');
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editorVersion, setEditorVersion] = useState(0);
+  const [reloading, setReloading] = useState(false);
   const brandName = item.lpg_brands?.brand_name ?? item.brand;
 
-  return (
-    /* ── backdrop ── */
-    <div className="phm-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      {/* ── panel ── */}
-      <div className="phm-panel glass-panel">
+  useLayoutEffect(() => {
+    const panel = dialog.current;
+    panel?.showModal();
+    return () => panel?.close();
+  }, []);
 
-        {/* Header */}
-        <div className="phm-header">
-          <div className="phm-header-left">
-            <div className="phm-product-icon">
-              <Package size={20} />
-            </div>
-            <div>
-              <div className="phm-title">{brandName} <span className="phm-size">{item.size_kg} kg</span></div>
-              <div className="phm-subtitle">Movement History</div>
-            </div>
-          </div>
+  const reloadPrices = async () => {
+    setReloading(true);
+    const result = await product.refetch();
+    if (result.isSuccess) setEditorVersion(version => version + 1);
+    setReloading(false);
+  };
 
-          {/* Current stock pills */}
-          <div className="phm-stock-pills">
-            <div className="phm-stock-pill phm-stock-filled">
-              <span className="phm-stock-pill-label">Filled</span>
-              <span className="phm-stock-pill-value">{item.filled_quantity ?? 0}</span>
-            </div>
-            <div className="phm-stock-pill phm-stock-empty">
-              <span className="phm-stock-pill-label">Empty</span>
-              <span className="phm-stock-pill-value">{item.empty_quantity ?? 0}</span>
-            </div>
-            <button className="phm-close" onClick={onClose} aria-label="Close">
-              <X size={18} />
-            </button>
-          </div>
+  return <dialog ref={dialog} className="product-dialog" aria-labelledby="product-title"
+    onCancel={event => { event.preventDefault(); if (!saving) onClose(); }}
+    onClick={event => {
+      if (event.target !== event.currentTarget || saving) return;
+      const bounds = event.currentTarget.getBoundingClientRect();
+      if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
+    }}>
+    <div className="product-dialog-layout">
+      <header className="product-dialog-header">
+        <div className="product-heading">
+          <span className="phm-product-icon"><Package size={21} /></span>
+          <div><h2 id="product-title">{brandName} <span>{item.size_kg} kg</span></h2>
+            <p>{item.mouth_size ? `${item.mouth_size} mouth` : 'Product details'}</p></div>
         </div>
+        <button className="phm-close" aria-label="Close product details" onClick={onClose} disabled={saving}><X size={18} /></button>
+      </header>
 
-        {/* Divider */}
-        <div className="phm-divider" />
+      <div className="product-dialog-body">
+        <section className="product-stock" aria-label="Current stock">
+          <div><h3>Current stock</h3><p>Units on hand</p></div>
+          <div className="product-stock-value inv-overview-filled"><Droplets size={19} /><div><strong>{item.filled_quantity.toLocaleString()}</strong><span>Filled</span></div></div>
+          <div className="product-stock-value inv-overview-empty"><Box size={19} /><div><strong>{item.empty_quantity.toLocaleString()}</strong><span>Empty</span></div></div>
+        </section>
 
-        {/* Body */}
-        <div className="phm-body">
-          {isLoading ? (
-            <div className="phm-loading">
-              <Loader2 size={28} className="spin" style={{ color: 'var(--primary)' }} />
-              <p>Loading history...</p>
+        {product.isPending && <div className="product-loading" role="status"><Loader2 size={22} className="spin" />Loading product details…</div>}
+        {product.isError && <div className="product-error" role="alert">Could not refresh product details. <button className="btn btn-ghost" onClick={() => product.refetch()}>Retry</button></div>}
+        {product.data && <>
+          <section className="product-section" aria-labelledby="product-pricing-title">
+            <div className="product-section-heading">
+              <h3 id="product-pricing-title">Current pricing</h3>
+              <div className="product-tier-switch" aria-label="Customer pricing tier">
+                {(['retail', 'wholesale'] as const).map(value => <button key={value} aria-pressed={tier === value} disabled={editing}
+                  onClick={() => setTier(value)}>{value === 'retail' ? 'Retail' : 'Wholesale'}</button>)}
+              </div>
             </div>
-          ) : movements.length === 0 ? (
-            <div className="phm-empty">
-              <Activity size={36} style={{ opacity: 0.3 }} />
-              <p>No movements recorded yet for this product.</p>
+            {editing ? <PricingEditor key={`${tier}-${editorVersion}`} itemId={item.item_id} tier={tier} prices={product.data.prices}
+              onCancel={() => setEditing(false)} onSaved={() => setEditing(false)} onPending={setSaving} />
+              : <div className="product-price-table">
+                <span /> <span>MRP</span> <span>Selling price</span>
+                {kinds.map(kind => {
+                  const own = product.data.prices.find(p => p.customer_tier === tier && p.price_type === kind);
+                  const price = own ?? product.data.prices.find(p => p.customer_tier === 'retail' && p.price_type === kind);
+                  return <div className="product-price-row" key={kind}>
+                    <strong>{kind === 'refill' ? <RefreshCw size={14} /> : <Box size={14} />}{kindLabel[kind]}</strong>
+                    <span className="product-mrp">{price?.mrp == null ? '—' : money(price.mrp)}</span>
+                    <div><strong>{price ? money(price.price) : 'Not set'}</strong>{!own && price && tier === 'wholesale' && <small>Retail price applies</small>}</div>
+                  </div>;
+                })}
+              </div>}
+            <div className="product-price-note">
+              <p>MRP is for reference. Sales use the selling price; discounts apply separately.</p>
+              {can('inventory:manage') && (editing
+                ? <button className="btn btn-ghost" disabled={saving || reloading} onClick={reloadPrices}>Reload saved prices</button>
+                : <button className="btn btn-secondary" onClick={() => setEditing(true)}><Pencil size={13} />Edit prices</button>)}
             </div>
-          ) : (
-            <div className="phm-feed">
-              {movements.map((m) => {
-                const color   = MOVEMENT_TYPE_COLORS[m.movement_type as MovementType] ?? '#94a3b8';
-                const label   = inventoryMovementLabel(m);
-                const isUp    = (m.filled_quantity_change > 0) || (m.empty_quantity_change > 0);
-                const actor   = m.user_profiles?.email?.split('@')[0] ?? 'System';
-                const hasFilled = m.filled_quantity_change !== 0;
-                const hasEmpty  = m.empty_quantity_change !== 0;
+          </section>
 
-                return (
-                  <div key={m.movement_id} className="phm-entry">
-                    {/* Left icon */}
-                    <div className="phm-entry-icon" style={{ color }}>
-                      {isUp
-                        ? <ArrowUpCircle size={20} />
-                        : <ArrowDownCircle size={20} />}
-                    </div>
-
-                    {/* Middle info */}
-                    <div className="phm-entry-info">
-                      <div className="phm-entry-top">
-                        <span className="phm-type-badge" style={{ background: `${color}18`, color }}>
-                          {label}
-                        </span>
-                        <span className="phm-entry-actor">by {actor}</span>
-                      </div>
-                      {m.notes && (
-                        <div className="phm-entry-notes">{m.notes}</div>
-                      )}
-                      <div className="phm-entry-time">
-                        {format(new Date(m.created_at), 'dd MMM yyyy, HH:mm')}
-                        {' | '}
-                        {formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}
-                      </div>
-                    </div>
-
-                    {/* Right qty changes */}
-                    <div className="phm-entry-qty">
-                      {hasFilled && (
-                        <span
-                          className="phm-qty-chip"
-                          style={{
-                            color:      m.filled_quantity_change > 0 ? 'var(--accent)' : 'var(--danger)',
-                            background: m.filled_quantity_change > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-                          }}
-                        >
-                          {m.filled_quantity_change > 0 ? '+' : ''}{m.filled_quantity_change} Filled
-                        </span>
-                      )}
-                      {hasEmpty && (
-                        <span
-                          className="phm-qty-chip"
-                          style={{
-                            color:      m.empty_quantity_change > 0 ? 'var(--warning)' : 'var(--danger)',
-                            background: m.empty_quantity_change > 0 ? 'rgba(245,158,11,0.12)' : 'rgba(239,68,68,0.12)',
-                          }}
-                        >
-                          {m.empty_quantity_change > 0 ? '+' : ''}{m.empty_quantity_change} Empty
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
+          <section className="product-section" aria-labelledby="product-buying-title">
+            <div className="product-section-heading"><h3 id="product-buying-title">Estimated buying price</h3><span className="product-approx">Per unit · approximate</span></div>
+            <div className="product-buying-grid">
+              {kinds.map(kind => {
+                const cost = product.data.buying_costs.find(entry => entry.type === kind);
+                return <div className="product-buying" key={kind}>
+                  <div className="product-buying-heading"><span>{kindLabel[kind]}</span><strong>{cost ? money(cost.estimated_unit_cost) : '—'}</strong></div>
+                  {cost ? <>
+                    <p>{cost.received_at ? `Received ${format(new Date(cost.received_at), 'dd MMM yyyy')}` : 'Last received purchase'}</p>
+                    <dl><div><dt>Bottle cost</dt><dd>{money(cost.bottle_cost)}</dd></div>
+                      <div><dt>Transport + labour / unit</dt><dd>+ {money(cost.overhead_per_unit)}</dd></div>
+                      {cost.commission_per_unit > 0 && <div><dt>Commission / unit</dt><dd>− {money(cost.commission_per_unit)}</dd></div>}</dl>
+                  </> : <p>No received {kindLabel[kind].toLowerCase()} purchase yet.</p>}
+                </div>;
               })}
             </div>
-          )}
-        </div>
+            <p className="product-help">Latest received purchase for this exact product and type. Transport and labour are shared across all units received; commission is allocated by line value.</p>
+          </section>
 
-        {/* Footer */}
-        <div className="phm-footer">
-          <span className="phm-footer-note">
-            {!isLoading && `${movements.length} entr${movements.length === 1 ? 'y' : 'ies'} | Immutable ledger`}
-          </span>
-          <button className="btn btn-ghost" style={{ fontSize: '0.8rem' }} onClick={onClose}>
-            Close
-          </button>
-        </div>
+          <section className="product-section product-history" aria-labelledby="product-history-title">
+            <div className="product-section-heading product-history-heading">
+              <div><h3 id="product-history-title"><CalendarDays size={16} />Weekly history</h3><p>Sat–Fri · Bangladesh time</p></div>
+              <details className="product-history-info">
+                <summary aria-label="About weekly history"><Info size={16} aria-hidden="true" /></summary>
+                <p>Quantities in units. Sales leave stock (−); empty returns and received purchases add stock (+). Only completed sales and received purchases are included. Cancelled purchases are excluded.</p>
+              </details>
+            </div>
+            <div className="product-history-head" aria-hidden="true">
+              <span className="product-history-week-label">Week</span>
+              <div className="product-history-columns">
+                <div className="product-history-groups"><span>Sold</span><span>Stock in</span></div>
+                <div className="product-history-labels">
+                  {historyFields.map(({ key, shortLabel, icon: Icon }) => <span key={key}><Icon size={13} />{shortLabel}</span>)}
+                </div>
+              </div>
+            </div>
+            <div className="product-weeks">
+              {product.data.weeks.map((week, index) => <article className="product-week" key={week.start_date}>
+                <div className="product-week-heading"><h4>{index === 0 ? 'This week' : index === 1 ? 'Last week' : `${index} weeks ago`}</h4>
+                  <time dateTime={week.start_date} title={`${dateLabel(week.start_date)} – ${dateLabel(week.end_date)}`}>{weekRange(week.start_date, week.end_date)}</time></div>
+                <dl className="product-week-metrics">
+                  {historyFields.map(({ key, label, direction }) => {
+                    const quantity = week[key];
+                    const signed = quantity === 0 ? '0' : `${direction === 'out' ? '-' : '+'}${quantity.toLocaleString()}`;
+                    return <div key={key} title={`${label}: ${signed}`}><dt className="product-history-sr-only">{label}</dt>
+                      <dd className={`product-history-${quantity === 0 ? 'zero' : direction}`}>{signed}</dd></div>;
+                  })}
+                </dl>
+              </article>)}
+            </div>
+          </section>
+        </>}
       </div>
     </div>
-  );
+  </dialog>;
 };

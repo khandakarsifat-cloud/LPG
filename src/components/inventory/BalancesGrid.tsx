@@ -41,21 +41,21 @@ const ProductTile = ({ item, onClick }: TileProps) => {
   const brandName = item.lpg_brands?.brand_name ?? item.brand;
 
   return (
-    <button className="inv-tile" onClick={onClick} title={`${brandName} ${item.size_kg}kg — click to view history`}>
+    <button className="inv-tile" onClick={onClick} title={`${brandName} ${item.size_kg}kg ${item.mouth_size ?? ''} — view product details`}>
       {/* Status dot */}
       <span className="inv-tile-dot" style={{ background: color }} />
 
       {/* Brand + size */}
       <div className="inv-tile-brand">{brandName}</div>
-      <div className="inv-tile-size">{item.size_kg} <span>kg</span></div>
+      <div className="inv-tile-size">{item.size_kg} <span>kg</span> {item.mouth_size && <small className="inv-mouth-size">{item.mouth_size}</small>}</div>
 
       {/* Stock counts */}
       <div className="inv-tile-counts">
-        <div className="inv-tile-count inv-tile-count-filled">
+        <div className="inv-tile-count inv-tile-count-filled" title="Filled" aria-label={`${filled} filled`}>
           <Droplets size={11} />
           <span>{filled}</span>
         </div>
-        <div className="inv-tile-count inv-tile-count-empty">
+        <div className="inv-tile-count inv-tile-count-empty" title="Empty" aria-label={`${empty} empty`}>
           <Box size={11} />
           <span>{empty}</span>
         </div>
@@ -69,7 +69,7 @@ const ProductTile = ({ item, onClick }: TileProps) => {
       {/* History hint */}
       <div className="inv-tile-history-hint">
         <History size={11} />
-        <span>View history</span>
+        <span>Product details</span>
       </div>
     </button>
   );
@@ -117,7 +117,7 @@ export const BalancesGrid = () => {
       {/* Toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          Click any product tile to view its full movement history.
+          Select a product for prices, buying costs and weekly history.
         </p>
         <button
           className="btn btn-ghost"
@@ -144,7 +144,7 @@ export const BalancesGrid = () => {
       {/* Per-product history modal */}
       {selectedItem && (
         <ProductHistoryModal
-          item={selectedItem}
+          item={items.find(item => item.item_id === selectedItem.item_id) ?? selectedItem}
           onClose={() => setSelectedItem(null)}
         />
       )}

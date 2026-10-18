@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Item, ItemWithBrand, InventoryMovement, CreateItemPayload, CreateMovementPayload } from '../types/inventory';
+import type { ProductInventory, SaveProductPrices } from '../types/inventory';
+import { posKeys } from './usePOS';
 
 // ── Query Keys ────────────────────────────────────────────────────────────────
 export const inventoryKeys = {
@@ -11,6 +13,7 @@ export const inventoryKeys = {
   movements:    ['inventory', 'movements']                 as const,
   movement:     (id: string) => ['inventory', 'movements', id] as const,
   itemMovements:(id: string) => ['inventory', 'movements', 'item', id] as const,
+  product: (id: string) => ['inventory', 'product', id] as const,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,3 +131,31 @@ export const useItemMovements = (itemId: string) =>
     enabled: !!itemId,
     refetchInterval: 15_000,
   });
+
+export const useProductInventory = (itemId: string) => useQuery<ProductInventory>({
+  queryKey: inventoryKeys.product(itemId),
+  queryFn: async ({ signal }) => {
+    const { data, error } = await supabase.rpc('get_product_inventory', { p_item_id: itemId }).abortSignal(signal);
+    if (error) throw error;
+    return data as ProductInventory;
+  },
+  refetchInterval: 30_000,
+});
+
+export const useSaveProductPrices = () => {
+  const qc = useQueryClient();
+  return useMutation<void, Error, SaveProductPrices>({
+    mutationFn: async ({ itemId, tier, prices, expected }) => {
+      const { error } = await supabase.rpc('save_product_prices', {
+        p_item_id: itemId, p_customer_tier: tier, p_prices: prices, p_expected: expected,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: inventoryKeys.all }),
+        qc.invalidateQueries({ queryKey: posKeys.priceBooks }),
+      ]);
+    },
+  });
+};
