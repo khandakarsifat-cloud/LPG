@@ -36,7 +36,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
 
   const customerName = sale.customers?.name || 'Unknown Customer';
   const customerPhone = sale.customers?.phone || 'Unknown Phone';
-  const customerTier = sale.customers?.tier || 'retail';
+  const customerTier = sale.sale_tier;
   const shopName = sale.customers?.shop_name;
   
   const now = new Date(sale.created_at).toLocaleString('en-BD', {
@@ -58,7 +58,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
       }}
       onClick={e => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div style={{
+      <div role="dialog" aria-modal="true" aria-label="POS sale details" style={{
         background: 'var(--surface)',
         color: 'var(--text-main)',
         border: '1px solid var(--border-color)',
@@ -96,6 +96,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
           </div>
           <button
             onClick={onClose}
+            aria-label="Close sale details"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text-muted)', padding: '0.35rem',

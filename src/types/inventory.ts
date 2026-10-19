@@ -2,6 +2,7 @@
 
 export type MovementType =
   | 'purchase'
+  | 'purchase_adjustment'
   | 'sale'
   | 'exchange'
   | 'refill'
@@ -42,9 +43,18 @@ export interface ProductWeek {
 }
 
 export interface ProductInventory {
+  can_manage_prices: boolean;
+  commission: { refill_rate: number; package_rate: number; version: string | null };
   prices: ProductPrice[];
   buying_costs: ProductBuyingCost[];
   weeks: ProductWeek[];
+}
+
+export interface SetProductCommission {
+  itemId: string;
+  refillRate: number;
+  packageRate: number;
+  expected: string | null;
 }
 
 export interface SaveProductPrices {
@@ -123,6 +133,7 @@ export interface CreateBrandPayload {
 
 export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
   purchase:     'Purchase',
+  purchase_adjustment: 'Purchase adjustment',
   sale:         'Sale',
   exchange:     'Exchange',
   refill:       'Refill',
@@ -133,6 +144,7 @@ export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
 
 export const MOVEMENT_TYPE_COLORS: Record<MovementType, string> = {
   purchase:    '#10b981', // emerald
+  purchase_adjustment: '#f59e0b',
   sale:        '#3b82f6', // blue
   exchange:    '#8b5cf6', // violet
   refill:      '#06b6d4', // cyan

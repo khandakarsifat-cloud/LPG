@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { startOfDay } from 'date-fns';
+import type { CustomerTier } from '../types/inventory';
 
 export interface DashboardStats {
   todayRevenue: number;
@@ -32,6 +33,7 @@ export const useDashboardStats = () =>
 
 export interface SaleTransaction {
   sale_id: string;
+  sale_tier: CustomerTier;
   created_at: string;
   total_amount: number;
   subtotal: number;
@@ -60,6 +62,23 @@ export interface SaleTransaction {
   }>;
 }
 
+/** Load the exact saved transaction when opened from another module; existing RLS still applies. */
+export const useSaleDetails = (saleId: string | null) => useQuery<SaleTransaction>({
+  queryKey: ['sales', 'detail', saleId],
+  enabled: Boolean(saleId),
+  queryFn: async ({ signal }) => {
+    if (!saleId) throw new Error('No sale selected');
+    const { data, error } = await supabase.from('sales').select(`
+      sale_id, sale_tier, created_at, total_amount, subtotal, discount_amount, exchange_fee, notes,
+      customers(name, phone, shop_name, tier),
+      sale_items(quantity, unit_price, line_total, type, items(brand, size_kg, lpg_brands(brand_name)))
+    `).eq('sale_id', saleId).abortSignal(signal).single()
+      .overrideTypes<SaleTransaction, { merge: false }>();
+    if (error) throw error;
+    return data;
+  },
+});
+
 export const useTodaySalesFeed = () =>
   useQuery<SaleTransaction[]>({
     queryKey: [...dashboardKeys.all, 'today_sales'],
@@ -69,6 +88,7 @@ export const useTodaySalesFeed = () =>
         .from('sales')
         .select(`
           sale_id,
+          sale_tier,
           created_at,
           total_amount,
           subtotal,
@@ -105,7 +125,7 @@ export const useTodaySalesFeed = () =>
         // Fallback
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('sales')
-          .select('sale_id, created_at, total_amount, subtotal, discount_amount, exchange_fee, notes')
+          .select('sale_id, sale_tier, created_at, total_amount, subtotal, discount_amount, exchange_fee, notes')
           .gte('created_at', todayIso)
           .eq('status', 'completed')
           .order('created_at', { ascending: false })

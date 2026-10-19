@@ -1,4 +1,5 @@
 import type { PriceType } from '../types/inventory.ts';
+import type { POSSalePayload } from '../hooks/usePOS.ts';
 
 interface SellingPriceRow {
   item_id: string;
@@ -17,4 +18,10 @@ export function getSellingPrice(rows: readonly SellingPriceRow[], itemId: string
   const latest = (customerTier: string) => active.filter(row => row.customer_tier === customerTier)
     .sort((a, b) => Date.parse(b.effective_from) - Date.parse(a.effective_from))[0];
   return Number((latest(tier) ?? (tier !== 'retail' ? latest('retail') : undefined))?.price ?? 0);
+}
+
+/** A tier change applies to the whole draft sale, including existing quantities. */
+export function repriceSaleItems(items: POSSalePayload['items'], rows: readonly SellingPriceRow[], tier: string, now = Date.now()): POSSalePayload['items'] {
+  return items.map(item => ({ ...item, unit_price: item.type === 'empty_return'
+    ? 0 : getSellingPrice(rows, item.item_id, item.type, tier, now) }));
 }

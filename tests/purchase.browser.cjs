@@ -398,7 +398,8 @@ async page => {
   role='view';await page.reload();
   await page.getByRole('heading',{name:'Purchases',exact:true}).waitFor();
   await check(await page.getByRole('button',{name:'New Purchase',exact:true}).count()===0,'view-only user has no create action');
-  await openPurchase();
+  // Equal creation times are sorted by ID; target the unfinished fixture explicitly.
+  await page.locator(`[data-purchase-id="${viewed.purchase_id}"]`).click();
   await check(await page.getByRole('button',{name:'Save changes',exact:true}).count()===0,'view-only summary has no mutation actions');
   await check(await page.getByRole('button',{name:'Receive shipment',exact:true}).count()===0,'view-only user cannot receive unfinished shipment');
   await page.getByText('No activity on this page.',{exact:true}).waitFor();

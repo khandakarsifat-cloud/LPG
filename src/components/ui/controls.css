@@ -1,3 +1,19 @@
+/* The purchase and inventory filters share a quiet slate surface and clear field contrast. */
+.filter-toolbar.purchase-toolbar, .filter-toolbar.inv-history-toolbar {
+  background: color-mix(in srgb, var(--surface-subtle) 78%, var(--primary-weak));
+  border: 1px solid color-mix(in srgb, var(--border-strong) 75%, var(--primary));
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--surface) 65%, transparent);
+}
+.filter-toolbar[data-filtered="true"] { border-color: var(--primary); }
+.filter-toolbar .input-field, .filter-toolbar .inv-product-filter > .btn {
+  background-color: color-mix(in srgb, var(--surface) 88%, var(--surface-subtle));
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+.filter-toolbar .input-label { color: var(--text-main); }
+.filter-toolbar .btn:focus-visible, .inv-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
 /* All fixed-choice fields share the same picker, including modal fields. */
 select.input-field, .date-calendar select {
   appearance: none;

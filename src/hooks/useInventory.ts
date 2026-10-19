@@ -2,8 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Item, ItemWithBrand, InventoryMovement, CreateItemPayload, CreateMovementPayload } from '../types/inventory';
-import type { ProductInventory, SaveProductPrices } from '../types/inventory';
+import type { ProductInventory, SaveProductPrices, SetProductCommission } from '../types/inventory';
 import { posKeys } from './usePOS';
+import { inventoryMovementSource, PURCHASE_MOVEMENT_FILTER, SALE_MOVEMENT_FILTER, type InventoryHistorySource } from '../lib/inventoryMovement';
 
 // ── Query Keys ────────────────────────────────────────────────────────────────
 export const inventoryKeys = {
@@ -64,6 +65,45 @@ export const useInventoryMovements = (limit = 100) =>
     },
     refetchInterval: 15_000,
   });
+
+export const INVENTORY_HISTORY_PAGE_SIZE = 30;
+export const useInventoryHistory = ({ source, itemIds, page }: {
+  source: InventoryHistorySource; itemIds: string[] | null; page: number;
+}) => {
+  const { can } = useAuth();
+  const canReadSales = can('sales:view') || can('receipts:print') || can('dashboard:view');
+  return useQuery({
+    queryKey: [...inventoryKeys.movements, 'history', source, itemIds ? [...itemIds].sort() : null, page, canReadSales],
+    queryFn: async ({ signal }) => {
+      if (itemIds?.length === 0) return { entries: [], hasMore: false };
+      let query = supabase.from('inventory_movements')
+        .select('*, items(brand, size_kg, filled_quantity, empty_quantity, cylinder_weight, mouth_size, lpg_brands(brand_id, brand_name)), user_profiles(email)')
+        .order('created_at', { ascending: false }).order('movement_id', { ascending: false });
+      if (source === 'sale') query = query.or(SALE_MOVEMENT_FILTER);
+      if (source === 'purchase') query = query.or(PURCHASE_MOVEMENT_FILTER);
+      if (itemIds) query = query.in('item_id', itemIds);
+      const start = page * INVENTORY_HISTORY_PAGE_SIZE;
+      const { data, error } = await query.range(start, start + INVENTORY_HISTORY_PAGE_SIZE).abortSignal(signal);
+      if (error) throw error;
+      const rows = (data ?? []) as InventoryMovement[];
+      const visible = rows.slice(0, INVENTORY_HISTORY_PAGE_SIZE);
+      const saleIds = [...new Set(visible.flatMap(movement => {
+        const ref = inventoryMovementSource(movement);
+        return ref.kind === 'sale' && ref.id ? [ref.id] : [];
+      }))];
+      const names = new Map<string, string | null>();
+      if (canReadSales && saleIds.length) {
+        const sales = await supabase.from('sales').select('sale_id, customers(name)')
+          .in('sale_id', saleIds).abortSignal(signal)
+          .overrideTypes<Array<{ sale_id: string; customers: { name: string } | null }>, { merge: false }>();
+        if (sales.error) throw sales.error;
+        for (const sale of sales.data ?? []) names.set(sale.sale_id, sale.customers?.name ?? null);
+      }
+      return { entries: visible.map(movement => ({ ...movement, saleCustomer: names.get(movement.reference_id ?? '') ?? null })), hasMore: rows.length > INVENTORY_HISTORY_PAGE_SIZE };
+    },
+    refetchInterval: 15_000,
+  });
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MUTATIONS
@@ -157,5 +197,18 @@ export const useSaveProductPrices = () => {
         qc.invalidateQueries({ queryKey: posKeys.priceBooks }),
       ]);
     },
+  });
+};
+
+export const useSetProductCommission = () => {
+  const qc = useQueryClient();
+  return useMutation<void, Error, SetProductCommission>({
+    mutationFn: async ({ itemId, refillRate, packageRate, expected }) => {
+      const { error } = await supabase.rpc('set_product_commissions', {
+        p_item_id: itemId, p_refill_rate: refillRate, p_package_rate: packageRate, p_expected: expected,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async () => { await qc.invalidateQueries({ queryKey: inventoryKeys.all }); },
   });
 };

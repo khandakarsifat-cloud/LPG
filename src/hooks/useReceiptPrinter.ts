@@ -83,7 +83,7 @@ export function usePrintSale() {
       // Browser printing also works before any USB printer is configured.
       const config = method === 'browser' ? null : await loadConfig(profile.tenant_id);
       const { data, error } = await supabase.from('sales').select(`
-        sale_id, created_at, subtotal, discount_amount, exchange_fee, total_amount, notes,
+        sale_id, sale_tier, created_at, subtotal, discount_amount, exchange_fee, total_amount, notes,
         customers(name, phone, tier),
         sale_items(quantity, unit_price, line_total, type, items(brand, size_kg, lpg_brands(brand_name)))
       `).eq('tenant_id', profile.tenant_id).eq('sale_id', saleId).eq('status', 'completed').single()
@@ -94,7 +94,7 @@ export function usePrintSale() {
       const receipt: ReceiptData = {
         sale_id: data.sale_id, created_at: data.created_at, shop_name: profile.business_name,
         customer_name: customer?.name || 'Unknown', customer_phone: customer?.phone || '',
-        customer_tier: customer?.tier || 'retail',
+        customer_tier: data.sale_tier,
         subtotal: Number(data.subtotal), discount_amount: Number(data.discount_amount),
         exchange_fee: Number(data.exchange_fee), total_amount: Number(data.total_amount),
         notes: data.notes || undefined,

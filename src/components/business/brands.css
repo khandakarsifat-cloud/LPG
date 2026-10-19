@@ -1,0 +1,36 @@
+.brand-order-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  color: var(--text-muted);
+  font-size: .75rem;
+}
+
+.brand-order-controls > div {
+  display: flex;
+  gap: .35rem;
+}
+
+.brand-order-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.brand-order-controls button:hover:not(:disabled) {
+  background: var(--primary-weak);
+  color: var(--primary);
+}
+
+.brand-order-controls button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}

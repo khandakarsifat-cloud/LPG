@@ -6,8 +6,9 @@ the implemented authorization boundaries and their verification.
 ## Authority and roles
 
 `roles`, `permissions`, `role_permissions` and `user_roles` are the authorization
-source of truth. Policies, operational RPCs and frontend guards check capabilities,
-never role names. The initial mappings are:
+source of truth. Operational access uses capabilities. Inventory price and commission
+writes additionally require trusted OWNER membership; the UI uses the server-returned
+`can_manage_prices` flag instead of inspecting role names. The initial mappings are:
 
 | Role | Initial capabilities |
 | --- | --- |
@@ -29,7 +30,7 @@ and on query focus; the database remains authoritative between UI refreshes.
 
 Membership admission, role/mapping administration, activation and tenant status
 changes are trusted database/server operations. No invitation, role-management,
-price-maintenance or activation UI/API is introduced. Browser roles cannot write
+or activation UI/API is introduced. Browser roles cannot write
 any RBAC table or profile field, including their own tenant, identity or status.
 
 ## Trusted membership and helpers
@@ -69,7 +70,7 @@ the caller's own profile/business identity needed to load the workspace.
 | POS | `pos:sell` supports product, brand and price reads, customer lookup/creation, and validated `create_pos_sale`. It gives no inventory adjustment, purchase, logistics, employee or finance management rights. |
 | Sales / printing | `sales:view` and `receipts:print` support saved sale details and their product/customer embeds; printing can read saved printer configuration. SALESMAN can read/reprint tenant sales. |
 | Printer settings | `printers:manage` gates configuration INSERT/UPDATE; configuration SELECT also allows `receipts:print`. PostgREST upserts can assign the tenant column, but old and new ownership must both match the trusted tenant. |
-| Inventory | View/manage capabilities permit registry/history reads and same-tenant creator attribution. Only `inventory:manage` allows registering zero-stock items and calling inventory adjustments. |
+| Inventory | View/manage capabilities permit registry/history reads and same-tenant creator attribution. `inventory:manage` allows registering zero-stock items and calling inventory adjustments. Price and explicit commission writes additionally require an OWNER role assignment from tenant-qualified RBAC tables. Commission history has RLS, no browser grants and immutable rows; the product RPC exposes only the current refill/package rates and version. |
 | Customers | Customer view/manage allows reads; management or POS allows form creation. No direct update/delete path is exposed. |
 | Purchases | Purchase view/manage gates lists, activity and supporting product/truck/plant selectors. Create/edit/dispatch/receive/full payment requires `purchases:manage`; internal stock and wallet writes need no separate inventory/finance management grant. See [lifecycle and settlement](../docs/modules/purchases-and-logistics.md). |
 | Logistics | Logistics view/manage gates truck/transit/wallet reads; truck/custom-transit/cost mutations require `logistics:manage`. |

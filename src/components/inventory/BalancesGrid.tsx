@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Package, AlertTriangle, RefreshCw, Droplets, Box, History } from 'lucide-react';
+import { Package, AlertTriangle, RefreshCw, Droplets, Box, History, Check } from 'lucide-react';
 import { useInventoryBalances } from '../../hooks/useInventory';
+import { useLPGBrands } from '../../hooks/useBrands';
+import { groupInventoryByBrand } from '../../lib/inventoryGroups';
 import { ProductHistoryModal } from './ProductHistoryModal';
 import type { ItemWithBrand } from '../../types/inventory';
 
@@ -31,9 +33,10 @@ const STATUS_LABEL: Record<string, string> = {
 interface TileProps {
   item: ItemWithBrand;
   onClick: () => void;
+  selected?: boolean;
 }
 
-const ProductTile = ({ item, onClick }: TileProps) => {
+export const ProductTile = ({ item, onClick, selected }: TileProps) => {
   const filled  = item.filled_quantity ?? 0;
   const empty   = item.empty_quantity  ?? 0;
   const status  = getStockStatus(filled, empty);
@@ -41,9 +44,11 @@ const ProductTile = ({ item, onClick }: TileProps) => {
   const brandName = item.lpg_brands?.brand_name ?? item.brand;
 
   return (
-    <button className="inv-tile" onClick={onClick} title={`${brandName} ${item.size_kg}kg ${item.mouth_size ?? ''} — view product details`}>
+    <button type="button" className={`inv-tile${selected ? ' inv-tile-selected' : ''}`} onClick={onClick}
+      aria-pressed={selected} title={`${brandName} ${item.size_kg}kg ${item.mouth_size ?? ''} — ${selected === undefined ? 'view product details' : 'select product'}`}>
       {/* Status dot */}
-      <span className="inv-tile-dot" style={{ background: color }} />
+      {selected === undefined ? <span className="inv-tile-dot" style={{ background: color }} />
+        : <span className="inv-tile-check" aria-hidden="true">{selected && <Check size={14} />}</span>}
 
       {/* Brand + size */}
       <div className="inv-tile-brand">{brandName}</div>
@@ -68,8 +73,8 @@ const ProductTile = ({ item, onClick }: TileProps) => {
 
       {/* History hint */}
       <div className="inv-tile-history-hint">
-        <History size={11} />
-        <span>Product details</span>
+        {selected === undefined && <History size={11} />}
+        <span>{selected === undefined ? 'Product details' : selected ? 'Selected' : 'Select product'}</span>
       </div>
     </button>
   );
@@ -78,9 +83,10 @@ const ProductTile = ({ item, onClick }: TileProps) => {
 // ── Main BalancesGrid ─────────────────────────────────────────────────────────
 export const BalancesGrid = () => {
   const { data: items = [], isLoading, isError, refetch, isFetching } = useInventoryBalances();
+  const brands = useLPGBrands();
   const [selectedItem, setSelectedItem] = useState<ItemWithBrand | null>(null);
 
-  if (isLoading) {
+  if (isLoading || brands.isPending) {
     return (
       <div className="inv-tiles-grid">
         {Array.from({ length: 6 }).map((_, i) => (
@@ -131,14 +137,12 @@ export const BalancesGrid = () => {
       </div>
 
       {/* Tile grid */}
-      <div className="inv-tiles-grid">
-        {items.map((item) => (
-          <ProductTile
-            key={item.item_id}
-            item={item}
-            onClick={() => setSelectedItem(item)}
-          />
-        ))}
+      <div className="inv-brand-groups">
+        {brands.isError && <p className="product-error" role="alert">Could not load saved brand order. <button className="btn btn-ghost" onClick={() => brands.refetch()}>Retry</button></p>}
+        {groupInventoryByBrand(items, brands.data ?? []).map(group => <section className="inv-brand-group" key={group.key} aria-label={`${group.name} products`}>
+          <h3 className="inv-brand-heading">{group.name}</h3>
+          <div className="inv-tiles-grid">{group.items.map(item => <ProductTile key={item.item_id} item={item} onClick={() => setSelectedItem(item)} />)}</div>
+        </section>)}
       </div>
 
       {/* Per-product history modal */}

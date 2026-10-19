@@ -112,14 +112,8 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
 
   const handleTierChange = (newTier: 'retail' | 'wholesale') => {
     setTier(newTier);
-    setIsCollapsed(false);
-    setSelectedCustomerId(null);
-
-    const draftCustomer = { ...currentCustomer, tier: newTier };
-    delete draftCustomer.customer_id;
-    delete draftCustomer.tenant_id;
-    delete draftCustomer.created_at;
-    onChange(draftCustomer);
+    // This is the sale tier; changing it must not detach or edit a saved customer.
+    onChange({ ...currentCustomer, tier: newTier });
   };
 
   const handleSaveCustomer = async () => {
@@ -142,6 +136,19 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
     }
   };
 
+  const tierToggle = (
+    <div role="group" aria-label="Sale pricing" style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.25rem' }}>
+      {(['retail', 'wholesale'] as const).map(value => (
+        <button key={value} type="button" aria-pressed={tier === value}
+          className={`btn ${tier === value ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ flex: 1, padding: '0.4rem 0.5rem', fontSize: '0.78rem', fontWeight: 600 }}
+          onClick={() => handleTierChange(value)}>
+          {value === 'retail' ? 'Retail' : 'Wholesale'}
+        </button>
+      ))}
+    </div>
+  );
+
   if (isSelectedCustomer && customer) {
     const title = customer.name || customer.shop_name || 'Saved customer';
     const subtitle = customer.tier === 'wholesale'
@@ -149,72 +156,58 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
       : 'Retail customer';
 
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.55rem',
-        padding: '0.55rem',
-        border: '1px solid rgba(16,185,129,0.32)',
-        borderRadius: 'var(--radius-md)',
-        background: 'rgba(16,185,129,0.08)',
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {tierToggle}
         <div style={{
-          width: 34,
-          height: 34,
-          borderRadius: 'var(--radius-md)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          background: 'rgba(16,185,129,0.14)',
-          color: 'var(--accent)',
-          flexShrink: 0,
+          gap: '0.55rem',
+          padding: '0.55rem',
+          border: '1px solid rgba(16,185,129,0.32)',
+          borderRadius: 'var(--radius-md)',
+          background: 'rgba(16,185,129,0.08)',
         }}>
-          {customer.tier === 'wholesale' ? <Store size={17} /> : <User size={17} />}
-        </div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {title}
+          <div style={{
+            width: 34,
+            height: 34,
+            borderRadius: 'var(--radius-md)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(16,185,129,0.14)',
+            color: 'var(--accent)',
+            flexShrink: 0,
+          }}>
+            {customer.tier === 'wholesale' ? <Store size={17} /> : <User size={17} />}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', color: 'var(--text-muted)', minWidth: 0 }}>
-            <Phone size={11} />
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{phone}</span>
-            <span style={{ color: 'var(--accent)' }}>-</span>
-            <span style={{ textTransform: 'capitalize' }}>{subtitle}</span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {title}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', color: 'var(--text-muted)', minWidth: 0 }}>
+              <Phone size={11} />
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{phone}</span>
+              <span style={{ color: 'var(--accent)' }}>-</span>
+              <span style={{ textTransform: 'capitalize' }}>{subtitle}</span>
+            </div>
           </div>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            title="Choose another customer"
+            style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+            onClick={handleClearSelectedCustomer}
+          >
+            <Edit2 size={14} />
+          </button>
         </div>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          title="Choose another customer"
-          style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
-          onClick={handleClearSelectedCustomer}
-        >
-          <Edit2 size={14} />
-        </button>
       </div>
     );
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', position: 'relative' }}>
-      <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.25rem' }}>
-        <button
-          type="button"
-          className={`btn ${tier === 'retail' ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ flex: 1, padding: '0.4rem 0.5rem', fontSize: '0.78rem', fontWeight: 600 }}
-          onClick={() => handleTierChange('retail')}
-        >
-          Retail
-        </button>
-        <button
-          type="button"
-          className={`btn ${tier === 'wholesale' ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ flex: 1, padding: '0.4rem 0.5rem', fontSize: '0.78rem', fontWeight: 600 }}
-          onClick={() => handleTierChange('wholesale')}
-        >
-          Wholesale
-        </button>
-      </div>
+      {tierToggle}
 
       <div style={{ position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>

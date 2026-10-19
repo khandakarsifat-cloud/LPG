@@ -58,12 +58,15 @@ After implementation:
 
 ## Deployment
 
+- After every change, check for pending database migrations, apply them, and deploy through the established workflow. Deployment is part of completing the change, not an optional follow-up.
+- The user's standing instruction authorizes routine non-destructive migrations and deployments after changes. Do not ask for deployment permission again unless the user explicitly restricts the task to local work or the operation is destructive.
 - Consult `README.md` and the existing deployment configuration to identify the current frontend and backend environments.
 - Do not assume local Docker or Supabase availability represents the state of the deployed backend.
-- When deployment is explicitly requested, use the established deployment workflow and verify the target environment before making changes.
-- Apply required database migrations before deploying dependent frontend changes.
+- Use the established deployment workflow and verify the target environment before making changes. Review pending migrations and provide their exact versions to any migration-approval flags required by the deployment tooling.
+- Apply pending database migrations before deploying dependent frontend changes. If no migrations are pending, verify that state and continue deployment without rerunning historical migrations.
+- Preserve production data, volumes and credentials, and use the existing backup and recovery safeguards.
 - Never perform destructive production operations without explicit approval.
-- Verify deployment success and report any unverified functionality or blockers.
+- Verify deployed backend health, frontend publication and the important affected user flows. Report the migration and deployment results, including any unverified functionality or blockers.
 
 ## Completion
 
@@ -72,3 +75,4 @@ Before finishing a task:
 - Review the final diff for unrelated edits, accidental generated files, and exposed secrets.
 - Check whether architectural or module documentation needs updating.
 - Ensure affected documentation remains consistent with the implementation and verified Supabase state.
+- Complete the required migration and deployment workflow before reporting a change as finished. If an actual blocker prevents deployment, state the blocker and the remaining work explicitly; do not present a local-only implementation as complete.

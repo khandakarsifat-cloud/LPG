@@ -24,7 +24,7 @@ export function PurchasesList({ query }: { query: UseQueryResult<Purchase[], Err
   if (query.isLoading) return <div className="purchase-empty">Loading purchases…</div>;
   if (query.isError) return <p role="alert" className="purchase-error">Purchases could not be loaded. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></p>;
   return <div className="purchases-list">
-    <div className="purchase-toolbar">
+    <div className="purchase-toolbar filter-toolbar" data-filtered={hasFilters} aria-label="Purchase filters">
       <div className="input-group purchase-search-group"><label className="input-label" htmlFor="purchase-search">Search purchases <span aria-hidden="true" id="purchase-search-help">Spaces = AND · Commas = OR</span></label><div className="purchase-search">
         <Search size={16} className="topbar-search-icon" /><input id="purchase-search" className="input-field topbar-search-input" aria-label="Search purchases" aria-describedby="purchase-search-help" placeholder="Company, plant, product, 22mm, 12kg, vehicle…" value={search} onChange={event => setSearch(event.target.value)} />
       </div></div>

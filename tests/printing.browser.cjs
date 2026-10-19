@@ -24,7 +24,7 @@ async page => {
   const device = { device_id: 'USBPRINT\\FIXTURE', serial_number: 'fixture', vendor_id: '1234', product_id: '5678', manufacturer: 'Fixture', model: 'Fixture', present: true, port_name: 'USB001' };
   const printer = { queue_id: 'fixture-queue', host_id: 'fixture-host', queue_name: 'Fixture Thermal', port_name: 'USB001', driver_name: 'Fixture', transport: 'windows_usb', device };
   let config = { tenant_id: tenant, printer, paper_width_mm: 80, printable_width_dots: 576, auto_cut: false };
-  const sale = { sale_id: saleId, created_at: new Date().toISOString(), subtotal: 1200, discount_amount: 100, exchange_fee: 50, total_amount: 1150, notes: '<img src=x onerror=alert(1)>', customers: { name: 'Receipt Customer বাংলা', phone: '01700000000', tier: 'retail' }, sale_items: [{ quantity: 1, unit_price: 1200, line_total: 1200, type: 'package', items: { brand: 'Fixture Gas', size_kg: 12, lpg_brands: { brand_name: 'Fixture Gas' } } }] };
+  const sale = { sale_id: saleId, sale_tier: 'retail', created_at: new Date().toISOString(), subtotal: 1200, discount_amount: 100, exchange_fee: 50, total_amount: 1150, notes: '<img src=x onerror=alert(1)>', customers: { name: 'Receipt Customer বাংলা', phone: '01700000000', tier: 'retail' }, sale_items: [{ quantity: 1, unit_price: 1200, line_total: 1200, type: 'package', items: { brand: 'Fixture Gas', size_kg: 12, lpg_brands: { brand_name: 'Fixture Gas' } } }] };
   let bridgeRunning = false, bridgePrints = 0, configWrites = 0, checkouts = 0, saleReads = 0;
   let cashier = false;
   await page.route('**/auth/v1/**', route => route.fulfill({ json: user }));
@@ -50,7 +50,7 @@ async page => {
       case 'wallets': data = [{ type: 'dealership', balance: 1000 }]; break;
       case 'items': data = [{ item_id: sku, brand: 'Fixture Gas', size_kg: 12, mouth_size: '22mm', filled_quantity: 10, empty_quantity: 10, lpg_brands: { brand_name: 'Fixture Gas' } }]; break;
       case 'price_books': data = [{ item_id: sku, customer_tier: 'retail', price_type: 'package', price: 1200, effective_from: '2026-01-01' }]; break;
-      case 'create_pos_sale': checkouts++; data = { sale_id: saleId, customer_id: user.id, subtotal: 1200, total_amount: 1200, customer_phone: '01700000000', customer_name: 'Receipt Customer বাংলা' }; break;
+      case 'create_pos_sale': checkouts++; data = { sale_id: saleId, sale_tier: 'retail', customer_id: user.id, subtotal: 1200, total_amount: 1200, customer_phone: '01700000000', customer_name: 'Receipt Customer বাংলা' }; break;
     }
     if (req.headers().accept?.includes('application/vnd.pgrst.object+json') && Array.isArray(data)) data = data[0] ?? null;
     await route.fulfill({ json: data });

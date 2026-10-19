@@ -9,8 +9,9 @@ export const purchaseKeys = {
   activity: (id: string) => ['purchases', 'activity', id] as const,
 };
 
-export const usePurchases = () => useQuery<Purchase[]>({
+export const usePurchases = ({ enabled = true }: { enabled?: boolean } = {}) => useQuery<Purchase[]>({
   queryKey: purchaseKeys.purchases,
+  enabled,
   queryFn: async () => {
     const { data, error } = await supabase.rpc('list_purchases');
     if (error) throw error;

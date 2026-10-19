@@ -69,7 +69,9 @@ if (replayIndex === -1) {
       // The baseline dump disables body checking; verify newly authored RPCs
       // at migration time as well as by calling them in workflow tests.
       if(name.endsWith('_purchase_created_status.sql')) await db.exec('set check_function_bodies=on;');
+      if(name.endsWith('_sale_pricing_tier.sql')) await db.exec(read('sale-tier-legacy.before.sql'));
       await db.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
+      if(name.endsWith('_sale_pricing_tier.sql')) report('sale tier backfill',await db.exec(read('sale-tier-legacy.after.sql')));
     }
     if(process.argv.includes('--deployment-batch')) await db.exec('commit;');
     console.log('Migration replay:', (await db.query('select version()')).rows[0].version);
@@ -85,7 +87,7 @@ if (replayIndex === -1) {
     }
     else if(exchangeCompatibility) report('exchange compatibility',await db.exec(read('purchases-exchange.after.sql')));
     else report('historical compatibility',await db.exec(read('purchases-legacy.after.sql')));
-    for(const name of ['purchases.sql','authorization.sql','receipt_printers.sql','inventory.sql']) {
+    for(const name of ['purchases.sql','authorization.sql','receipt_printers.sql','inventory.sql','sale-tier.sql']) {
       await db.exec('set row_security=on;');
       report(name,await db.exec(read(name)));
     }

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { assertBDMobilePhone } from '../lib/bdPhone';
+import type { CustomerTier } from '../types/inventory';
 
 export interface PriceBook {
   tenant_id: string;
@@ -50,6 +51,7 @@ export interface POSSalePayload {
 
 export interface POSSaleResult {
   sale_id: string;
+  sale_tier: CustomerTier;
   customer_id: string;
   subtotal: number;
   total_amount: number;

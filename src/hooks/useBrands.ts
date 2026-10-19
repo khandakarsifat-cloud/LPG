@@ -13,6 +13,7 @@ export const useLPGBrands = () => {
       if (error) throw error;
       return (data as LPGBrand[]) || [];
     },
+    refetchInterval: 30_000,
   });
 };
 
@@ -31,6 +32,7 @@ export const useCreateBrand = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lpg_brands'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },
   });
 };
@@ -52,6 +54,23 @@ export const useUpdateBrand = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lpg_brands'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+};
+
+export const useSetBrandOrder = () => {
+  const qc = useQueryClient();
+  return useMutation<void, Error, { brandIds: string[]; expected: string[] }>({
+    mutationFn: async ({ brandIds, expected }) => {
+      const { error } = await supabase.rpc('set_lpg_brand_order', { p_brand_ids: brandIds, p_expected: expected });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['lpg_brands'] }),
+        qc.invalidateQueries({ queryKey: ['inventory'] }),
+      ]);
     },
   });
 };

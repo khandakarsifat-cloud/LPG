@@ -7,7 +7,7 @@ import { CustomerSelection } from '../components/pos/CustomerSelection';
 import { CheckoutConfirmModal } from '../components/pos/CheckoutConfirmModal';
 import { ReceiptPrintMethodSelect } from '../components/pos/ReceiptPrintMethodSelect';
 import type { POSCustomerDraft } from '../components/pos/CustomerSelection';
-import { useCreatePOSSale } from '../hooks/usePOS';
+import { useCreatePOSSale, usePriceBooks } from '../hooks/usePOS';
 import { useInventoryBalances } from '../hooks/useInventory';
 import type { POSSalePayload, POSSaleResult } from '../hooks/usePOS';
 import type { MouthSize } from '../types/inventory';
@@ -16,6 +16,7 @@ import { usePrintSale } from '../hooks/useReceiptPrinter';
 import { useAuth } from '../contexts/AuthContext';
 import { completeSale } from '../lib/completeSale';
 import { BD_MOBILE_PHONE_ERROR, validateBDMobilePhone } from '../lib/bdPhone';
+import { repriceSaleItems } from '../lib/productPricing';
 
 const resetForm = (
   setItems: React.Dispatch<React.SetStateAction<POSSalePayload['items']>>,
@@ -44,9 +45,18 @@ export const POSPage = () => {
   const [saleResult, setSaleResult]     = useState<POSSaleResult | null>(null);
 
   const { data: inventoryItems } = useInventoryBalances();
+  const { data: priceBooks } = usePriceBooks();
   const { mutateAsync: createSale } = useCreatePOSSale();
   const printSale = usePrintSale();
   const checkoutLock = useRef(false);
+
+  const handleCustomerChange = (nextCustomer: POSCustomerDraft | null) => {
+    const nextTier = nextCustomer?.tier || 'retail';
+    if (nextTier !== (customer?.tier || 'retail')) {
+      setItems(current => repriceSaleItems(current, priceBooks ?? [], nextTier));
+    }
+    setCustomer(nextCustomer);
+  };
 
   const hasPhone        = Boolean(customer?.phone?.trim());
   const customerPhone   = customer?.phone?.trim() || '';
@@ -228,7 +238,7 @@ export const POSPage = () => {
                 </span>
               )}
             </div>
-            <CustomerSelection customer={customer} onChange={setCustomer} />
+            <CustomerSelection customer={customer} onChange={handleCustomerChange} />
           </div>
 
           {/* Cart */}
@@ -241,7 +251,7 @@ export const POSPage = () => {
             {/* Cart header */}
             <div style={{ padding: 'var(--space-sm) var(--space-md)', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                <ShoppingCart size={14} /> Current Sale
+                <ShoppingCart size={14} /> {customer?.tier === 'wholesale' ? 'Wholesale' : 'Retail'} Sale
               </span>
             </div>
 
@@ -300,7 +310,7 @@ export const POSPage = () => {
 
       {saleResult && (
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', paddingTop: '0.5rem', flexShrink: 0 }}>
-          <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Saved sale #{saleResult.sale_id.slice(0, 8).toUpperCase()}</span>
+          <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-muted)' }}>Saved {saleResult.sale_tier} sale #{saleResult.sale_id.slice(0, 8).toUpperCase()}</span>
           {can('receipts:print') && <ReceiptPrintMethodSelect disabled={printSale.isPending || isProcessing} />}
           {can('receipts:print') && <button className="btn btn-secondary" disabled={printSale.isPending || isProcessing} onClick={() => printSale.mutate(saleResult.sale_id)}>
             <ReceiptText size={14} /> {printSale.isPending ? 'Printing…' : 'Reprint Last Sale'}

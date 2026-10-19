@@ -55,7 +55,7 @@ export const SalesFeed = () => {
               </div>
               <div className="movement-meta" style={{ marginTop: '0.15rem' }}>
                 <span className="movement-type-badge" style={{ background: `rgba(59,130,246,0.1)`, color: 'var(--primary)' }}>
-                  Completed Sale
+                  {sale.sale_tier === 'wholesale' ? 'Wholesale' : 'Retail'} Sale
                 </span>
                 <span style={{
                   fontSize: '0.65rem', fontWeight: 700, padding: '0.08rem 0.4rem',

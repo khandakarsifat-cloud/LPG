@@ -17,7 +17,8 @@ grant all on inv_context to authenticated;
 insert into auth.users(id,email,is_anonymous) values
  ('a1000000-0000-4000-8000-000000000001','inventory-a@example.invalid',false),
  ('b1000000-0000-4000-8000-000000000001','inventory-b@example.invalid',false),
- ('a1000000-0000-4000-8000-000000000002','inventory-reader@example.invalid',false);
+ ('a1000000-0000-4000-8000-000000000002','inventory-reader@example.invalid',false),
+ ('a1000000-0000-4000-8000-000000000003','inventory-manager@example.invalid',false);
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000001',true);
 insert into inv_context(a) select (public.setup_business('Inventory A','Owner A')->>'tenant_id')::uuid;
@@ -39,6 +40,10 @@ insert into public.items(tenant_id,item_id,brand_id,brand,size_kg,mouth_size)
 select a,'f1000000-0000-4000-8000-000000000002','c1000000-0000-4000-8000-000000000001','Test brand',12,'20mm' from inv_context;
 insert into public.items(tenant_id,item_id,brand_id,brand,size_kg)
 select b,'f1000000-0000-4000-8000-000000000003','c1000000-0000-4000-8000-000000000001','Other tenant',25 from inv_context;
+-- Pre-correction shared settings stay attributed and apply to both types without rewriting history.
+insert into public.product_commission_rates(tenant_id,item_id,commission_per_unit,created_by)
+select a,'f1000000-0000-4000-8000-000000000002'::uuid,7,'a1000000-0000-4000-8000-000000000001'::uuid from inv_context
+union all select b,'f1000000-0000-4000-8000-000000000001'::uuid,999,'b1000000-0000-4000-8000-000000000001'::uuid from inv_context;
 insert into public.customers(tenant_id,customer_id,name,phone)
 select t,'e1000000-0000-4000-8000-000000000001','Customer','01700000000'
 from inv_context cross join lateral(values(a),(b)) v(t);
@@ -96,6 +101,10 @@ select 'a1000000-0000-4000-8000-000000000002',a,'inventory-reader@example.invali
 insert into public.roles(tenant_id,role_id,name) select a,'a1000000-0000-4000-8000-000000000002','Inventory reader' from inv_context;
 insert into public.role_permissions(tenant_id,role_id,permission_id) select a,'a1000000-0000-4000-8000-000000000002','inventory:view' from inv_context;
 insert into public.user_roles(tenant_id,user_id,role_id) select a,'a1000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002' from inv_context;
+insert into public.user_profiles(user_id,tenant_id,email)
+select 'a1000000-0000-4000-8000-000000000003',a,'inventory-manager@example.invalid' from inv_context;
+insert into public.user_roles(tenant_id,user_id,role_id)
+select a,'a1000000-0000-4000-8000-000000000003',r.role_id from inv_context join public.roles r on r.tenant_id=a and r.name='MANAGER';
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000002',true);
@@ -110,13 +119,22 @@ do $$ declare d jsonb; begin
   perform pg_temp.inv_check((d#>>'{weeks,7,sold_refill}')::integer=0,'zero activity stays visible');
   perform pg_temp.inv_check(extract(dow from (d#>>'{weeks,0,start_date}')::date)=6
     and extract(dow from (d#>>'{weeks,0,end_date}')::date)=5,'Saturday to Friday in Dhaka');
-  perform pg_temp.inv_check((select (x->>'estimated_unit_cost')::numeric=130 from jsonb_array_elements(d->'buying_costs') x where x->>'type'='refill'),
-    'refill cost 100 + (300+100)/10 - proportional commission 10');
-  perform pg_temp.inv_check((select (x->>'estimated_unit_cost')::numeric=220 from jsonb_array_elements(d->'buying_costs') x where x->>'type'='package'),
-    'package cost 200 + shared overhead 40 - proportional commission 20');
+  perform pg_temp.inv_check((select (x->>'estimated_unit_cost')::numeric=140 from jsonb_array_elements(d->'buying_costs') x where x->>'type'='refill'),
+    'refill cost 100 + (300+100)/10, excluding purchase commission');
+  perform pg_temp.inv_check((select (x->>'estimated_unit_cost')::numeric=240 from jsonb_array_elements(d->'buying_costs') x where x->>'type'='package'),
+    'package cost 200 + shared overhead 40, excluding purchase commission');
+  perform pg_temp.inv_check((d->>'can_manage_prices')::boolean=false,'reader has no pricing authority');
   perform pg_temp.inv_check(jsonb_array_length(d->'prices')=2,'current price windows only');
   perform pg_temp.inv_fails($q$select public.save_product_prices('f1000000-0000-4000-8000-000000000001','retail','{}','{}')$q$,'Permission denied');
   perform pg_temp.inv_fails($q$select public.get_product_inventory('f1000000-0000-4000-8000-000000000003')$q$,'Product not found');
+  perform pg_temp.inv_fails('select public.set_lpg_brand_order(array[]::uuid[],array[]::uuid[])','Permission denied');
+end $$;
+select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000003',true);
+do $$ begin
+  perform pg_temp.inv_check(app_private.has_permission('inventory:manage'),'manager still has inventory management');
+  perform pg_temp.inv_check((public.get_product_inventory('f1000000-0000-4000-8000-000000000001')->>'can_manage_prices')::boolean=false,'manager not an owner');
+  perform pg_temp.inv_fails($q$select public.save_product_prices('f1000000-0000-4000-8000-000000000001','retail','{}','{}')$q$,'Only the owner');
+  perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',10,20,null)$q$,'Only the owner');
 end $$;
 select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000001',true);
 do $$ declare d jsonb; expected jsonb; begin
@@ -137,7 +155,57 @@ do $$ declare d jsonb; expected jsonb; begin
     '{"refill":{"price":1,"mrp":-1},"package":{"price":1}}','{"refill":null,"package":null}')$q$,'nonnegative');
   perform pg_temp.inv_fails($q$select public.save_product_prices('f1000000-0000-4000-8000-000000000003','retail','{}','{}')$q$,'Product not found');
 end $$;
+-- Each explicit rate save appends an attributed row; separate rates reduce their corresponding received-cost estimates.
+do $$ declare d jsonb; first_version uuid; latest_version uuid; original_order uuid[]; new_order uuid[]; created uuid; begin
+  d:=public.get_product_inventory('f1000000-0000-4000-8000-000000000002');
+  perform pg_temp.inv_check((d#>>'{commission,refill_rate}')::numeric=7 and (d#>>'{commission,package_rate}')::numeric=7,'legacy shared manual rate preserved for both types');
+  d:=public.get_product_inventory('f1000000-0000-4000-8000-000000000001');
+  perform pg_temp.inv_check((d->>'can_manage_prices')::boolean and d#>>'{commission,version}' is null,'owner access, no fabricated commission history');
+  perform public.set_product_commissions('f1000000-0000-4000-8000-000000000001',15,35,null);
+  d:=public.get_product_inventory('f1000000-0000-4000-8000-000000000001');
+  first_version:=(d#>>'{commission,version}')::uuid;
+  perform pg_temp.inv_check((d#>>'{commission,refill_rate}')::numeric=15 and (d#>>'{commission,package_rate}')::numeric=35 and first_version is not null,'explicit current commission');
+  perform pg_temp.inv_check((select (x->>'estimated_unit_cost')::numeric=125 and (x->>'commission_per_unit')::numeric=15 from jsonb_array_elements(d->'buying_costs') x where x->>'type'='refill'),'manual refill commission deducted from estimate');
+  perform pg_temp.inv_check((select (x->>'estimated_unit_cost')::numeric=205 and (x->>'commission_per_unit')::numeric=35 from jsonb_array_elements(d->'buying_costs') x where x->>'type'='package'),'separate manual package commission deducted from estimate');
+  perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',0,-1,null)$q$,'nonnegative');
+  perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',0,1.001,null)$q$,'two decimal');
+  perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',0,'Infinity'::numeric,null)$q$,'nonnegative');
+  perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',0,null,null)$q$,'nonnegative');
+  perform pg_temp.inv_fails($q$select public.set_product_commission('f1000000-0000-4000-8000-000000000001',15,null)$q$,'Reload the application');
+  perform public.set_product_commissions('f1000000-0000-4000-8000-000000000001',20,45,first_version);
+  perform pg_temp.inv_fails(format($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',30,50,%L)$q$,first_version),'Commission changed');
+  d:=public.get_product_inventory('f1000000-0000-4000-8000-000000000001');
+  latest_version:=(d#>>'{commission,version}')::uuid;
+  perform public.set_product_commissions('f1000000-0000-4000-8000-000000000001',20,45,latest_version);
+  perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',-1,0,null)$q$,'nonnegative');
+  perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',1.001,0,null)$q$,'two decimal');
+  perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001','NaN'::numeric,0,null)$q$,'nonnegative');
+  perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000003',1,2,null)$q$,'Product not found');
+  perform pg_temp.inv_fails('select * from public.product_commission_rates','permission denied');
+
+  perform public.create_lpg_brand('Second brand');
+  created:=(public.create_lpg_brand('Inactive brand')->>'brand_id')::uuid;
+  perform public.update_lpg_brand(created,null,null,false);
+  original_order:=array(select brand_id from public.list_lpg_brands(false));
+  perform pg_temp.inv_check(cardinality(original_order)=3,'all brands available for ordering, including inactive');
+  new_order:=array[original_order[3],original_order[1],original_order[2]];
+  perform public.set_lpg_brand_order(new_order,original_order);
+  perform pg_temp.inv_check(array(select brand_id from public.list_lpg_brands(false))=new_order,'saved catalog order');
+  perform pg_temp.inv_check(array(select brand_id from public.list_lpg_brands(true))=array[original_order[1],original_order[2]],'active filtering preserves catalog order');
+  perform pg_temp.inv_fails(format('select public.set_lpg_brand_order(%L::uuid[],%L::uuid[])',original_order,original_order),'Brand order changed');
+  perform pg_temp.inv_fails(format('select public.set_lpg_brand_order(%L::uuid[],%L::uuid[])',array[new_order[1],new_order[1],new_order[3]],new_order),'exactly once');
+  perform pg_temp.inv_fails(format('select public.set_lpg_brand_order(%L::uuid[],%L::uuid[])',array[new_order[1],new_order[2],'99999999-0000-4000-8000-000000000000'::uuid],new_order),'exactly once');
+  created:=(public.create_lpg_brand('Appended brand')->>'brand_id')::uuid;
+  perform pg_temp.inv_check((array(select brand_id from public.list_lpg_brands(false)))[4]=created,'new brands append to configured order');
+end $$;
 reset role;
+select pg_temp.inv_check((select count(*)=4 from public.product_commission_rates where created_by='a1000000-0000-4000-8000-000000000001'),'rate history includes legacy entry and each explicit save');
+select pg_temp.inv_check((select count(*)=3 and bool_and(package_commission_per_unit is not null) from public.product_commission_rates where created_by='a1000000-0000-4000-8000-000000000001' and item_id='f1000000-0000-4000-8000-000000000001'),'each new save records both rates atomically');
+select pg_temp.inv_check((select bool_and(created_by='a1000000-0000-4000-8000-000000000001') from public.product_commission_rates c join inv_context i on c.tenant_id=i.a),'rate actor is authenticated owner');
+select pg_temp.inv_fails($q$update public.product_commission_rates set commission_per_unit=99 where created_by='a1000000-0000-4000-8000-000000000001'$q$,'immutable');
+select pg_temp.inv_fails($q$update public.product_commission_rates set package_commission_per_unit=99 where created_by='a1000000-0000-4000-8000-000000000001'$q$,'immutable');
+select pg_temp.inv_fails($q$delete from public.product_commission_rates where created_by='a1000000-0000-4000-8000-000000000001'$q$,'immutable');
+select pg_temp.inv_check((select count(*)=1 and max(display_order)=0 from public.lpg_brands b join inv_context c on b.tenant_id=c.b),'other tenant brand order unchanged');
 select pg_temp.inv_check((select count(*)=0 from public.price_books where customer_tier='wholesale'),'second-line failure rolls back both prices');
 select pg_temp.inv_check((select count(*)=2 from public.price_books where price in (1250,2500)),'refill and package share one timestamp without collision');
 select pg_temp.inv_check((select count(*)=1 from public.price_books where price=9999 and effective_to is null),'future scheduled price preserved');
@@ -151,5 +219,5 @@ select pg_temp.inv_check((select count(*)=0 from public.price_books p join inv_c
 select pg_temp.inv_check((select bool_and(pg_get_userbyid(proowner)='postgres') from pg_proc
   where oid in ('public.get_product_inventory(uuid)'::regprocedure,'public.save_product_prices(uuid,text,jsonb,jsonb)'::regprocedure)),
   'RPC ownership matches application functions');
-select 'PASS: product price windows, atomic saves, MRP separation, buying costs, eight Dhaka weeks and tenant/capability isolation';
+select 'PASS: owner-only prices/commission, immutable rate history, separate manual commission deductions, saved brand order, price windows, eight Dhaka weeks and tenant isolation';
 rollback;

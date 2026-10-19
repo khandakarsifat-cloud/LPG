@@ -2,10 +2,11 @@ import { useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { X, Droplets, Box, RefreshCw, RotateCcw, Pencil, Loader2, Package, CalendarDays, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { useProductInventory, useSaveProductPrices } from '../../hooks/useInventory';
-import { useAuth } from '../../contexts/AuthContext';
+import { useProductInventory, useSaveProductPrices, useSetProductCommission } from '../../hooks/useInventory';
 import { formatBDNumber } from '../../lib/formatBDT';
 import type { CustomerTier, ItemWithBrand, PriceType, ProductPrice } from '../../types/inventory';
+import { PurchaseDialog } from '../purchases/PurchaseControls';
+import '../purchases/purchases.css';
 import './inventory.css';
 
 const kinds: PriceType[] = ['refill', 'package'];
@@ -25,8 +26,9 @@ const historyFields = [
   { key: 'bought_refill', label: 'Bought refill', shortLabel: 'Refill', icon: RefreshCw, direction: 'in' },
 ] as const;
 
-function PricingEditor({ itemId, tier, prices, onCancel, onSaved, onPending }: {
+function PricingEditor({ itemId, tier, prices, disabled, onCancel, onSaved, onPending }: {
   itemId: string; tier: CustomerTier; prices: ProductPrice[];
+  disabled: boolean;
   onCancel: () => void; onSaved: () => void; onPending: (pending: boolean) => void;
 }) {
   const save = useSaveProductPrices();
@@ -45,7 +47,7 @@ function PricingEditor({ itemId, tier, prices, onCancel, onSaved, onPending }: {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (save.isPending) return;
+    if (save.isPending || disabled) return;
     onPending(true);
     try {
       await save.mutateAsync({ itemId, tier, expected: baseline, prices: {
@@ -64,25 +66,56 @@ function PricingEditor({ itemId, tier, prices, onCancel, onSaved, onPending }: {
       {kinds.map(kind => <div className="product-price-row" key={kind}>
         <strong>{kindLabel[kind]}</strong>
         {(['mrp', 'price'] as const).map(field => <input key={field} className="input-field" type="number" min="0" max="9999999999.99" step="0.01"
-          required={field === 'price'} disabled={save.isPending} aria-label={`${kindLabel[kind]} ${field === 'mrp' ? 'MRP' : 'selling price'}`}
+          required={field === 'price'} disabled={save.isPending || disabled} aria-label={`${kindLabel[kind]} ${field === 'mrp' ? 'MRP' : 'selling price'}`}
           placeholder={field === 'mrp' ? 'Optional' : 'Required'} value={fields[kind][field]}
           onChange={event => setFields(previous => ({ ...previous, [kind]: { ...previous[kind], [field]: event.target.value } }))} />)}
       </div>)}
     </div>
     {save.isError && <p role="alert" className="product-error">{save.error.message}</p>}
     <div className="product-price-actions">
-      <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={save.isPending}>Cancel</button>
-      <button className="btn btn-primary" disabled={save.isPending}>{save.isPending && <Loader2 size={14} className="spin" />}Save prices</button>
+      <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={save.isPending || disabled}>Cancel</button>
+      <button className="btn btn-primary" disabled={save.isPending || disabled}>{save.isPending && <Loader2 size={14} className="spin" />}Save prices</button>
     </div>
+  </form>;
+}
+
+function CommissionEditor({ itemId, refillRate, packageRate, version, disabled, onCancel, onSaved, onPending }: {
+  itemId: string; refillRate: number; packageRate: number; version: string | null;
+  disabled: boolean;
+  onCancel: () => void; onSaved: () => void; onPending: (pending: boolean) => void;
+}) {
+  const save = useSetProductCommission();
+  const [values, setValues] = useState({ refill: String(refillRate), package: String(packageRate) });
+  const [expected] = useState(version);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (save.isPending || disabled) return;
+    onPending(true);
+    try {
+      await save.mutateAsync({ itemId, refillRate: Number(values.refill), packageRate: Number(values.package), expected });
+      toast.success('Commission saved');
+      onSaved();
+    } catch { /* Preserve the entered rate and show the server error. */ }
+    finally { onPending(false); }
+  };
+  return <form className="product-commission-form" onSubmit={submit}>
+    <div className="product-buying-grid">{kinds.map(kind => <label key={kind}>{kindLabel[kind]} commission / unit
+      <input className="input-field" type="number" min="0" max="9999999999.99" step="0.01" required
+        disabled={save.isPending || disabled} value={values[kind]}
+        onChange={event => setValues(previous => ({ ...previous, [kind]: event.target.value }))} /></label>)}</div>
+    {save.isError && <p role="alert" className="product-error">{save.error.message}</p>}
+    <div className="product-price-actions"><button type="button" className="btn btn-ghost" disabled={save.isPending || disabled} onClick={onCancel}>Cancel</button>
+      <button className="btn btn-primary" disabled={save.isPending || disabled}>{save.isPending && <Loader2 size={14} className="spin" />}Save commission</button></div>
   </form>;
 }
 
 export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; onClose: () => void }) => {
   const dialog = useRef<HTMLDialogElement>(null);
-  const { can } = useAuth();
   const product = useProductInventory(item.item_id);
   const [tier, setTier] = useState<CustomerTier>('retail');
   const [editing, setEditing] = useState(false);
+  const [editingCommission, setEditingCommission] = useState(false);
+  const [commissionEditorVersion, setCommissionEditorVersion] = useState(0);
   const [saving, setSaving] = useState(false);
   const [editorVersion, setEditorVersion] = useState(0);
   const [reloading, setReloading] = useState(false);
@@ -101,7 +134,14 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
     setReloading(false);
   };
 
-  return <dialog ref={dialog} className="product-dialog" aria-labelledby="product-title"
+  const reloadCommission = async () => {
+    setReloading(true);
+    const result = await product.refetch();
+    if (result.isSuccess) setCommissionEditorVersion(version => version + 1);
+    setReloading(false);
+  };
+
+  return <><dialog ref={dialog} className="product-dialog" aria-labelledby="product-title"
     onCancel={event => { event.preventDefault(); if (!saving) onClose(); }}
     onClick={event => {
       if (event.target !== event.currentTarget || saving) return;
@@ -136,7 +176,7 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
                   onClick={() => setTier(value)}>{value === 'retail' ? 'Retail' : 'Wholesale'}</button>)}
               </div>
             </div>
-            {editing ? <PricingEditor key={`${tier}-${editorVersion}`} itemId={item.item_id} tier={tier} prices={product.data.prices}
+            {editing && product.data.can_manage_prices ? <PricingEditor key={`${tier}-${editorVersion}`} itemId={item.item_id} tier={tier} prices={product.data.prices} disabled={reloading}
               onCancel={() => setEditing(false)} onSaved={() => setEditing(false)} onPending={setSaving} />
               : <div className="product-price-table">
                 <span /> <span>MRP</span> <span>Selling price</span>
@@ -152,9 +192,9 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
               </div>}
             <div className="product-price-note">
               <p>MRP is for reference. Sales use the selling price; discounts apply separately.</p>
-              {can('inventory:manage') && (editing
+              {product.data.can_manage_prices && (editing
                 ? <button className="btn btn-ghost" disabled={saving || reloading} onClick={reloadPrices}>Reload saved prices</button>
-                : <button className="btn btn-secondary" onClick={() => setEditing(true)}><Pencil size={13} />Edit prices</button>)}
+                : <button className="btn btn-secondary" disabled={editingCommission} onClick={() => setEditing(true)}><Pencil size={13} />Edit prices</button>)}
             </div>
           </section>
 
@@ -169,12 +209,16 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
                     <p>{cost.received_at ? `Received ${format(new Date(cost.received_at), 'dd MMM yyyy')}` : 'Last received purchase'}</p>
                     <dl><div><dt>Bottle cost</dt><dd>{money(cost.bottle_cost)}</dd></div>
                       <div><dt>Transport + labour / unit</dt><dd>+ {money(cost.overhead_per_unit)}</dd></div>
-                      {cost.commission_per_unit > 0 && <div><dt>Commission / unit</dt><dd>− {money(cost.commission_per_unit)}</dd></div>}</dl>
-                  </> : <p>No received {kindLabel[kind].toLowerCase()} purchase yet.</p>}
+                      <div><dt>Commission / unit</dt><dd className="product-commission-rate">− {money(cost.commission_per_unit)}</dd></div>
+                    </dl>
+                  </> : <><p>No received {kindLabel[kind].toLowerCase()} purchase yet.</p>
+                    <dl><div><dt>Commission / unit</dt><dd className="product-commission-rate">{product.data.commission.version ? money(kind === 'refill' ? product.data.commission.refill_rate : product.data.commission.package_rate) : 'Not set'}</dd></div></dl></>}
                 </div>;
               })}
             </div>
-            <p className="product-help">Latest received purchase for this exact product and type. Transport and labour are shared across all units received; commission is allocated by line value.</p>
+            {product.data.can_manage_prices && <div className="product-buying-actions"><button className="btn btn-secondary" disabled={editing}
+              onClick={() => setEditingCommission(true)}><Pencil size={13} />Edit commission</button></div>}
+            <p className="product-help">Latest received purchase for this exact product and type, plus shared transport and labour, minus its current manually set commission. Purchase commission is ignored.</p>
           </section>
 
           <section className="product-section product-history" aria-labelledby="product-history-title">
@@ -212,5 +256,16 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
         </>}
       </div>
     </div>
-  </dialog>;
+  </dialog>
+    {editingCommission && product.data?.can_manage_prices && <PurchaseDialog title="Edit commission" subtitle={`${brandName} ${item.size_kg} kg · Commission per unit`}
+      compact busy={saving || reloading} onClose={() => setEditingCommission(false)}>
+      <div className="modal-body product-commission-popup">
+        <p className="product-help">Set refill and package rates separately. Each rate reduces its estimated buying price.</p>
+        <CommissionEditor key={commissionEditorVersion} itemId={item.item_id} refillRate={product.data.commission.refill_rate}
+          packageRate={product.data.commission.package_rate} version={product.data.commission.version} disabled={reloading}
+          onCancel={() => setEditingCommission(false)} onSaved={() => setEditingCommission(false)} onPending={setSaving} />
+        <button className="btn btn-ghost" disabled={saving || reloading} onClick={reloadCommission}>Reload saved rates</button>
+      </div>
+    </PurchaseDialog>}
+  </>;
 };

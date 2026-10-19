@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { useLPGBrands, useCreateBrand, useUpdateBrand } from '../../hooks/useBrands';
-import { Plus, Edit2, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
+import { useLPGBrands, useCreateBrand, useUpdateBrand, useSetBrandOrder } from '../../hooks/useBrands';
+import { Plus, Edit2, Trash2, AlertCircle, CheckCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import type { LPGBrand } from '../../types/inventory';
+import './brands.css';
 
 export const BrandManagement = () => {
-  const { data: brands = [], isLoading, error } = useLPGBrands();
+  const { data: brands = [], isLoading, error, refetch } = useLPGBrands();
   const createBrand = useCreateBrand();
   const updateBrand = useUpdateBrand();
+  const setOrder = useSetBrandOrder();
 
   const [showForm, setShowForm] = useState(false);
   const [editingBrand, setEditingBrand] = useState<LPGBrand | null>(null);
@@ -77,6 +79,21 @@ export const BrandManagement = () => {
     }
   };
 
+  const moveBrand = async (index: number, direction: -1 | 1) => {
+    const expected = brands.map(brand => brand.brand_id);
+    const ordered = [...expected];
+    const other = index + direction;
+    if (other < 0 || other >= ordered.length || setOrder.isPending) return;
+    [ordered[index], ordered[other]] = [ordered[other], ordered[index]];
+    setMessage(null);
+    try {
+      await setOrder.mutateAsync({ brandIds: ordered, expected });
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Could not save brand order' });
+      await refetch();
+    }
+  };
+
   if (error) {
     return (
       <div className="card" style={{ borderColor: 'var(--status-error)' }}>
@@ -100,11 +117,12 @@ export const BrandManagement = () => {
         <div>
           <h3 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>LPG Brands</h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: '0.5rem 0 0 0' }}>
-            Manage the LPG brands your business is associated with
+            Manage brands and their display order. Use the arrows to change inventory order.
           </p>
         </div>
         {!showForm && (
           <button
+            disabled={setOrder.isPending}
             onClick={() => setShowForm(true)}
             style={{
               display: 'flex',
@@ -237,11 +255,11 @@ export const BrandManagement = () => {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 18.75rem), 1fr))',
             gap: '1rem',
           }}
         >
-          {brands.map((brand) => (
+          {brands.map((brand, index) => (
             <div
               key={brand.brand_id}
               className="card"
@@ -253,6 +271,13 @@ export const BrandManagement = () => {
                 opacity: brand.is_active ? 1 : 0.6,
               }}
             >
+              <div className="brand-order-controls">
+                <span>Position {index + 1}</span>
+                <div>
+                  <button type="button" aria-label={`Move ${brand.brand_name} up`} title="Move up" disabled={index === 0 || setOrder.isPending || createBrand.isPending || updateBrand.isPending} onClick={() => moveBrand(index, -1)}><ChevronUp size={16} /></button>
+                  <button type="button" aria-label={`Move ${brand.brand_name} down`} title="Move down" disabled={index === brands.length - 1 || setOrder.isPending || createBrand.isPending || updateBrand.isPending} onClick={() => moveBrand(index, 1)}><ChevronDown size={16} /></button>
+                </div>
+              </div>
               <div style={{ flex: 1 }}>
                 <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', fontWeight: 600 }}>
                   {brand.brand_name}
@@ -283,6 +308,7 @@ export const BrandManagement = () => {
 
               <div style={{ display: 'flex', gap: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
                 <button
+                  disabled={setOrder.isPending}
                   onClick={() => handleEdit(brand)}
                   style={{
                     flex: 1,
@@ -302,6 +328,7 @@ export const BrandManagement = () => {
                   Edit
                 </button>
                 <button
+                  disabled={setOrder.isPending}
                   onClick={() => handleToggleActive(brand)}
                   style={{
                     flex: 1,
