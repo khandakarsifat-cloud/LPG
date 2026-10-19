@@ -1,3 +1,4 @@
+import { useListPage } from '../../hooks/useListPage';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, CheckCircle2 } from 'lucide-react';
@@ -6,6 +7,7 @@ import { usePrintSale } from '../../hooks/useReceiptPrinter';
 import type { SaleTransaction } from '../../hooks/useDashboard';
 import { useAuth } from '../../contexts/AuthContext';
 import { ReceiptPrintMethodSelect } from '../pos/ReceiptPrintMethodSelect';
+import { Pagination } from '../ui/Pagination';
 
 interface SaleDetailsModalProps {
   isOpen: boolean;
@@ -22,12 +24,17 @@ const TYPE_LABELS: Record<string, string> = {
 export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProps) => {
   const { profile, can } = useAuth();
   const printSale = usePrintSale();
+  const paging = useListPage(sale?.sale_items ?? [], 8, sale?.sale_id);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (CSS.supports('appearance', 'base-select') && e.target instanceof Element && e.target.closest('select')?.matches(':open')) return;
+      onClose();
+    };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
@@ -163,7 +170,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.1rem 0.5rem', fontSize: '0.65rem', fontWeight: 700, color: '#777', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
                 <span>Item</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Total</span>
               </div>
-              {sale.sale_items?.map((item, idx) => {
+              {paging.entries.map((item, idx) => {
                 const brandName = item.items?.lpg_brands?.brand_name || item.items?.brand || 'Unknown';
                 const size = item.items?.size_kg ? `${item.items.size_kg}kg` : '';
                 const itemName = `${brandName} ${size}`.trim();
@@ -188,6 +195,7 @@ export const SaleDetailsModal = ({ isOpen, onClose, sale }: SaleDetailsModalProp
                   </div>
                 );
               })}
+              <Pagination {...paging} onChange={paging.setPage} label="receipt lines" />
             </div>
 
             <div style={{ borderTop: '1px solid #bbb', margin: '0.5rem 0 0.4rem' }} />

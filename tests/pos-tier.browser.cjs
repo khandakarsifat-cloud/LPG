@@ -92,9 +92,20 @@ async page => {
   await expectVisible('package - Tk 2,500.00');
   await tier.getByRole('button', { name: 'Wholesale', exact: true }).click();
   await add('New Package for Tier Gas 12kg');
-  const amountInputs = page.locator('input[type="number"]');
-  await amountInputs.nth(0).fill('100');
-  await amountInputs.nth(1).fill('50');
+  // Editing cents must survive each keystroke; wheel/arrow navigation must not step money.
+  for (const label of ['Discount (Tk)', 'Exchange Fee (Tk)']) {
+    const input = page.getByLabel(label, { exact: true });
+    check(await input.getAttribute('type') === 'text' && await input.getAttribute('inputmode') === 'decimal', `${label} must use direct decimal entry`);
+    await input.fill('');
+    await input.pressSequentially('12.50');
+    check(await input.inputValue() === '12.50', `${label} lost decimal input`);
+    await input.press('ArrowUp');
+    await input.hover();
+    await page.mouse.wheel(0, 120);
+    check(await input.inputValue() === '12.50' && await input.evaluate(el => document.activeElement === el), `${label} changed or lost focus while scrolling`);
+  }
+  await page.getByLabel('Discount (Tk)', { exact: true }).fill('100');
+  await page.getByLabel('Exchange Fee (Tk)', { exact: true }).fill('50');
   // The saved-customer tier control stays reachable at phone/tablet widths.
   for (const width of [390, 768, 1440]) {
     await page.setViewportSize({ width, height: 1050 });
@@ -102,6 +113,9 @@ async page => {
     check(await tier.evaluate(el => el.getBoundingClientRect().right <= window.innerWidth), `Tier control overflows at ${width}px`);
   }
   await add('Complete Checkout');
+  await page.getByLabel('Receipt printer', { exact: true }).click();
+  await page.keyboard.press('Escape');
+  check(await page.getByRole('button', { name: 'Confirm', exact: true }).isVisible(), 'Dismissing receipt picker closed checkout');
   await add('Confirm');
   await page.getByText(/Saved wholesale sale/).waitFor();
   const submitted = checkouts[0];

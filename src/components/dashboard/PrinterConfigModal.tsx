@@ -21,6 +21,7 @@ export function PrinterConfigModal({ onClose }: { onClose: () => void }) {
     const previous = document.activeElement;
     dialogRef.current?.focus();
     const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && CSS.supports('appearance', 'base-select') && event.target instanceof Element && event.target.closest('select')?.matches(':open')) return;
       if (event.key === 'Escape' && !save.isPending) onClose();
       if (event.key !== 'Tab') return;
       const controls = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), input:not(:disabled)');

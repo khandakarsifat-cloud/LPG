@@ -1,5 +1,7 @@
+import { useListPage, usePageSize } from '../hooks/useListPage';
+import { Pagination } from '../components/ui/Pagination';
 import { DatePicker } from '../components/ui/DatePicker';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, type Ref, useMemo, useRef, useState } from 'react';
 import { BadgeDollarSign, BriefcaseBusiness, Pencil, Plus, Search, Users, X } from 'lucide-react';
 import {
   type BusinessUnit,
@@ -69,6 +71,13 @@ export const EmployeesPage = () => {
   const [employeeModal, setEmployeeModal] = useState<{ mode: 'create' | 'edit'; employee?: Employee } | null>(null);
   const [paymentEmployee, setPaymentEmployee] = useState<Employee | null>(null);
   const [totalsYear, setTotalsYear] = useState(currentYear);
+  const detailsPanel = useRef<HTMLElement>(null);
+  const selectEmployee = (id: string) => {
+    setSelectedEmployeeId(id);
+    if (window.matchMedia('(max-width: 600px)').matches) {
+      requestAnimationFrame(() => detailsPanel.current?.scrollIntoView({ block: 'start' }));
+    }
+  };
 
   const { data: employees = [], isLoading, isError } = useEmployees();
   const { data: categories = [] } = useEmployeePaymentCategories();
@@ -93,6 +102,7 @@ export const EmployeesPage = () => {
     });
   }, [employees, searchTerm, showInactive]);
 
+  const employeePages = useListPage(visibleEmployees, usePageSize(12, 4), `${searchTerm}:${showInactive}`);
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.employee_id === selectedEmployeeId) ?? visibleEmployees[0],
     [employees, selectedEmployeeId, visibleEmployees],
@@ -133,9 +143,9 @@ export const EmployeesPage = () => {
         <div>
           <p className="page-subtitle">Manage staff profiles, salary details, and employee payment history.</p>
         </div>
-        <button className="btn btn-primary" type="button" onClick={() => setEmployeeModal({ mode: 'create' })}>
+        <button className="btn btn-primary page-add-button" aria-label="Add Employee" type="button" onClick={() => setEmployeeModal({ mode: 'create' })}>
           <Plus size={16} />
-          Add Employee
+          <span>Add Employee</span>
         </button>
       </div>
 
@@ -188,7 +198,7 @@ export const EmployeesPage = () => {
             </div>
           ) : (
             <div className="table-scroll">
-              <table className="data-table employees-table">
+              <table className="data-table employees-table mobile-record-table">
                 <thead>
                   <tr>
                     <th>Employee</th>
@@ -201,31 +211,31 @@ export const EmployeesPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleEmployees.map((employee) => (
+                  {employeePages.entries.map((employee) => (
                     <tr
                       key={employee.employee_id}
                       className={selectedEmployee?.employee_id === employee.employee_id ? 'employees-row-active' : ''}
-                      onClick={() => setSelectedEmployeeId(employee.employee_id)}
+                      onClick={() => selectEmployee(employee.employee_id)}
                     >
-                      <td>
-                        <div className="td-strong">{employee.name}</div>
+                      <td data-label="Employee" className="record-title">
+                        <button className="employee-select td-strong" type="button">{employee.name}</button>
                         <div className="employees-muted">{employee.address || 'No address'}</div>
                       </td>
-                      <td>
+                      <td data-label="Phone">
                         <div>{employee.primary_phone ?? '-'}</div>
                         {employee.phones.length > 1 && (
                           <div className="employees-muted">{employee.phones.length} numbers</div>
                         )}
                       </td>
-                      <td>{employee.employee_type_name || '-'}</td>
-                      <td>{businessUnitLabels[employee.business_unit]}</td>
-                      <td className="td-strong">{formatBDT(employee.current_salary)}</td>
-                      <td>
+                      <td data-label="Type">{employee.employee_type_name || '-'}</td>
+                      <td data-label="Unit">{businessUnitLabels[employee.business_unit]}</td>
+                      <td data-label="Salary" className="td-strong">{formatBDT(employee.current_salary)}</td>
+                      <td data-label="Status">
                         <span className={`employee-status ${employee.is_active ? 'employee-status-active' : 'employee-status-inactive'}`}>
                           {employee.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Actions" className="record-actions">
                         <div className="employees-actions">
                           <button
                             className="btn btn-ghost"
@@ -259,9 +269,11 @@ export const EmployeesPage = () => {
               </table>
             </div>
           )}
+          <Pagination {...employeePages} onChange={employeePages.setPage} label="employees" />
         </section>
 
         <EmployeeDetailsPanel
+          panelRef={detailsPanel}
           employee={selectedEmployee}
           payments={payments}
           paymentsLoading={paymentsLoading}
@@ -294,6 +306,7 @@ export const EmployeesPage = () => {
 };
 
 const EmployeeDetailsPanel = ({
+  panelRef,
   employee,
   payments,
   paymentsLoading,
@@ -303,6 +316,7 @@ const EmployeeDetailsPanel = ({
   onPay,
   onEdit,
 }: {
+  panelRef: Ref<HTMLElement>;
   employee?: Employee;
   payments: ReturnType<typeof useEmployeePayments>['data'];
   paymentsLoading: boolean;
@@ -312,9 +326,11 @@ const EmployeeDetailsPanel = ({
   onPay: (employee: Employee) => void;
   onEdit: (employee: Employee) => void;
 }) => {
+  const paymentPages = useListPage(payments ?? [], 6, employee?.employee_id);
+  const phonePages = useListPage(employee?.phones ?? [], 8, employee?.employee_id);
   if (!employee) {
     return (
-      <aside className="glass-panel employees-detail-panel">
+      <aside ref={panelRef} className="glass-panel employees-detail-panel">
         <div className="empty-state">
           <BriefcaseBusiness size={24} />
           <p style={{ margin: 0 }}>Select an employee to view payment history.</p>
@@ -324,7 +340,7 @@ const EmployeeDetailsPanel = ({
   }
 
   return (
-    <aside className="glass-panel employees-detail-panel">
+    <aside ref={panelRef} className="glass-panel employees-detail-panel">
       <div className="employees-detail-header">
         <div>
           <h2>{employee.name}</h2>
@@ -343,13 +359,14 @@ const EmployeeDetailsPanel = ({
       </div>
 
       <div className="employees-phone-list">
-        {employee.phones.map((phone) => (
+        {phonePages.entries.map((phone) => (
           <span key={phone.employee_phone_id ?? phone.phone} className="employee-phone-pill">
             {phone.phone}{phone.is_primary ? ' primary' : ''}
           </span>
         ))}
       </div>
 
+      <Pagination {...phonePages} onChange={phonePages.setPage} label="phone numbers" />
       {employee.notes && <p className="employees-note">{employee.notes}</p>}
 
       <div className="employees-year-row">
@@ -388,7 +405,7 @@ const EmployeeDetailsPanel = ({
         </div>
       ) : (
         <div className="employees-payment-list">
-          {payments.map((payment) => (
+          {paymentPages.entries.map((payment) => (
             <div key={payment.payment_id} className="employees-payment-row">
               <div>
                 <div className="td-strong">{payment.category_name}</div>
@@ -406,12 +423,14 @@ const EmployeeDetailsPanel = ({
           ))}
         </div>
       )}
+      <Pagination {...paymentPages} onChange={paymentPages.setPage} label="payments" />
     </aside>
   );
 };
 
 const EmployeeModal = ({ mode, employee, onClose }: { mode: 'create' | 'edit'; employee?: Employee; onClose: () => void }) => {
   const [form, setForm] = useState<EmployeeInput>(() => toEmployeeInput(employee));
+  const editorPhones = useListPage(form.phones, 6);
   const [errorMsg, setErrorMsg] = useState('');
   const createEmployee = useCreateEmployee();
   const updateEmployee = useUpdateEmployee();
@@ -431,6 +450,7 @@ const EmployeeModal = ({ mode, employee, onClose }: { mode: 'create' | 'edit'; e
   };
 
   const addPhone = () => {
+    editorPhones.setPage(Math.floor(form.phones.length / editorPhones.pageSize));
     setForm({ ...form, phones: [...form.phones, emptyPhone()] });
   };
 
@@ -549,7 +569,7 @@ const EmployeeModal = ({ mode, employee, onClose }: { mode: 'create' | 'edit'; e
               </button>
             </div>
             <div className="employees-phone-editor">
-              {form.phones.map((phone, index) => (
+              {editorPhones.entries.map((phone, localIndex) => { const index = editorPhones.page * editorPhones.pageSize + localIndex; return (
                 <div key={index} className="employees-phone-row">
                   <input
                     className="input-field"
@@ -577,8 +597,9 @@ const EmployeeModal = ({ mode, employee, onClose }: { mode: 'create' | 'edit'; e
                     <X size={15} />
                   </button>
                 </div>
-              ))}
+              ); })}
             </div>
+            <Pagination {...editorPhones} onChange={editorPhones.setPage} label="phone numbers" />
           </section>
 
           <div className="input-group">

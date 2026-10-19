@@ -1,3 +1,5 @@
+import { useListPage } from '../../hooks/useListPage';
+import { Pagination } from '../ui/Pagination';
 import { useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -20,6 +22,7 @@ function TransitDetails({ onClose, transit }: { onClose: () => void; transit: Tr
   const update = useUpdateTransitCosts();
   const transition = useTransitionTransit();
   const [draft, setDraft] = useState(() => transitDraft(transit));
+  const costPages = useListPage(draft.additionalCosts, 6, transit.transit_id);
   const [draftRevision, setDraftRevision] = useState(transit.revision);
   const [baseline, setBaseline] = useState(() => JSON.stringify(transitDraft(transit)));
   const [error, setError] = useState<string | null>(null);
@@ -82,14 +85,15 @@ function TransitDetails({ onClose, transit }: { onClose: () => void; transit: Tr
                   onChange={value => setDraft({ ...draft, [key]: value ?? 0 })} />)}
             </fieldset>
             <div className="purchase-section-heading"><h3>Additional costs</h3>
-              {!locked && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setDraft({ ...draft, additionalCosts: [...draft.additionalCosts, { name: '', amount: 0 }] })}><Plus size={14} /> Add cost</button>}
+              {!locked && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => { costPages.setPage(Math.floor(draft.additionalCosts.length / costPages.pageSize)); setDraft({ ...draft, additionalCosts: [...draft.additionalCosts, { name: '', amount: 0 }] }); }}><Plus size={14} /> Add cost</button>}
             </div>
             {!draft.additionalCosts.length && <p className="purchase-hint">No additional costs.</p>}
-            {draft.additionalCosts.map((cost, index) => <fieldset key={index} className="transit-additional-row" disabled={locked || busy}>
+            {costPages.entries.map((cost, localIndex) => { const index = costPages.page * costPages.pageSize + localIndex; return <fieldset key={index} className="transit-additional-row" disabled={locked || busy}>
               <label className="input-group"><span className="input-label">Cost name</span><input className="input-field" value={cost.name} onChange={e => setDraft({ ...draft, additionalCosts: draft.additionalCosts.map((c, i) => i === index ? { ...c, name: e.target.value } : c) })} /></label>
               <PurchaseNumber label="Amount (Tk)" money value={cost.amount} onChange={value => setDraft({ ...draft, additionalCosts: draft.additionalCosts.map((c, i) => i === index ? { ...c, amount: value ?? 0 } : c) })} />
               {!locked && <button type="button" className="btn btn-ghost purchase-danger-action" aria-label={`Remove cost ${index + 1}`} onClick={() => setDraft({ ...draft, additionalCosts: draft.additionalCosts.filter((_, i) => i !== index) })}><Trash2 size={15} /></button>}
-            </fieldset>)}
+            </fieldset>; })}
+            <Pagination {...costPages} onChange={costPages.setPage} label="additional costs" />
           </section>
           <dl className="transit-settlement"><div><dt>Total operating cost</dt><dd>{formatBDT(total)}</dd></div><div><dt>{transit.closed_at ? 'Settled from logistics' : 'Deducted when transit is closed'}</dt></div></dl>
         </div>

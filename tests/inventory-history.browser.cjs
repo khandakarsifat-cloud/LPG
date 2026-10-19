@@ -65,17 +65,17 @@ async page => {
   });
   const check=(value,label)=>{if(!value)throw Error('FAIL: '+label);};
   await page.setViewportSize({width:1440,height:1000});
-  await page.goto(origin+'/#/inventory');
+  await page.goto(origin+'/?inventory-history-fixtures=1#/inventory');
   await page.reload();
   await page.getByRole('button',{name:'Inventory History',exact:true}).click();
   await page.getByText('Sold to Rahim on POS sale',{exact:false}).first().waitFor();
-  check(await page.locator('.inv-history-row').count()===30,'bounded first history page');
+  check(await page.locator('.inv-history-row').count()===10,'bounded first history page');
   check((await page.locator('.inv-history').innerText()).includes('Received empty from Rahim on POS sale'),'empty return context');
   check((await page.locator('.inv-history').innerText()).includes('Sent empty to Jamuna Gas (plant) on purchase'),'dispatch plant context');
   check((await page.locator('.inv-history').innerText()).includes('Received package from Jamuna Gas (plant) on purchase'),'receipt plant context');
   await page.getByRole('button',{name:'Next',exact:true}).click();
   await page.getByText('Page 2',{exact:true}).waitFor();
-  check(await page.locator('.inv-history-row').count()===8,'next page queries older rows');
+  check(await page.locator('.inv-history-row').count()===10,'next page queries older rows');
   await page.getByRole('combobox',{name:'Activity',exact:true}).selectOption('purchase');
   await page.waitForFunction(()=>document.querySelectorAll('.inv-history-row').length===5);
   check(!await page.getByText('Page 2',{exact:true}).count(),'source change resets page');
@@ -90,10 +90,10 @@ async page => {
   await page.getByText('Sold to Rahim on POS sale',{exact:false}).first().waitFor();
   check(!(await page.locator('.inv-history').innerText()).includes('(plant)'),'source filter excludes purchases');
   await page.locator('.inv-history-reference').first().click();
-  const saleDialog=page.getByRole('dialog',{name:'POS sale details',exact:true});
+  const saleDialog=page.getByRole('dialog',{name:'Transaction #11111111',exact:true});
   await saleDialog.waitFor();
   check((await saleDialog.innerText()).includes('Rahim'),'exact saved sale detail');
-  await saleDialog.getByRole('button',{name:'Close sale details',exact:true}).click();
+  await saleDialog.getByRole('button',{name:'Back to history',exact:true}).click();
   check(await page.locator('.inv-history-reference').first().evaluate(el=>el===document.activeElement),'detail close restores reference focus');
   await page.getByRole('button',{name:/Select products/}).click();
   const picker=page.getByRole('dialog',{name:'Select products',exact:true});
@@ -119,7 +119,7 @@ async page => {
   await page.getByRole('button',{name:/Select products/}).click();
   await picker.getByRole('button',{name:'Select all',exact:true}).click();
   await picker.getByRole('button',{name:'Apply all products',exact:true}).click();
-  await page.waitForFunction(()=>document.querySelectorAll('.inv-history-row').length===30);
+  await page.waitForFunction(()=>document.querySelectorAll('.inv-history-row').length===10);
   await page.getByRole('button',{name:'Clear filters',exact:true}).click();
   for(const width of [1440,768,390,320])for(const theme of ['light','dark']){
     await page.setViewportSize({width,height:900});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
@@ -149,10 +149,10 @@ async page => {
   await page.getByRole('button',{name:'Inventory History',exact:true}).click();
   await page.getByText('Sold to Rahim on POS sale',{exact:false}).first().waitFor();
   await page.locator('.inv-history-reference').first().click();
-  await page.getByRole('alert').filter({hasText:'This sale could not be loaded.'}).waitFor();
-  failSale=false;await page.getByRole('button',{name:'Retry sale',exact:true}).click();
+  await page.getByRole('alert').filter({hasText:'This transaction could not be loaded.'}).waitFor();
+  failSale=false;await page.getByRole('button',{name:'Retry',exact:true}).click();
   await saleDialog.waitFor();
-  await saleDialog.getByRole('button',{name:'Close sale details',exact:true}).click();
+  await saleDialog.getByRole('button',{name:'Back to history',exact:true}).click();
   viewer=true;await page.reload();
   await page.getByRole('button',{name:'Inventory History',exact:true}).click();
   await page.getByText('Sold to customer on POS sale',{exact:false}).first().waitFor();

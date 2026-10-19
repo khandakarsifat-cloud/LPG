@@ -1,3 +1,6 @@
+import { useListPage } from '../../hooks/useListPage';
+import { Pagination } from '../ui/Pagination';
+import { PurchaseNumber } from '../purchases/PurchaseControls';
 import { AlertTriangle, Minus, Plus, ShoppingCart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { POSSalePayload } from '../../hooks/usePOS';
@@ -26,6 +29,7 @@ export const POSCart = ({
   onChangeNotes,
 }: POSCartProps) => {
   const { data: inventoryItems } = useInventoryBalances();
+  const paging = useListPage(items, 6);
 
   const subtotal = items.reduce((acc, curr) => acc + (curr.quantity * Number(curr.unit_price || 0)), 0);
   const total = subtotal - Number(discount || 0) + Number(exchangeFee || 0);
@@ -61,20 +65,20 @@ export const POSCart = ({
   const emptiesCount = items.filter(i => i.type === 'empty_return').reduce((acc, curr) => acc + curr.quantity, 0);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 0 }}>
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.5rem 0.75rem' }}>
+    <div className="pos-cart">
+      <div className="pos-cart-lines">
         {items.length === 0 ? (
-          <div className="empty-state" style={{ height: '100%', minHeight: '12rem' }}>
+          <div className="empty-state pos-cart-empty">
             <ShoppingCart size={28} />
             <p style={{ margin: 0 }}>Cart is empty</p>
           </div>
         ) : (
-          items.map((item, index) => {
+          paging.entries.map((item, index) => {
             const invItem = inventoryItems?.find(i => i.item_id === item.item_id);
             const name = invItem ? `${invItem.lpg_brands?.brand_name} ${invItem.size_kg}kg` : 'Unknown';
 
             return (
-              <div key={`${item.item_id}-${item.type}-${index}`} style={{
+              <div className="pos-cart-line" key={`${item.item_id}-${item.type}-${index}`} style={{
                 display: 'grid',
                 gridTemplateColumns: 'minmax(0, 1fr) auto auto',
                 gap: '0.5rem',
@@ -108,6 +112,7 @@ export const POSCart = ({
             );
           })
         )}
+        <Pagination {...paging} onChange={paging.setPage} label="cart lines" />
       </div>
 
       {refillsCount !== emptiesCount && (
@@ -117,40 +122,20 @@ export const POSCart = ({
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.6rem 0.75rem', borderTop: '1px solid var(--border-color)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
-          <label className="input-label" style={{ margin: 0, fontSize: '0.72rem' }}>Discount (Tk)</label>
-          <input
-            type="number"
-            className="input-field"
-            style={{ width: '90px', textAlign: 'right', padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
-            value={discount}
-            onChange={(e) => onChangeDiscount(Math.max(0, Number(e.target.value)))}
-            min="0" step="0.01"
-          />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
-          <label className="input-label" style={{ margin: 0, fontSize: '0.72rem' }}>Exchange Fee (Tk)</label>
-          <input
-            type="number"
-            className="input-field"
-            style={{ width: '90px', textAlign: 'right', padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
-            value={exchangeFee}
-            onChange={(e) => onChangeExchangeFee(Math.max(0, Number(e.target.value)))}
-            min="0" step="0.01"
-          />
-        </div>
-        <div className="input-group" style={{ marginBottom: 0 }}>
-          <label className="input-label" style={{ fontSize: '0.72rem' }}>Notes</label>
+      <div className="pos-cart-fields">
+        <PurchaseNumber label="Discount (Tk)" money value={discount} onChange={value => onChangeDiscount(value ?? 0)} />
+        <PurchaseNumber label="Exchange Fee (Tk)" money value={exchangeFee} onChange={value => onChangeExchangeFee(value ?? 0)} />
+        <label className="pos-cart-field pos-cart-notes">
+          <span>Notes</span>
           <textarea
             className="input-field"
-            rows={2}
+            rows={1}
             value={notes}
             onChange={(e) => onChangeNotes(e.target.value)}
             placeholder="Optional notes..."
-            style={{ resize: 'none', fontSize: '0.78rem', padding: '0.35rem 0.5rem' }}
+            style={{ resize: 'vertical' }}
           />
-        </div>
+        </label>
       </div>
 
       <div style={{ padding: '0.5rem 0.75rem', borderTop: '1px solid var(--border-color)', flexShrink: 0 }}>
@@ -158,7 +143,7 @@ export const POSCart = ({
           <span>Subtotal</span>
           <span>Tk {formatBDNumber(subtotal)}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', borderTop: '1px solid var(--border-color)', paddingTop: '0.4rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-main)', borderTop: '1px solid var(--border-color)', paddingTop: '0.4rem' }}>
           <span>Total</span>
           <span style={{ color: 'var(--primary)' }}>Tk {formatBDNumber(total)}</span>
         </div>

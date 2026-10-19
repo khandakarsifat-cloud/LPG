@@ -240,6 +240,35 @@
   color: var(--text-muted);
 }
 
+/* ==========================================================================
+   UNIFIED COMMAND HUB BAR (Inventory Overview Toolbar)
+   ========================================================================== */
+.inv-hub-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  margin-bottom: 0;
+}
+.inv-hub-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; min-width: 0; max-width: 880px; flex: 1; }
+.inv-hub-module.inv-overview-box { min-width: 0; display: flex; flex-direction: column; align-items: start; justify-content: start; gap: 4px; padding: 5px 6px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-muted); }
+.inv-hub-label { font-size: 10px; font-weight: 650; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.inv-hub-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.inv-hub-values.inv-overview-counts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 4px; }
+.inv-hub-values > .inv-hub-chip { gap: 3px; font-weight: 400; }
+.inv-hub-chip { display: inline-flex; align-items: baseline; gap: 3px; }
+.inv-hub-num { font-size: 16px; font-weight: 750; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.inv-hub-caption { font-size: 10px; font-weight: 500; color: var(--text-muted); }
+.inv-hub-action { flex-shrink: 0; align-self: center; margin-left: auto; }
+.inv-hub-btn { min-height: 30px; padding: 5px 8px; font-size: 12px; gap: 4px; }
+@container workspace (max-width: 700px) {
+  .inv-hub-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .inv-hub-action .inv-hub-btn { padding: 5px 6px; }
+  .inv-hub-action .inv-hub-btn span { display: none; }
+}
 /* Product details: persistent header, one scroll area, compact weekly entries. */
 .product-dialog {
   width: min(48rem,calc(100vw - 2rem));

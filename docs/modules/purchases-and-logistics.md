@@ -2,6 +2,10 @@
 
 [Architecture](../architecture.md) · [Stock rules](sales-and-inventory.md) · [Authorization](../../supabase/authorization.md)
 
+Purchase lists show six orders per desktop page and four per phone page, with page controls above the cards. Filters and sorting apply before the page slice; business-wide financial summaries continue to use the full collection.
+
+Fleet and each transit group show twelve records per desktop page and four per phone page. On phones the fleet table becomes labeled records with location editing in view; its status summaries still count all trucks.
+
 ## Purchase workflow
 
 The plant determines the supplying company (`lpg_brands`). Plant/company remain fixed after creation; products must belong to that company. Historical records retain their original lines and billing evidence.

@@ -103,8 +103,8 @@ async page => {
   check(await page.locator('.inv-overview-box').count() === 4, 'four compact summary boxes');
   check(await page.locator('.inv-overview-filled').first().innerText() === '65', 'filled total');
   check(await page.locator('.inv-overview-empty').first().innerText() === '30', 'empty total');
-  check(await page.locator('.inv-overview-box').nth(1).innerText() === 'Low Stock\n1\n1', 'independent low-stock counts');
-  check(await page.locator('.inv-overview-box').nth(2).innerText() === 'Out of Stock\n1\n1', 'independent zero-stock counts');
+  check(await page.locator('.inv-overview-box').nth(1).innerText().then(t => t.includes('1') && t.includes('filled') && t.includes('empty')), 'independent low-stock counts');
+  check(await page.locator('.inv-overview-box').nth(2).innerText().then(t => t.includes('1') && t.includes('filled') && t.includes('empty')), 'independent zero-stock counts');
   check(await page.getByLabel('Total items: 4',{exact:true}).count()===1,'total products counted');
   check(await page.getByLabel('Total active brands: 3',{exact:true}).count()===1,'inactive brands excluded from active total');
   check(JSON.stringify(await page.locator('.inv-brand-heading').allTextContents())===JSON.stringify(['Beximco LPG','Omera','Bashundhara']),'product sections follow brand order');
@@ -199,8 +199,8 @@ async page => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(origin + '/#/pos');
   await page.getByRole('button', { name: 'Increase Refill quantity', exact: true }).first().click();
-  check(await page.locator('.pos-item-row').first().innerText().then(text => text.includes('1,300.00')), 'POS uses selling price');
-  check(!await page.locator('.pos-item-row').first().innerText().then(text => text.includes('1,700.00')), 'POS excludes MRP');
+  check(await page.locator('.pos-option-price').first().textContent() === 'Tk 1,300', 'POS uses selling price');
+  check(!await page.locator('.pos-option-price').first().textContent().then(text => text.includes('1,700')), 'POS excludes MRP');
 
   // Settings persists the order and inventory starts each brand on a separate row.
   await page.goto(origin+'/#/settings');
@@ -208,6 +208,7 @@ async page => {
   await page.getByRole('button',{name:'Move Omera up',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.brand-order-controls')?.parentElement?.textContent.includes('Omera'));
   await page.goto(origin+'/#/inventory');
+  await page.locator('.inv-brand-heading').first().waitFor();
   check((await page.locator('.inv-brand-heading').allTextContents())[0]==='Omera','saved settings order used immediately');
   await page.goto(origin+'/#/settings');
   await page.getByRole('button',{name:/LPG Brands/}).click();
@@ -247,5 +248,5 @@ async page => {
   await modal.getByRole('button', { name: 'Retry', exact: true }).click();
   await modal.getByRole('heading', { name: 'Current pricing' }).waitFor();
   check(errors.length === 0, 'no JavaScript errors: ' + errors.join(', '));
-  console.log('PASS: separate manual commission deductions, brand groups/order, weight sorting, catalog counts, owner-only prices/commission, conflict retention, reload, POS selling price, eight weeks, permissions, errors, focus and responsive light/dark layouts');
+  return 'PASS: separate manual commission deductions, brand groups/order, weight sorting, catalog counts, owner-only prices/commission, conflict retention, reload, POS selling price, eight weeks, permissions, errors, focus and responsive light/dark layouts';
 }

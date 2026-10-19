@@ -1,0 +1,37 @@
+- generic [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e6]: NexusLPG
+    - heading "Welcome back to your ERP Dashboard" [level=2] [ref=e7]: Welcome back toyour ERP Dashboard
+    - paragraph [ref=e8]: Sign in to access your real-time inventory ledger, financial statements, and logistics management.
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: ∞
+        - generic [ref=e12]: Audit Trail
+      - generic [ref=e13]:
+        - generic [ref=e14]: "0"
+        - generic [ref=e15]: Data Loss
+      - generic [ref=e16]:
+        - generic [ref=e17]: 1ms
+        - generic [ref=e18]: Latency
+  - generic [ref=e20]:
+    - heading "Sign in" [level=1] [ref=e21]
+    - paragraph [ref=e22]: Enter your credentials to access your NexusLPG workspace.
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]: Email Address
+        - textbox "Email Address" [active] [ref=e28]:
+          - /placeholder: owner@yourbusiness.com
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]: Password
+          - link "Forgot password?" [ref=e32] [cursor=pointer]:
+            - /url: "#"
+        - generic [ref=e33]:
+          - textbox "Password" [ref=e34]:
+            - /placeholder: Your password
+          - button [ref=e35] [cursor=pointer]
+      - button "Sign In" [ref=e39] [cursor=pointer]
+    - paragraph [ref=e42]:
+      - text: Don't have an account?
+      - link "Create a Business" [ref=e43] [cursor=pointer]:
+        - /url: "#/register"

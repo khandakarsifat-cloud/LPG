@@ -81,7 +81,12 @@ export function DatePicker({ id, label, value, onChange, min, max, required = fa
     <button ref={trigger} type="button" className="date-trigger" aria-label={`Choose date: ${label}`} aria-haspopup="dialog"
       aria-expanded={open} aria-controls={calendarId} disabled={disabled} onClick={() => { setCursor(value || today); setOpen(!open); }}><CalendarDays size={17} /></button>
     <div ref={calendar} id={calendarId} popover="auto" className="date-calendar" role="dialog" aria-label={`Choose date: ${label}`}
-      onToggle={event => { if (event.newState === 'closed') setOpen(false); }} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); } }}>
+      onToggle={event => { if (event.newState === 'closed') setOpen(false); }} onKeyDown={event => {
+        if (event.key !== 'Escape') return;
+        // The browser owns Escape for the month picker above this calendar.
+        if (CSS.supports('appearance', 'base-select') && event.target instanceof Element && event.target.closest('select')?.matches(':open')) return;
+        event.preventDefault(); event.stopPropagation(); close();
+      }}>
       <div className="date-calendar-heading">
         <button type="button" aria-label="Previous month" onClick={() => move(calendarDate(year, month - 1, 1))}><ChevronLeft size={18} /></button>
         <div className="date-calendar-period">

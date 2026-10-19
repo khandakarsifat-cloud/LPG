@@ -1,3 +1,5 @@
+import { useListPage } from '../../hooks/useListPage';
+import { Pagination } from '../ui/Pagination';
 import { Box, Minus, Package, Plus, RefreshCw, RotateCcw } from 'lucide-react';
 import { useInventoryBalances } from '../../hooks/useInventory';
 import { usePriceBooks } from '../../hooks/usePOS';
@@ -44,15 +46,15 @@ const ProductOptionRow = ({
       style={isGhost ? { borderStyle: 'dashed' } : undefined}
       aria-label={`${label} for ${itemBrand || ''} ${itemSize || ''}kg`}
     >
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', minWidth: 0 }}>
+      <span className="pos-option-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', minWidth: 0 }}>
         {icon}
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+        <span>{label}</span>
       </span>
 
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0, marginLeft: 'auto' }}>
+      <div className="pos-option-controls">
         <span
+          className="pos-option-price"
           style={{
-            fontSize: '0.8rem',
             fontWeight: 700,
             color: qty > 0 ? 'var(--text-main)' : 'var(--text-muted)',
             whiteSpace: 'nowrap',
@@ -112,6 +114,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
   const { data: priceBooks, isLoading: loadingPrices } = usePriceBooks();
 
   const items = allItems?.filter(i => !i.mouth_size || i.mouth_size === mouthSize);
+  const paging = useListPage(items ?? [], 12, mouthSize);
 
   if (loadingItems || loadingPrices) {
     return (
@@ -137,8 +140,8 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 18rem), 1fr))', gap: 'var(--space-md)' }}>
-      {items.map(item => {
+    <div className="pos-products-grid">
+      {paging.entries.map(item => {
         const refillPrice = getPrice(item.item_id, 'refill');
         const packagePrice = getPrice(item.item_id, 'package');
         const inStock = item.filled_quantity > 0;
@@ -149,7 +152,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
         return (
           <div
             key={item.item_id}
-            className="card"
+            className="card pos-product-card"
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -158,7 +161,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
               overflow: 'hidden',
             }}
           >
-            <div style={{ padding: '0.875rem 1rem 0.75rem', display: 'flex', alignItems: 'flex-start', gap: '0.625rem' }}>
+            <div className="pos-product-heading" style={{ padding: '8px', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
               <div className="inv-stat-icon" style={{
                 background: inStock ? 'var(--accent-weak)' : 'var(--danger-weak)',
                 color: inStock ? 'var(--accent)' : 'var(--danger)',
@@ -166,8 +169,8 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
                 <Package size={17} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                  <h3 className="pos-product-title" title={`${item.lpg_brands?.brand_name} ${item.size_kg}kg`} style={{ margin: 0, fontWeight: 750, color: 'var(--text-main)', lineHeight: 1.3 }}>
                     {item.lpg_brands?.brand_name} {item.size_kg}kg
                   </h3>
                   {item.mouth_size && (
@@ -176,7 +179,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
                   <span className="inv-tile-count inv-tile-count-filled">
                     {item.filled_quantity} filled
                   </span>
@@ -187,13 +190,13 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
               </div>
             </div>
 
-            <div style={{ height: 1, background: 'var(--border-color)', margin: '0 1rem' }} />
+            <div style={{ height: 1, background: 'var(--border-color)', margin: '0 8px' }} />
 
-            <div style={{ padding: '0.75rem 1rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <div style={{ padding: '6px 8px 8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <ProductOptionRow
                 icon={<RefreshCw size={14} />}
                 label="Refill"
-                priceText={`Tk ${formatBDNumber(refillPrice)}`}
+                priceText={`Tk ${formatBDNumber(refillPrice).replace(/\.00$/, '')}`}
                 qty={refillQty}
                 onIncrease={() => onAddItem({ item_id: item.item_id, type: 'refill', quantity: 1, unit_price: refillPrice })}
                 onDecrease={() => onDecreaseItem?.(item.item_id, 'refill')}
@@ -204,7 +207,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
               <ProductOptionRow
                 icon={<Box size={14} />}
                 label="New Package"
-                priceText={`Tk ${formatBDNumber(packagePrice)}`}
+                priceText={`Tk ${formatBDNumber(packagePrice).replace(/\.00$/, '')}`}
                 qty={packageQty}
                 onIncrease={() => onAddItem({ item_id: item.item_id, type: 'package', quantity: 1, unit_price: packagePrice })}
                 onDecrease={() => onDecreaseItem?.(item.item_id, 'package')}
@@ -215,7 +218,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
               <ProductOptionRow
                 icon={<RotateCcw size={14} />}
                 label="Return Empty"
-                priceText="Tk 0.00"
+                priceText="Tk 0"
                 qty={emptyQty}
                 isGhost
                 onIncrease={() => onAddItem({ item_id: item.item_id, type: 'empty_return', quantity: 1, unit_price: 0 })}
@@ -227,6 +230,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
           </div>
         );
       })}
+      <div style={{ gridColumn: "1 / -1" }}><Pagination {...paging} onChange={paging.setPage} label="products" /></div>
     </div>
   );
 };

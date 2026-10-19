@@ -5,9 +5,12 @@ import { useTodaySalesFeed, type SaleTransaction } from '../../hooks/useDashboar
 import { formatBDNumber } from '../../lib/formatBDT';
 import { SaleDetailsModal } from './SaleDetailsModal';
 import '../inventory/inventory.css'; // Reuse existing styles if any
+import { PageNavigation } from '../ui/Pagination';
 
 export const SalesFeed = () => {
-  const { data: sales = [], isLoading } = useTodaySalesFeed();
+  const [page, setPage] = useState(0);
+  const { data, isLoading, isError, refetch, isFetching } = useTodaySalesFeed(page);
+  const sales = data?.entries ?? [];
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
 
   if (isLoading) {
@@ -20,11 +23,13 @@ export const SalesFeed = () => {
     );
   }
 
+  if (isError) return <p className="purchase-error" role="alert">Sales could not be loaded. <button className="btn btn-secondary" onClick={() => void refetch()}>Retry</button></p>;
   if (sales.length === 0) {
     return (
-      <div className="empty-state" style={{ padding: '3rem 1rem' }}>
+      <div className="empty-state" style={{ padding: '12px' }}>
         <Activity size={32} style={{ color: 'var(--text-muted)', opacity: 0.4 }} />
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No sales recorded today.</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{page ? 'No sales on this page.' : 'No sales recorded today.'}</p>
+        <PageNavigation page={page} hasMore={false} onChange={setPage} label="sales" />
       </div>
     );
   }
@@ -84,6 +89,7 @@ export const SalesFeed = () => {
       })}
       </div>
 
+      <PageNavigation page={page} hasMore={data?.hasMore ?? false} onChange={setPage} label="sales" busy={isFetching} />
       <SaleDetailsModal
         isOpen={!!selectedSale}
         onClose={() => setSelectedSale(null)}

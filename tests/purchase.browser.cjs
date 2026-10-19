@@ -13,6 +13,7 @@ async page => {
   const payload=btoa(JSON.stringify({sub:userId,exp:Math.floor(Date.now()/1000)+86400,aud:'authenticated',role:'authenticated'})).replaceAll('=','').replaceAll('+','-').replaceAll('/','_');
   const token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.'+payload+'.Zml4dHVyZQ';
   await page.context().addInitScript(({user,token})=>{
+    localStorage.setItem('lpg-theme','light');
     localStorage.setItem('sb-api-auth-token',JSON.stringify({access_token:token,refresh_token:'fixture-refresh',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user}));
     localStorage.setItem('sb-127-auth-token',localStorage.getItem('sb-api-auth-token'));
   },{user,token});
@@ -241,7 +242,7 @@ async page => {
   await page.screenshot({path:'.temp/purchase-verification/list-desktop.png'});
   await page.getByLabel('Search purchases',{exact:true}).fill('not-a-plant');
   await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
-  await check(await page.locator('.purchase-card').count()===purchases.length,'clear filters restores all orders');
+  await check(await page.locator('.purchase-card').count()===Math.min(6,purchases.length)&&(await page.locator('.purchase-results-heading').textContent()).includes(String(purchases.length)),'clear filters restores the unfiltered first page and full count');
   const searchControl=page.getByLabel('Search purchases',{exact:true});
   await searchControl.fill('  JAMUNA   ashok 22mm 12KG  ');
   await check(await page.locator('.purchase-card').count()===5,'AND search matches company, vehicle and specifications');
@@ -263,7 +264,7 @@ async page => {
   await page.getByRole('combobox',{name:'Payment status',exact:true}).selectOption('unpaid');
   await check(await page.getByText('No purchases match these filters.',{exact:true}).isVisible(),'OR search cannot bypass payment filter');
   await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
-  await check(await page.locator('.purchase-card').count()===purchases.length,'reset clears search, statuses, dates and sort');
+  await check(await page.locator('.purchase-card').count()===Math.min(6,purchases.length),'reset clears search, statuses, dates and sort on the first page');
   await check(await page.locator('.topbar h1').innerText()==='Purchases','page name replaces header search');
   await check(await page.getByRole('textbox',{name:'Search workspace'}).count()===0,'workspace search removed');
   await check(await page.locator('.purchase-card .purchase-items-count, .purchase-card-action').count()===0,'cards omit product count labels and summary links');

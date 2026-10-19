@@ -17,15 +17,15 @@ export const LogisticsPage = () => {
   return (
     <div className="inventory-page">
       {/* ── Page Header ── */}
-      <div className="page-header">
+      <div className="page-header logistics-header">
         <div>
           <p className="page-subtitle">
             Manage your fleet and track delivery operations.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
           {logisticsWallet && (
-            <div style={{ 
+            <div className="logistics-wallet" style={{
               background: 'rgba(16,185,129,0.1)', 
               color: 'var(--accent)', 
               padding: '0.5rem 1rem', 
@@ -41,9 +41,9 @@ export const LogisticsPage = () => {
             </div>
           )}
           {tab === 'trucks' && (
-            <button className="btn btn-primary" onClick={() => setAddTruckOpen(true)}>
+            <button className="btn btn-primary page-add-button" aria-label="Add Truck" onClick={() => setAddTruckOpen(true)}>
               <Plus size={16} />
-              Add Truck
+              <span>Add Truck</span>
             </button>
           )}
         </div>

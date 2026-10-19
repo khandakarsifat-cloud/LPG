@@ -20,7 +20,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { hasAnyPermission, routePermissions } from '../lib/authorization';
 import { applyTheme, getPreferredTheme, getStoredTheme, persistTheme, type AppTheme } from '../lib/theme';
@@ -248,7 +248,9 @@ export const Layout = () => {
         </header>
 
         <div className="page-content">
-          <Outlet />
+          <Suspense fallback={<div className="empty-state" role="status">Loading page…</div>}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
     </div>

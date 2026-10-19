@@ -1,0 +1,69 @@
+- generic [ref=f1e3]:
+  - complementary [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]:
+        - generic [ref=f1e7]: NexusLPG
+        - generic [ref=f1e8]: OPS
+      - button "Collapse sidebar" [expanded] [ref=f1e9] [cursor=pointer]
+    - navigation "Primary navigation" [ref=f1e12]:
+      - generic [ref=f1e13]: Operations
+      - link "Dashboard" [ref=f1e14] [cursor=pointer]:
+        - /url: "#/"
+      - link "Inventory" [ref=f1e21] [cursor=pointer]:
+        - /url: "#/inventory"
+      - link "Point of Sale" [ref=f1e27] [cursor=pointer]:
+        - /url: "#/pos"
+      - link "Purchases" [ref=f1e33] [cursor=pointer]:
+        - /url: "#/purchases"
+      - link "Employees" [ref=f1e39] [cursor=pointer]:
+        - /url: "#/employees"
+      - link "Logistics" [ref=f1e44] [cursor=pointer]:
+        - /url: "#/logistics"
+      - link "Gas Plants" [ref=f1e51] [cursor=pointer]:
+        - /url: "#/gas-plants"
+      - link "Settings" [ref=f1e55] [cursor=pointer]:
+        - /url: "#/settings"
+    - 'button "Account: Page Operator" [ref=f1e61] [cursor=pointer]':
+      - generic [ref=f1e62]: PO
+      - generic [ref=f1e63]:
+        - generic [ref=f1e64]: Pagination verification
+        - generic [ref=f1e65]: Page Operator
+  - main [ref=f1e68]:
+    - generic [ref=f1e69]:
+      - heading "Dashboard" [level=1] [ref=f1e71]
+      - generic [ref=f1e72]:
+        - generic [ref=f1e77]:
+          - generic [ref=f1e78]: Dealership wallet
+          - strong [ref=f1e79]: Tk 10,000.00
+        - button "Switch to dark theme" [ref=f1e80] [cursor=pointer]
+    - generic [ref=f1e84]:
+      - generic [ref=f1e85]:
+        - paragraph [ref=f1e87]: Daily sales, stock activity, and customer coverage.
+        - link "Open POS" [ref=f1e89] [cursor=pointer]:
+          - /url: "#/pos"
+      - generic [ref=f1e93]:
+        - generic [ref=f1e94]:
+          - generic [ref=f1e95]: Today Revenue
+          - generic [ref=f1e100]: Tk 0
+          - generic [ref=f1e101]: Completed sales
+        - generic [ref=f1e105]:
+          - generic [ref=f1e106]: Inventory Movements
+          - generic [ref=f1e113]: NaN
+          - generic [ref=f1e114]: Actions recorded today
+        - generic [ref=f1e115]:
+          - generic [ref=f1e116]: Active Customers
+          - generic [ref=f1e124]: NaN
+          - generic [ref=f1e125]: Across retail and wholesale tiers
+      - generic [ref=f1e126]:
+        - generic [ref=f1e127]:
+          - generic [ref=f1e128]:
+            - heading "Today's Sales" [level=2] [ref=f1e133]
+            - link "New Sale" [ref=f1e134] [cursor=pointer]:
+              - /url: "#/pos"
+          - paragraph [ref=f1e139]: No sales recorded today.
+        - generic [ref=f1e140]:
+          - heading "Stock Exceptions" [level=2] [ref=f1e142]
+          - generic [ref=f1e143]:
+            - paragraph [ref=f1e148]: Low-stock exception reporting is not configured yet.
+            - link "Review Inventory" [ref=f1e149] [cursor=pointer]:
+              - /url: "#/inventory"

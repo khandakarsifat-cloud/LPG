@@ -6,6 +6,8 @@
 
 [Employees.tsx](../../src/pages/Employees.tsx) contains profile forms, selection, payment history and payment entry. [useEmployees](../../src/hooks/useEmployees.ts) owns their RPC/query contracts and number/phone normalization. The [employee migration](../../supabase/migrations/20260702164710_employees.sql) defines five tables and payment constraints/triggers; [reconciliation](../../supabase/migrations/20261004165315_reconcile_live_schema.sql) adjusts category foreign keys/names; [authorization](../../supabase/migrations/20261004192158_tenant_permission_authorization.sql) supplies current RPCs and private helpers.
 
+The directory shows twelve employees per desktop page and four per phone page. Phone records expose salary, status and actions without horizontal scrolling; selecting a name brings the details panel into view. Payment and yearly totals still use the full payment collection, independently of visible directory/history pages.
+
 Employees are business records, not Supabase Auth accounts or RBAC memberships. Business unit is `gas_business` or `truck_business`; it labels the profile and does not select a payroll wallet. Employee type names are tenant-scoped, resolved/created by the profile RPC and reactivated when reused. Blank type is allowed; salary must be nonnegative.
 
 ## Profile and phone transactions

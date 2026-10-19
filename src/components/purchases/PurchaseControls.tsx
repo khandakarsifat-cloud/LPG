@@ -5,8 +5,9 @@ import { formatBDNumber, formatBDQty, formatBDT } from '../../lib/formatBDT';
 import type { Purchase, PurchaseDraft } from '../../types/purchase';
 import { PURCHASE_STATUS_BG, PURCHASE_STATUS_COLORS, PURCHASE_STATUS_LABELS } from '../../types/purchase';
 
-export function PurchaseDialog({ title, subtitle, children, onClose, busy = false, compact = false }: {
+export function PurchaseDialog({ title, subtitle, children, onClose, busy = false, compact = false, className = '' }: {
   title: string; subtitle?: string; children: ReactNode; onClose: () => void; busy?: boolean; compact?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -17,7 +18,7 @@ export function PurchaseDialog({ title, subtitle, children, onClose, busy = fals
     document.body.style.overflow = 'hidden';
     return () => { dialog?.close(); document.body.style.overflow = previous; };
   }, []);
-  return createPortal(<dialog ref={ref} className={`purchase-dialog${compact ? ' purchase-dialog-compact' : ''}`}
+  return createPortal(<dialog ref={ref} className={`purchase-dialog${compact ? ' purchase-dialog-compact' : ''} ${className}`}
     aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
     <div className="modal-header">
       <div><h2 id={titleId} className="modal-title">{title}</h2>{subtitle && <p className="modal-subtitle">{subtitle}</p>}</div>

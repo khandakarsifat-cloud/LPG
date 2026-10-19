@@ -1,3 +1,4 @@
+import { readAllRows } from '../lib/queryPages';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,28 +26,20 @@ export const inventoryKeys = {
 export const useItems = () =>
   useQuery<ItemWithBrand[]>({
     queryKey: inventoryKeys.items,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('items')
-        .select('*, lpg_brands(brand_id, brand_name)')
-        .order('brand', { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as ItemWithBrand[];
-    },
+    queryFn: async ({ signal }) => readAllRows<ItemWithBrand>((from, to) => supabase
+      .from('items').select('*, lpg_brands(brand_id, brand_name)')
+      .order('brand', { ascending: true }).order('item_id', { ascending: true })
+      .range(from, to).abortSignal(signal).overrideTypes<ItemWithBrand[], { merge: false }>()),
   });
 
 /** Inventory balances — simply fetches all items, as they now contain filled_quantity and empty_quantity */
 export const useInventoryBalances = () =>
   useQuery<ItemWithBrand[]>({
     queryKey: inventoryKeys.balances,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('items')
-        .select('*, lpg_brands(brand_id, brand_name)')
-        .order('brand', { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as ItemWithBrand[];
-    },
+    queryFn: async ({ signal }) => readAllRows<ItemWithBrand>((from, to) => supabase
+      .from('items').select('*, lpg_brands(brand_id, brand_name)')
+      .order('brand', { ascending: true }).order('item_id', { ascending: true })
+      .range(from, to).abortSignal(signal).overrideTypes<ItemWithBrand[], { merge: false }>()),
     refetchInterval: 30_000,
   });
 
@@ -66,7 +59,7 @@ export const useInventoryMovements = (limit = 100) =>
     refetchInterval: 15_000,
   });
 
-export const INVENTORY_HISTORY_PAGE_SIZE = 30;
+export const INVENTORY_HISTORY_PAGE_SIZE = 10;
 export const useInventoryHistory = ({ source, itemIds, page }: {
   source: InventoryHistorySource; itemIds: string[] | null; page: number;
 }) => {

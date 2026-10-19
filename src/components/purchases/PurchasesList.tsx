@@ -1,3 +1,4 @@
+import { useListPage, usePageSize } from '../../hooks/useListPage';
 import { DatePicker } from '../ui/DatePicker';
 import { useMemo, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -8,6 +9,7 @@ import { UpdatePurchaseModal } from './UpdatePurchaseModal';
 import { formatBDT } from '../../lib/formatBDT';
 import { PURCHASE_STATUS_LABELS, type Purchase } from '../../types/purchase';
 import './purchases.css';
+import { Pagination } from '../ui/Pagination';
 
 export function PurchasesList({ query }: { query: UseQueryResult<Purchase[], Error> }) {
   const purchases = query.data ?? [];
@@ -21,6 +23,8 @@ export function PurchasesList({ query }: { query: UseQueryResult<Purchase[], Err
   const hasFilters = search.trim() !== '' || status !== 'all' || payment !== 'all' || from !== '' || to !== '' || sort !== 'date_desc';
   const resetFilters = () => { setSearch(''); setStatus('all'); setPayment('all'); setFrom(''); setTo(''); setSort('date_desc'); };
   const filtered = useMemo(() => filterPurchases(query.data ?? [], { search, status, payment, from, to, sort }), [query.data, search, status, payment, from, to, sort]);
+  const pageSize = usePageSize(6, 4);
+  const paging = useListPage(filtered, pageSize, JSON.stringify([search, status, payment, from, to, sort]));
   if (query.isLoading) return <div className="purchase-empty">Loading purchases…</div>;
   if (query.isError) return <p role="alert" className="purchase-error">Purchases could not be loaded. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></p>;
   return <div className="purchases-list">
@@ -42,11 +46,12 @@ export function PurchasesList({ query }: { query: UseQueryResult<Purchase[], Err
       </div>
     </div>
     <div className="purchase-results-heading"><h2>Purchase orders <span>{filtered.length}{hasFilters ? ` of ${purchases.length}` : ''}</span></h2>
+      <Pagination {...paging} onChange={paging.setPage} label="purchases" alwaysVisible />
     </div>
     {!filtered.length && <div className="purchase-empty purchase-list-empty"><Package size={28} /><p>{purchases.length ? 'No purchases match these filters.' : 'Create a purchase with a destination plant to get started.'}</p>
       {hasFilters && <button className="btn btn-secondary" onClick={resetFilters}>Clear filters</button>}
     </div>}
-    <div className="purchases-grid">{filtered.map(purchase => <button key={purchase.purchase_id} className="glass-panel purchase-card purchase-card-button" data-status={purchase.status} data-purchase-id={purchase.purchase_id} onClick={() => setSelected(purchase)}>
+    <div className="purchases-grid">{paging.entries.map(purchase => <button key={purchase.purchase_id} className="glass-panel purchase-card purchase-card-button" data-status={purchase.status} data-purchase-id={purchase.purchase_id} onClick={() => setSelected(purchase)}>
       <div className="purchase-card-header"><div><strong>{purchase.company_name ?? 'Historical purchase'}</strong></div><PurchaseStatuses purchase={purchase} /></div>
       <div className="purchase-card-meta"><div className="purchase-info-row"><Calendar size={14} /><span>{new Date(purchase.created_at).toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
         <div className="purchase-info-row"><Truck size={14} /><span>{purchase.truck_name ?? 'Truck not assigned'}</span></div></div>

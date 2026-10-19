@@ -1,0 +1,96 @@
+- main [ref=f44e4]:
+  - generic [ref=f44e5]:
+    - generic [ref=f44e6]:
+      - button "Open navigation menu" [ref=f44e7] [cursor=pointer]
+      - heading "Inventory" [level=1] [ref=f44e9]
+    - generic [ref=f44e10]:
+      - generic [ref=f44e15]:
+        - generic [ref=f44e16]: Dealership wallet
+        - strong [ref=f44e17]: Tk 10,000.00
+      - button "Switch to dark theme" [ref=f44e18] [cursor=pointer]
+  - generic [ref=f44e22]:
+    - generic [ref=f44e23]:
+      - generic [ref=f44e24]:
+        - generic "Units on hand" [ref=f44e25]:
+          - generic [ref=f44e26]: Total Units
+          - generic [ref=f44e28]:
+            - 'generic "Total Units: 400 filled" [ref=f44e29]':
+              - strong [ref=f44e30]: "400"
+              - generic [ref=f44e31]: filled
+            - 'generic "Total Units: 400 empty" [ref=f44e32]':
+              - strong [ref=f44e33]: "400"
+              - generic [ref=f44e34]: empty
+        - generic "Products with 1–5 units" [ref=f44e35]:
+          - generic [ref=f44e36]: Low Stock (1–5)
+          - generic [ref=f44e38]:
+            - 'generic "Low Stock: 0 filled" [ref=f44e39]':
+              - strong [ref=f44e40]: "0"
+              - generic [ref=f44e41]: filled
+            - 'generic "Low Stock: 0 empty" [ref=f44e42]':
+              - strong [ref=f44e43]: "0"
+              - generic [ref=f44e44]: empty
+        - generic "Products with zero units" [ref=f44e45]:
+          - generic [ref=f44e46]: Out of Stock
+          - generic [ref=f44e48]:
+            - 'generic "Out of Stock: 0 filled" [ref=f44e49]':
+              - strong [ref=f44e50]: "0"
+              - generic [ref=f44e51]: filled
+            - 'generic "Out of Stock: 0 empty" [ref=f44e52]':
+              - strong [ref=f44e53]: "0"
+              - generic [ref=f44e54]: empty
+        - generic "Registered products and active brands in this business" [ref=f44e55]:
+          - generic [ref=f44e56]: Catalog
+          - generic [ref=f44e58]:
+            - 'generic "Total items: 4" [ref=f44e59]':
+              - strong [ref=f44e60]: "4"
+              - generic [ref=f44e61]: SKUs
+            - 'generic "Total active brands: 14" [ref=f44e62]':
+              - strong [ref=f44e63]: "14"
+              - generic [ref=f44e64]: brands
+      - button "Add Item" [ref=f44e66] [cursor=pointer]
+    - generic [ref=f44e69]:
+      - button "Stock Balances" [ref=f44e70] [cursor=pointer]
+      - button "Inventory History" [ref=f44e76] [cursor=pointer]
+    - generic [ref=f44e79]:
+      - generic [ref=f44e80]:
+        - paragraph [ref=f44e81]: Select a product for prices, buying costs and weekly history.
+        - button "Refresh" [ref=f44e82] [cursor=pointer]
+      - generic [ref=f44e88]:
+        - region "Jamuna Gas products" [ref=f44e89]:
+          - heading "Jamuna Gas" [level=3] [ref=f44e90]
+          - generic [ref=f44e91]:
+            - button "Jamuna Gas 12 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f44e92] [cursor=pointer]:
+              - generic [ref=f44e94]: Jamuna Gas
+              - generic [ref=f44e95]: 12 kg 22mm
+              - generic [ref=f44e96]:
+                - generic "100 filled" [ref=f44e97]: "100"
+                - generic "100 empty" [ref=f44e102]: "100"
+              - generic [ref=f44e107]: In Stock
+              - generic [ref=f44e108]: Product details
+            - button "Jamuna Gas 25 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f44e113] [cursor=pointer]:
+              - generic [ref=f44e115]: Jamuna Gas
+              - generic [ref=f44e116]: 25 kg 22mm
+              - generic [ref=f44e117]:
+                - generic "100 filled" [ref=f44e118]: "100"
+                - generic "100 empty" [ref=f44e123]: "100"
+              - generic [ref=f44e128]: In Stock
+              - generic [ref=f44e129]: Product details
+        - region "Omera Gas products" [ref=f44e134]:
+          - heading "Omera Gas" [level=3] [ref=f44e135]
+          - generic [ref=f44e136]:
+            - button "Omera Gas 12 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f44e137] [cursor=pointer]:
+              - generic [ref=f44e139]: Omera Gas
+              - generic [ref=f44e140]: 12 kg 22mm
+              - generic [ref=f44e141]:
+                - generic "100 filled" [ref=f44e142]: "100"
+                - generic "100 empty" [ref=f44e147]: "100"
+              - generic [ref=f44e152]: In Stock
+              - generic [ref=f44e153]: Product details
+            - button "Omera Gas 25 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f44e158] [cursor=pointer]:
+              - generic [ref=f44e160]: Omera Gas
+              - generic [ref=f44e161]: 25 kg 22mm
+              - generic [ref=f44e162]:
+                - generic "100 filled" [ref=f44e163]: "100"
+                - generic "100 empty" [ref=f44e168]: "100"
+              - generic [ref=f44e173]: In Stock
+              - generic [ref=f44e174]: Product details

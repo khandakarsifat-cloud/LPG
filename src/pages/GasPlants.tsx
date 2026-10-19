@@ -1,3 +1,5 @@
+import { useListPage, usePageSize } from '../hooks/useListPage';
+import { Pagination } from '../components/ui/Pagination';
 import { useState } from 'react';
 import {
   Factory,
@@ -19,6 +21,7 @@ import type { GasPlant } from '../types/gasPlants';
 export const GasPlantsPage = () => {
   const { data: plants = [], isLoading, error } = useGasPlants();
   const updatePlant = useUpdateGasPlant();
+  const paging = useListPage(plants, usePageSize(12, 4));
 
   const [addDialogOpen,    setAddDialogOpen]    = useState(false);
   const [editingPlant,     setEditingPlant]      = useState<GasPlant | null>(null);
@@ -60,9 +63,9 @@ export const GasPlantsPage = () => {
             Manage LPG filling plants and their area officers across all brands.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setAddDialogOpen(true)}>
+        <button className="btn btn-primary page-add-button" aria-label="Add Gas Plant" onClick={() => setAddDialogOpen(true)}>
           <Plus size={16} />
-          Add Gas Plant
+          <span>Add Gas Plant</span>
         </button>
       </div>
 
@@ -117,7 +120,7 @@ export const GasPlantsPage = () => {
           </p>
         </div>
       ) : isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
+        <div className="gas-plants-grid">
           {[1, 2, 3].map((i) => (
             <div key={i} className="glass-panel" style={{ padding: '1.5rem', minHeight: '200px', opacity: 0.4 }}>
               <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', height: '1.25rem', width: '60%', marginBottom: '1rem' }} />
@@ -139,8 +142,8 @@ export const GasPlantsPage = () => {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
-          {plants.map((plant) => (
+        <div className="gas-plants-grid">
+          {paging.entries.map((plant) => (
             <PlantCard
               key={plant.plant_id}
               plant={plant}
@@ -154,6 +157,7 @@ export const GasPlantsPage = () => {
       )}
       </div>
 
+      <Pagination {...paging} onChange={paging.setPage} label="gas plants" />
       {/* ── Dialogs ── */}
       <AddGasPlantModal
         open={addDialogOpen}
@@ -181,12 +185,10 @@ interface PlantCardProps {
 const PlantCard = ({ plant, onEdit, onOfficer, onToggleActive, isToggling }: PlantCardProps) => {
   return (
     <div
-      className="glass-panel"
+      className="glass-panel gas-plant-card"
       style={{
-        padding: '1.5rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '1rem',
         opacity: plant.is_active ? 1 : 0.65,
         transition: 'opacity 0.2s',
         border: '1px solid var(--border)',

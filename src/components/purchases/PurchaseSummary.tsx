@@ -1,3 +1,5 @@
+import { useListPage } from '../../hooks/useListPage';
+import { Pagination } from '../ui/Pagination';
 import { useState } from 'react';
 import { usePurchaseActivity } from '../../hooks/usePurchases';
 import { purchaseDraft } from '../../lib/purchase';
@@ -28,16 +30,18 @@ export function PurchaseIdentity({ purchase }: { purchase: Purchase }) {
 }
 
 export function PurchaseSummary({ purchase, showNotes = true }: { purchase: Purchase; showNotes?: boolean }) {
+  const paging = useListPage(purchase.items, 8, purchase.purchase_id);
   return <>
     <section className="purchase-section"><h3>Products & inventory</h3>
       {purchase.items.length ? <div className="purchase-table-wrap"><table className="purchase-summary-table">
         <thead><tr><th scope="col">Product</th><th scope="col">Empties sent</th><th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Billed</th><th scope="col">Unit price</th><th scope="col">Amount</th></tr></thead>
-        <tbody>{purchase.items.map(item => <tr key={item.purchase_item_id}>
+        <tbody>{paging.entries.map(item => <tr key={item.purchase_item_id}>
           <td>{item.brand_name} {item.size_kg} kg {item.mouth_size}<small>{item.type === 'refill' ? 'Refill' : 'New cylinders'}</small></td>
           <td data-label="Empties sent">{item.empty_dispatched}</td><td data-label="Expected">{item.quantity}</td><td data-label="Received">{item.received_quantity ?? 'Pending'}</td><td data-label="Billed">{item.billed_quantity}</td>
           <td data-label="Unit price">{formatBDT(Number(item.unit_price))}</td><td data-label="Amount">{formatBDT(Number(item.line_total))}</td>
         </tr>)}</tbody>
       </table></div> : <p className="purchase-hint">Products have not been added.</p>}
+      <Pagination {...paging} onChange={paging.setPage} label="purchase lines" />
       {purchase.receipt_notes && <p className="purchase-hint">Receipt notes: {purchase.receipt_notes}</p>}
       {purchase.items.some(item => item.received_quantity !== null && item.received_quantity !== item.billed_quantity) &&
         <p className="purchase-alert">Delivery quantities differ from the prepaid bill. Inventory reflects the actual delivery; the settled financial amount is unchanged.</p>}
@@ -45,6 +49,11 @@ export function PurchaseSummary({ purchase, showNotes = true }: { purchase: Purc
     <PurchaseFinancials draft={purchaseDraft(purchase)} totals={purchase} />
     {showNotes && purchase.notes && <section className="purchase-section"><h3>Notes</h3><p style={{ whiteSpace: 'pre-wrap', fontSize: '.875rem' }}>{purchase.notes}</p></section>}
   </>;
+}
+
+function ActivityLines({ lines, label }: { lines: string[]; label: string }) {
+  const paging = useListPage(lines, 8);
+  return <><ul className="purchase-activity-changes">{paging.entries.map((line, index) => <li key={index}>{line}</li>)}</ul><Pagination {...paging} onChange={paging.setPage} label={label} /></>;
 }
 
 export function PurchaseHistory({ purchase }: { purchase: Purchase }) {
@@ -64,10 +73,10 @@ export function PurchaseHistory({ purchase }: { purchase: Purchase }) {
         <span className="purchase-activity-actor">{activity.actor_name}</span>
         <ul className="purchase-activity-changes">{summary.changes.slice(0, 3).map((change, i) => <li key={i}>{change}</li>)}</ul>
         {summary.changes.length > 3 && <details><summary>{summary.changes.length - 3} more changes</summary>
-          <ul className="purchase-activity-changes">{summary.changes.slice(3).map((change, i) => <li key={i}>{change}</li>)}</ul>
+          <ActivityLines lines={summary.changes.slice(3)} label="changes" />
         </details>}
         {summary.snapshots.length > 0 && <details><summary>Saved products ({summary.snapshots.length})</summary>
-          <ul className="purchase-activity-changes">{summary.snapshots.map((snapshot, i) => <li key={i}>{snapshot}</li>)}</ul>
+          <ActivityLines lines={summary.snapshots} label="saved products" />
         </details>}
       </li>;
     })}</ol>}

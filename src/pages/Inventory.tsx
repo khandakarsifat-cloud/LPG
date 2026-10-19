@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Activity, LayoutGrid, Droplets, Box, Package, Factory } from 'lucide-react';
+import { Plus, Activity, LayoutGrid } from 'lucide-react';
 import { useInventoryBalances } from '../hooks/useInventory';
 import { useLPGBrands } from '../hooks/useBrands';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,37 +17,113 @@ export const InventoryPage = () => {
   const [tab, setTab]                 = useState<Tab>('balances');
   const [addItemOpen, setAddItemOpen] = useState(false);
 
-  const summaries = [
-    { label: 'Total Units', filled: items.reduce((sum, i) => sum + i.filled_quantity, 0), empty: items.reduce((sum, i) => sum + i.empty_quantity, 0), hint: 'Units on hand' },
-    { label: 'Low Stock', filled: items.filter(i => i.filled_quantity > 0 && i.filled_quantity <= 5).length, empty: items.filter(i => i.empty_quantity > 0 && i.empty_quantity <= 5).length, hint: 'Products with 1–5 units' },
-    { label: 'Out of Stock', filled: items.filter(i => i.filled_quantity === 0).length, empty: items.filter(i => i.empty_quantity === 0).length, hint: 'Products with zero units' },
-  ];
+  const filledTotal = items.reduce((sum, i) => sum + i.filled_quantity, 0);
+  const emptyTotal  = items.reduce((sum, i) => sum + i.empty_quantity, 0);
+  const lowFilled   = items.filter(i => i.filled_quantity > 0 && i.filled_quantity <= 5).length;
+  const lowEmpty    = items.filter(i => i.empty_quantity > 0 && i.empty_quantity <= 5).length;
+  const outFilled   = items.filter(i => i.filled_quantity === 0).length;
+  const outEmpty    = items.filter(i => i.empty_quantity === 0).length;
+  const activeBrandsCount = brands.data?.filter(brand => brand.is_active).length ?? 0;
 
   return (
     <div className="inventory-page">
-      {/* ── Stats Row ── */}
-      <div className="inv-overview-toolbar">
-        <div className="inv-overview">
-          {summaries.map(summary => <div className="inv-overview-box" key={summary.label} title={summary.hint}>
-            <span className="inv-overview-label">{summary.label}</span>
-            <div className="inv-overview-counts">
-              <span className="inv-overview-filled" aria-label={`${summary.label}: ${summary.filled} filled`} title="Filled">
-                <Droplets size={15} aria-hidden="true" />{isPending || isError ? '—' : summary.filled.toLocaleString()}
+      {/* ── Overview Toolbar: Unified Command Hub Bar ── */}
+      <div className="inv-hub-bar inv-overview-toolbar">
+        <div className="inv-hub-metrics inv-overview">
+          {/* Module 1: Total Units */}
+          <div className="inv-hub-module inv-overview-box" title="Units on hand">
+            <span className="inv-hub-label inv-overview-label">
+              <span className="inv-hub-dot" style={{ background: 'var(--primary)' }} />
+              Total Units
+            </span>
+            <div className="inv-hub-values inv-overview-counts">
+              <span className="inv-hub-chip" aria-label={`Total Units: ${filledTotal} filled`}>
+                <strong className="inv-hub-num inv-overview-filled" style={{ color: 'var(--primary)' }}>
+                  {isPending || isError ? '—' : filledTotal.toLocaleString()}
+                </strong>
+                <span className="inv-hub-caption">filled</span>
               </span>
-              <span className="inv-overview-empty" aria-label={`${summary.label}: ${summary.empty} empty`} title="Empty">
-                <Box size={15} aria-hidden="true" />{isPending || isError ? '—' : summary.empty.toLocaleString()}
+              <span className="inv-hub-chip" aria-label={`Total Units: ${emptyTotal} empty`}>
+                <strong className="inv-hub-num inv-overview-empty" style={{ color: 'var(--warning)' }}>
+                  {isPending || isError ? '—' : emptyTotal.toLocaleString()}
+                </strong>
+                <span className="inv-hub-caption">empty</span>
               </span>
             </div>
-          </div>)}
-          <div className="inv-overview-box" title="Registered products and active brands in this business">
-            <span className="inv-overview-label">Items / active brands</span>
-            <div className="inv-overview-counts inv-catalog-counts">
-              <span aria-label={`Total items: ${items.length}`} title="Total items"><Package size={15} aria-hidden="true" />{isPending || isError ? '—' : items.length.toLocaleString()}</span>
-              <span aria-label={`Total active brands: ${brands.data?.filter(brand => brand.is_active).length ?? 0}`} title="Total active brands"><Factory size={15} aria-hidden="true" />{brands.isPending || brands.isError ? '—' : brands.data.filter(brand => brand.is_active).length.toLocaleString()}</span>
+          </div>
+
+          {/* Module 2: Low Stock */}
+          <div className="inv-hub-module inv-overview-box" title="Products with 1–5 units">
+            <span className="inv-hub-label inv-overview-label">
+              <span className="inv-hub-dot" style={{ background: 'var(--warning)' }} />
+              Low Stock (1–5)
+            </span>
+            <div className="inv-hub-values inv-overview-counts">
+              <span className="inv-hub-chip" aria-label={`Low Stock: ${lowFilled} filled`}>
+                <strong className="inv-hub-num inv-overview-filled">{isPending || isError ? '—' : lowFilled.toLocaleString()}</strong>
+                <span className="inv-hub-caption">filled</span>
+              </span>
+              <span className="inv-hub-chip" aria-label={`Low Stock: ${lowEmpty} empty`}>
+                <strong className="inv-hub-num inv-overview-empty" style={{ color: 'var(--warning)' }}>{isPending || isError ? '—' : lowEmpty.toLocaleString()}</strong>
+                <span className="inv-hub-caption">empty</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Module 3: Out of Stock */}
+          <div className="inv-hub-module inv-overview-box" title="Products with zero units">
+            <span className="inv-hub-label inv-overview-label">
+              <span className="inv-hub-dot" style={{ background: 'var(--danger)' }} />
+              Out of Stock
+            </span>
+            <div className="inv-hub-values inv-overview-counts">
+              <span className="inv-hub-chip" aria-label={`Out of Stock: ${outFilled} filled`}>
+                <strong className="inv-hub-num inv-overview-filled" style={{ color: outFilled > 0 ? 'var(--danger)' : 'inherit' }}>
+                  {isPending || isError ? '—' : outFilled.toLocaleString()}
+                </strong>
+                <span className="inv-hub-caption">filled</span>
+              </span>
+              <span className="inv-hub-chip" aria-label={`Out of Stock: ${outEmpty} empty`}>
+                <strong className="inv-hub-num inv-overview-empty" style={{ color: outEmpty > 0 ? 'var(--danger)' : 'inherit' }}>
+                  {isPending || isError ? '—' : outEmpty.toLocaleString()}
+                </strong>
+                <span className="inv-hub-caption">empty</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Module 4: Catalog */}
+          <div className="inv-hub-module inv-overview-box" title="Registered products and active brands in this business">
+            <span className="inv-hub-label inv-overview-label">
+              <span className="inv-hub-dot" style={{ background: 'var(--info)' }} />
+              Catalog
+            </span>
+            <div className="inv-hub-values inv-overview-counts inv-catalog-counts">
+              <span className="inv-hub-chip" aria-label={`Total items: ${items.length}`} title="Total items">
+                <strong className="inv-hub-num">{isPending || isError ? '—' : items.length.toLocaleString()}</strong>
+                <span className="inv-hub-caption">SKUs</span>
+              </span>
+              <span className="inv-hub-chip" aria-label={`Total active brands: ${activeBrandsCount}`} title="Total active brands">
+                <strong className="inv-hub-num">{brands.isPending || brands.isError ? '—' : activeBrandsCount.toLocaleString()}</strong>
+                <span className="inv-hub-caption">brands</span>
+              </span>
             </div>
           </div>
         </div>
-        {can('inventory:manage') && <button className="btn btn-primary inv-add-item" aria-label="Add Item" title="Add Item" onClick={() => setAddItemOpen(true)}><Plus size={16} /><span>Add Item</span></button>}
+
+        {can('inventory:manage') && (
+          <div className="inv-hub-action">
+            <button
+              className="btn btn-primary inv-hub-btn"
+              aria-label="Add Item"
+              title="Add Item"
+              onClick={() => setAddItemOpen(true)}
+            >
+              <Plus size={18} strokeWidth={2.5} />
+              <span>Add Item</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Tabs ── */}

@@ -8,7 +8,7 @@ export const SettingsPage = () => {
   return (
     <div className="app-screen" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
       {/* Page Header */}
-      <div className="app-screen-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="app-screen-header settings-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <div style={{ backgroundColor: 'var(--primary)', padding: '0.75rem', borderRadius: '0.5rem' }}>
           <SettingsIcon size={24} color="white" />
         </div>
@@ -20,11 +20,11 @@ export const SettingsPage = () => {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+      <div className="settings-tabs">
         <button
           onClick={() => setActiveTab('business')}
           style={{
-            padding: '1rem 1.5rem',
+            padding: '0.625rem 0.75rem',
             backgroundColor: 'transparent',
             border: 'none',
             borderBottom: activeTab === 'business' ? '3px solid var(--primary)' : 'none',
@@ -43,7 +43,7 @@ export const SettingsPage = () => {
         <button
           onClick={() => setActiveTab('brands')}
           style={{
-            padding: '1rem 1.5rem',
+            padding: '0.625rem 0.75rem',
             backgroundColor: 'transparent',
             border: 'none',
             borderBottom: activeTab === 'brands' ? '3px solid var(--primary)' : 'none',
@@ -60,9 +60,9 @@ export const SettingsPage = () => {
       {/* Tab Content */}
       <div className="app-screen-scroll">
         {activeTab === 'business' && (
-          <div className="card" style={{ padding: '2rem' }}>
+          <div className="card settings-placeholder">
             <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏢</div>
+              <div className="settings-placeholder-icon">🏢</div>
               <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>Business Profile</h3>
               <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>
                 Business profile management coming soon

@@ -3,12 +3,11 @@ import { Activity, ShoppingBag, Truck, Droplets, Box, Package, RotateCcw, Chevro
 import { useInventoryBalances, useInventoryHistory } from '../../hooks/useInventory';
 import { useLPGBrands } from '../../hooks/useBrands';
 import { usePurchases } from '../../hooks/usePurchases';
-import { useSaleDetails } from '../../hooks/useDashboard';
 import { useAuth } from '../../contexts/AuthContext';
 import { inventoryMovementActions, inventoryMovementSource, type InventoryHistorySource } from '../../lib/inventoryMovement';
 import { PurchaseDialog, PurchaseSelect } from '../purchases/PurchaseControls';
 import { UpdatePurchaseModal } from '../purchases/UpdatePurchaseModal';
-import { SaleDetailsModal } from '../dashboard/SaleDetailsModal';
+import { TransactionDetailsModal } from '../transactions/TransactionDetailsModal';
 import { InventoryProductPicker } from './InventoryProductPicker';
 import '../purchases/purchases.css';
 import './inventory.css';
@@ -25,7 +24,6 @@ export const MovementsFeed = () => {
   const canReadPurchases = can('purchases:view') || can('purchases:manage');
   const canReadSales = can('sales:view') || can('receipts:print') || can('dashboard:view');
   const purchases = usePurchases({ enabled: canReadPurchases });
-  const sale = useSaleDetails(detail?.kind === 'sale' && canReadSales ? detail.id : null);
   const selectedPurchase = detail?.kind === 'purchase' ? purchases.data?.find(purchase => purchase.purchase_id === detail.id) : null;
   const hasFilters = filters.source !== 'all' || filters.itemIds !== null;
   const reset = () => setFilters({ source: 'all', itemIds: null, page: 0 });
@@ -47,6 +45,9 @@ export const MovementsFeed = () => {
     <div className="inv-history-heading"><h3>Inventory history</h3>
       <button className="btn btn-ghost" disabled={history.isFetching} onClick={() => { void history.refetch(); if (canReadPurchases) void purchases.refetch(); }}>
         <RefreshCw size={13} className={history.isFetching ? 'spin' : ''} />Refresh</button></div>
+    {history.isSuccess && <nav className="inv-history-pagination" aria-label="Inventory history pages">
+      <button className="btn btn-secondary" disabled={filters.page === 0 || history.isFetching} onClick={() => setFilters(previous => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} />Previous</button>
+      <span>Page {filters.page + 1}</span><button className="btn btn-secondary" disabled={!history.data.hasMore || history.isFetching} onClick={() => setFilters(previous => ({ ...previous, page: previous.page + 1 }))}>Next<ChevronRight size={15} /></button></nav>}
     {history.isPending && <div role="status" className="inv-history-empty">Loading inventory history…</div>}
     {history.isError && <div role="alert" className="product-error">Inventory history could not be loaded.
       <button className="btn btn-secondary" onClick={() => void history.refetch()}>Retry history</button></div>}
@@ -82,14 +83,9 @@ export const MovementsFeed = () => {
             <QuantityIcon size={14} aria-hidden="true" />{value > 0 ? '+' : ''}{value.toLocaleString()}</span>)}</div>
       </article>;
     })}</div>}
-    {history.isSuccess && (filters.page > 0 || history.data.hasMore) && <nav className="inv-history-pagination" aria-label="Inventory history pages">
-      <button className="btn btn-secondary" disabled={filters.page === 0} onClick={() => setFilters(previous => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} />Previous</button>
-      <span>Page {filters.page + 1}</span><button className="btn btn-secondary" disabled={!history.data.hasMore} onClick={() => setFilters(previous => ({ ...previous, page: previous.page + 1 }))}>Next<ChevronRight size={15} /></button></nav>}
     {pickerOpen && <InventoryProductPicker items={items.data ?? []} brands={brands.data ?? []} selected={filters.itemIds} onClose={() => setPickerOpen(false)}
       onApply={itemIds => { setFilters(previous => ({ ...previous, itemIds, page: 0 })); setPickerOpen(false); }} />}
-    {detail?.kind === 'sale' && (sale.data ? <SaleDetailsModal isOpen sale={sale.data} onClose={closeDetail} />
-      : <PurchaseDialog title={`POS sale #${detail.id.slice(0, 8).toUpperCase()}`} onClose={closeDetail} compact><div className="modal-body">
-        {sale.isError ? <p role="alert">This sale could not be loaded. <button className="btn btn-secondary" onClick={() => void sale.refetch()}>Retry sale</button></p> : <p role="status">Loading sale…</p>}</div></PurchaseDialog>)}
+    {detail?.kind === 'sale' && canReadSales && <TransactionDetailsModal saleId={detail.id} onClose={closeDetail} returnLabel="Back to history" />}
     {detail?.kind === 'purchase' && (selectedPurchase ? <UpdatePurchaseModal open purchase={selectedPurchase} onClose={closeDetail} />
       : <PurchaseDialog title={`Purchase #${detail.id.slice(0, 8).toUpperCase()}`} onClose={closeDetail} compact><div className="modal-body">
         {purchases.isPending ? <p role="status">Loading purchase…</p> : <p role="alert">This purchase could not be loaded. <button className="btn btn-secondary" onClick={() => void purchases.refetch()}>Retry purchase</button></p>}</div></PurchaseDialog>)}

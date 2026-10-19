@@ -1,3 +1,5 @@
+import { useListPage, usePageSize } from '../../hooks/useListPage';
+import { Pagination } from '../ui/Pagination';
 import { useState } from 'react';
 import { useLPGBrands, useCreateBrand, useUpdateBrand, useSetBrandOrder } from '../../hooks/useBrands';
 import { Plus, Edit2, Trash2, AlertCircle, CheckCircle, ChevronUp, ChevronDown } from 'lucide-react';
@@ -6,6 +8,7 @@ import './brands.css';
 
 export const BrandManagement = () => {
   const { data: brands = [], isLoading, error, refetch } = useLPGBrands();
+  const paging = useListPage(brands, usePageSize(12, 4));
   const createBrand = useCreateBrand();
   const updateBrand = useUpdateBrand();
   const setOrder = useSetBrandOrder();
@@ -111,9 +114,9 @@ export const BrandManagement = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="brand-management" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="brand-management-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h3 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>LPG Brands</h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: '0.5rem 0 0 0' }}>
@@ -122,6 +125,8 @@ export const BrandManagement = () => {
         </div>
         {!showForm && (
           <button
+            className="page-add-button"
+            aria-label="Add Brand"
             disabled={setOrder.isPending}
             onClick={() => setShowForm(true)}
             style={{
@@ -139,7 +144,7 @@ export const BrandManagement = () => {
             }}
           >
             <Plus size={16} />
-            Add Brand
+            <span>Add Brand</span>
           </button>
         )}
       </div>
@@ -252,19 +257,12 @@ export const BrandManagement = () => {
           <p>No brands added yet. Add your first brand to get started!</p>
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 18.75rem), 1fr))',
-            gap: '1rem',
-          }}
-        >
-          {brands.map((brand, index) => (
+        <div className="brand-grid">
+          {paging.entries.map(brand => { const index = brands.findIndex(row => row.brand_id === brand.brand_id); return (
             <div
               key={brand.brand_id}
-              className="card"
+              className="card brand-card"
               style={{
-                padding: '1.25rem',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '1rem',
@@ -361,9 +359,10 @@ export const BrandManagement = () => {
                 </button>
               </div>
             </div>
-          ))}
+          ); })}
         </div>
       )}
+      <Pagination {...paging} onChange={paging.setPage} label="brands" />
     </div>
   );
 };

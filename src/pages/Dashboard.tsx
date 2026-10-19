@@ -15,7 +15,7 @@ export const Dashboard = () => {
 
   return (
     <div className="page-container">
-      <div className="page-header">
+      <div className="page-header dashboard-header">
         <div>
           <p className="page-subtitle">Daily sales, stock activity, and customer coverage.</p>
         </div>
@@ -77,7 +77,7 @@ export const Dashboard = () => {
       </div>
 
       <div className="dashboard-workspace">
-        <section className="glass-panel card" style={{ minHeight: '28rem' }}>
+        <section className="glass-panel card">
           <div className="card-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-md)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
               <ShoppingBag size={20} style={{ color: 'var(--primary)' }} />
@@ -96,7 +96,7 @@ export const Dashboard = () => {
           <div className="card-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-md)' }}>
             <h2 className="card-title">Stock Exceptions</h2>
           </div>
-          <div className="empty-state" style={{ flex: 1, minHeight: '18rem' }}>
+          <div className="empty-state">
             <Package size={28} />
             <p style={{ margin: 0 }}>Low-stock exception reporting is not configured yet.</p>
             {(can('inventory:view') || can('inventory:manage')) && <Link to="/inventory" className="btn btn-ghost">

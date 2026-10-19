@@ -161,6 +161,12 @@
 }
 @media (max-width: 600px) {
   .purchase-toolbar { grid-template-columns: repeat(2,minmax(0,1fr)); padding: .625rem; gap: .625rem; }
+  .purchases-header { display: grid; grid-template-columns: minmax(0,1fr) auto; }
+  .purchase-list-summary { grid-row: 1; grid-column: 1 / -1; }
+  .purchase-list-summary > div:nth-child(2) { padding-right: 44px; }
+  .purchases-header-actions { grid-row: 1; grid-column: 2; align-self: start; z-index: 1; margin: 8px; }
+  .purchases-header .btn { width: 34px; min-height: 34px; padding: 7px; }
+  .purchases-header .purchase-new-label, .purchases-header .purchase-new-short { display: none; }
   .purchase-search-group { grid-column: 1 / -1; }
   .purchase-filter-extras { grid-template-columns: minmax(0,1fr) auto; gap: .625rem; }
   .purchase-date-range { grid-column: 1 / -1; gap: .375rem; }
@@ -216,13 +222,18 @@
 .transits-view { display: grid; gap: 1.5rem; }
 .transit-search { flex: 1; max-width: 24rem; }
 .transit-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(min(100%,19rem),1fr)); gap: 1rem; }
-.transit-card { color: var(--text-main); padding: 1rem; text-align: left; cursor: pointer; display: grid; gap: .875rem; border-top: 3px solid var(--accent); }
+.transit-card { color: var(--text-main); padding: 1rem; text-align: left; cursor: pointer; display: grid; gap: .875rem; border-top: 3px solid var(--accent); max-width: 26rem; }
 .transit-card .purchase-section-heading { margin: 0; }
 .transit-card strong { display: inline-flex; align-items: center; gap: .5rem; }
 .transit-card p, .transit-card small { color: var(--text-muted); margin: 0; font-size: .8125rem; overflow-wrap: anywhere; }
 .transit-card-total { display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: .75rem; font-size: .875rem; }
 .transit-group-title { margin: 0 0 .875rem; font-size: 1rem; }
 .transit-group-title span { color: var(--text-muted); margin-left: .5rem; }
+@media (max-width: 600px) {
+  .transit-card { padding: 10px; gap: 8px; }
+  .transit-card-total { flex-wrap: wrap; gap: 4px; }
+  .transit-search { max-width: none; }
+}
 @media (max-width: 480px) {
   .transit-cost-fields { gap: .625rem; }
   .transit-additional-row { grid-template-columns: minmax(0,1fr) 6rem auto; gap: .375rem; }

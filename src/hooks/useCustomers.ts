@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { assertBDMobilePhone, getPhoneSearchTerms, normalizePhoneInput } from '../lib/bdPhone';
+import { readAllRows } from '../lib/queryPages';
 
 export interface Customer {
   tenant_id: string;
@@ -42,10 +43,11 @@ const customerMatchesToken = (customer: Customer, token: string) => {
     .join(' ')
     .toLowerCase();
   const normalizedPhone = normalizePhoneInput(customer.phone).toLowerCase();
+  const normalizedToken = normalizePhoneInput(token).toLowerCase();
 
   return (
     searchableText.includes(token) ||
-    normalizedPhone.includes(normalizePhoneInput(token).toLowerCase()) ||
+    (normalizedToken !== '' && normalizedPhone.includes(normalizedToken)) ||
     phoneTerms.some((term) => normalizedPhone.includes(term))
   );
 };
@@ -70,9 +72,9 @@ const scoreCustomerMatch = (customer: Customer, tokens: string[]) => {
 export const useCustomers = (searchTerm?: string) =>
   useQuery<Customer[]>({
     queryKey: customerKeys.list(searchTerm),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const tokens = searchTerm ? getCustomerSearchTokens(searchTerm) : [];
-      let query = supabase.from('customers').select('*').order('name', { ascending: true });
+      let query = supabase.from('customers').select('*').order('name', { ascending: true }).order('customer_id', { ascending: true });
       if (tokens.length > 0) {
         const filters = tokens.flatMap((token) => {
           const escapedSearch = escapeSupabaseOrValue(token);
@@ -89,15 +91,12 @@ export const useCustomers = (searchTerm?: string) =>
         });
         query = query.or(filters.join(','));
       }
-      const { data, error } = await query.limit(80);
-      if (error) throw error;
-      const customers = (data ?? []) as Customer[];
+      const customers = await readAllRows<Customer>((from, to) => query.range(from, to).abortSignal(signal).overrideTypes<Customer[], { merge: false }>());
       if (tokens.length === 0) return customers;
 
       return customers
         .filter((customer) => tokens.every((token) => customerMatchesToken(customer, token)))
-        .sort((a, b) => scoreCustomerMatch(b, tokens) - scoreCustomerMatch(a, tokens))
-        .slice(0, 50);
+        .sort((a, b) => scoreCustomerMatch(b, tokens) - scoreCustomerMatch(a, tokens) || a.customer_id.localeCompare(b.customer_id));
     },
   });
 

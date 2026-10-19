@@ -1,0 +1,291 @@
+- generic [ref=f4e3]:
+  - complementary [ref=f4e4]:
+    - generic [ref=f4e5]:
+      - generic [ref=f4e6]:
+        - generic [ref=f4e7]: NexusLPG
+        - generic [ref=f4e8]: OPS
+      - button "Collapse sidebar" [expanded] [ref=f4e9] [cursor=pointer]
+    - navigation "Primary navigation" [ref=f4e12]:
+      - generic [ref=f4e13]: Operations
+      - link "Dashboard" [ref=f4e14] [cursor=pointer]:
+        - /url: "#/"
+      - link "Inventory" [ref=f4e21] [cursor=pointer]:
+        - /url: "#/inventory"
+      - link "Point of Sale" [ref=f4e27] [cursor=pointer]:
+        - /url: "#/pos"
+      - link "Purchases" [ref=f4e33] [cursor=pointer]:
+        - /url: "#/purchases"
+      - link "Employees" [ref=f4e39] [cursor=pointer]:
+        - /url: "#/employees"
+      - link "Logistics" [ref=f4e44] [cursor=pointer]:
+        - /url: "#/logistics"
+      - link "Gas Plants" [ref=f4e51] [cursor=pointer]:
+        - /url: "#/gas-plants"
+      - link "Settings" [ref=f4e55] [cursor=pointer]:
+        - /url: "#/settings"
+    - 'button "Account: Page Operator" [ref=f4e61] [cursor=pointer]':
+      - generic [ref=f4e62]: PO
+      - generic [ref=f4e63]:
+        - generic [ref=f4e64]: Pagination verification
+        - generic [ref=f4e65]: Page Operator
+  - main [ref=f4e68]:
+    - generic [ref=f4e69]:
+      - heading "Inventory" [level=1] [ref=f4e71]
+      - generic [ref=f4e72]:
+        - generic [ref=f4e77]:
+          - generic [ref=f4e78]: Dealership wallet
+          - strong [ref=f4e79]: Tk 10,000.00
+        - button "Switch to dark theme" [ref=f4e80] [cursor=pointer]
+    - generic [ref=f4e84]:
+      - generic [ref=f4e85]:
+        - generic [ref=f4e86]:
+          - generic "Units on hand" [ref=f4e87]:
+            - generic [ref=f4e88]: Total Units
+            - generic [ref=f4e90]:
+              - 'generic "Total Units: 3000 filled" [ref=f4e91]':
+                - strong [ref=f4e92]: 3,000
+                - generic [ref=f4e93]: filled
+              - 'generic "Total Units: 3000 empty" [ref=f4e94]':
+                - strong [ref=f4e95]: 3,000
+                - generic [ref=f4e96]: empty
+          - generic "Products with 1–5 units" [ref=f4e97]:
+            - generic [ref=f4e98]: Low Stock (1–5)
+            - generic [ref=f4e100]:
+              - 'generic "Low Stock: 0 filled" [ref=f4e101]':
+                - strong [ref=f4e102]: "0"
+                - generic [ref=f4e103]: filled
+              - 'generic "Low Stock: 0 empty" [ref=f4e104]':
+                - strong [ref=f4e105]: "0"
+                - generic [ref=f4e106]: empty
+          - generic "Products with zero units" [ref=f4e107]:
+            - generic [ref=f4e108]: Out of Stock
+            - generic [ref=f4e110]:
+              - 'generic "Out of Stock: 0 filled" [ref=f4e111]':
+                - strong [ref=f4e112]: "0"
+                - generic [ref=f4e113]: filled
+              - 'generic "Out of Stock: 0 empty" [ref=f4e114]':
+                - strong [ref=f4e115]: "0"
+                - generic [ref=f4e116]: empty
+          - generic "Registered products and active brands in this business" [ref=f4e117]:
+            - generic [ref=f4e118]: Catalog
+            - generic [ref=f4e120]:
+              - 'generic "Total items: 30" [ref=f4e121]':
+                - strong [ref=f4e122]: "30"
+                - generic [ref=f4e123]: SKUs
+              - 'generic "Total active brands: 14" [ref=f4e124]':
+                - strong [ref=f4e125]: "14"
+                - generic [ref=f4e126]: brands
+        - button "Add Item" [ref=f4e128] [cursor=pointer]
+      - generic [ref=f4e131]:
+        - button "Stock Balances" [ref=f4e132] [cursor=pointer]
+        - button "Inventory History" [ref=f4e138] [cursor=pointer]
+      - generic [ref=f4e141]:
+        - generic [ref=f4e142]:
+          - paragraph [ref=f4e143]: Select a product for prices, buying costs and weekly history.
+          - button "Refreshing…" [disabled] [ref=f4e144]
+        - generic [ref=f4e150]:
+          - region "Brand 1 products" [ref=f4e151]:
+            - heading "Brand 1" [level=3] [ref=f4e152]
+            - generic [ref=f4e153]:
+              - button "Brand 1 5 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e154] [cursor=pointer]:
+                - generic [ref=f4e156]: Brand 1
+                - generic [ref=f4e157]: 5 kg 22mm
+                - generic [ref=f4e158]:
+                  - generic "100 filled" [ref=f4e159]: "100"
+                  - generic "100 empty" [ref=f4e164]: "100"
+                - generic [ref=f4e169]: In Stock
+                - generic [ref=f4e170]: Product details
+              - button "Brand 1 6 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e175] [cursor=pointer]:
+                - generic [ref=f4e177]: Brand 1
+                - generic [ref=f4e178]: 6 kg 22mm
+                - generic [ref=f4e179]:
+                  - generic "100 filled" [ref=f4e180]: "100"
+                  - generic "100 empty" [ref=f4e185]: "100"
+                - generic [ref=f4e190]: In Stock
+                - generic [ref=f4e191]: Product details
+              - button "Brand 1 7 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e196] [cursor=pointer]:
+                - generic [ref=f4e198]: Brand 1
+                - generic [ref=f4e199]: 7 kg 22mm
+                - generic [ref=f4e200]:
+                  - generic "100 filled" [ref=f4e201]: "100"
+                  - generic "100 empty" [ref=f4e206]: "100"
+                - generic [ref=f4e211]: In Stock
+                - generic [ref=f4e212]: Product details
+              - button "Brand 1 8 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e217] [cursor=pointer]:
+                - generic [ref=f4e219]: Brand 1
+                - generic [ref=f4e220]: 8 kg 22mm
+                - generic [ref=f4e221]:
+                  - generic "100 filled" [ref=f4e222]: "100"
+                  - generic "100 empty" [ref=f4e227]: "100"
+                - generic [ref=f4e232]: In Stock
+                - generic [ref=f4e233]: Product details
+              - button "Brand 1 9 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e238] [cursor=pointer]:
+                - generic [ref=f4e240]: Brand 1
+                - generic [ref=f4e241]: 9 kg 22mm
+                - generic [ref=f4e242]:
+                  - generic "100 filled" [ref=f4e243]: "100"
+                  - generic "100 empty" [ref=f4e248]: "100"
+                - generic [ref=f4e253]: In Stock
+                - generic [ref=f4e254]: Product details
+              - button "Brand 1 10 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e259] [cursor=pointer]:
+                - generic [ref=f4e261]: Brand 1
+                - generic [ref=f4e262]: 10 kg 22mm
+                - generic [ref=f4e263]:
+                  - generic "100 filled" [ref=f4e264]: "100"
+                  - generic "100 empty" [ref=f4e269]: "100"
+                - generic [ref=f4e274]: In Stock
+                - generic [ref=f4e275]: Product details
+              - button "Brand 1 11 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e280] [cursor=pointer]:
+                - generic [ref=f4e282]: Brand 1
+                - generic [ref=f4e283]: 11 kg 22mm
+                - generic [ref=f4e284]:
+                  - generic "100 filled" [ref=f4e285]: "100"
+                  - generic "100 empty" [ref=f4e290]: "100"
+                - generic [ref=f4e295]: In Stock
+                - generic [ref=f4e296]: Product details
+              - button "Brand 1 12 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e301] [cursor=pointer]:
+                - generic [ref=f4e303]: Brand 1
+                - generic [ref=f4e304]: 12 kg 22mm
+                - generic [ref=f4e305]:
+                  - generic "100 filled" [ref=f4e306]: "100"
+                  - generic "100 empty" [ref=f4e311]: "100"
+                - generic [ref=f4e316]: In Stock
+                - generic [ref=f4e317]: Product details
+              - button "Brand 1 13 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e322] [cursor=pointer]:
+                - generic [ref=f4e324]: Brand 1
+                - generic [ref=f4e325]: 13 kg 22mm
+                - generic [ref=f4e326]:
+                  - generic "100 filled" [ref=f4e327]: "100"
+                  - generic "100 empty" [ref=f4e332]: "100"
+                - generic [ref=f4e337]: In Stock
+                - generic [ref=f4e338]: Product details
+              - button "Brand 1 14 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e343] [cursor=pointer]:
+                - generic [ref=f4e345]: Brand 1
+                - generic [ref=f4e346]: 14 kg 22mm
+                - generic [ref=f4e347]:
+                  - generic "100 filled" [ref=f4e348]: "100"
+                  - generic "100 empty" [ref=f4e353]: "100"
+                - generic [ref=f4e358]: In Stock
+                - generic [ref=f4e359]: Product details
+              - button "Brand 1 15 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e364] [cursor=pointer]:
+                - generic [ref=f4e366]: Brand 1
+                - generic [ref=f4e367]: 15 kg 22mm
+                - generic [ref=f4e368]:
+                  - generic "100 filled" [ref=f4e369]: "100"
+                  - generic "100 empty" [ref=f4e374]: "100"
+                - generic [ref=f4e379]: In Stock
+                - generic [ref=f4e380]: Product details
+              - button "Brand 1 16 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e385] [cursor=pointer]:
+                - generic [ref=f4e387]: Brand 1
+                - generic [ref=f4e388]: 16 kg 22mm
+                - generic [ref=f4e389]:
+                  - generic "100 filled" [ref=f4e390]: "100"
+                  - generic "100 empty" [ref=f4e395]: "100"
+                - generic [ref=f4e400]: In Stock
+                - generic [ref=f4e401]: Product details
+              - button "Brand 1 17 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e406] [cursor=pointer]:
+                - generic [ref=f4e408]: Brand 1
+                - generic [ref=f4e409]: 17 kg 22mm
+                - generic [ref=f4e410]:
+                  - generic "100 filled" [ref=f4e411]: "100"
+                  - generic "100 empty" [ref=f4e416]: "100"
+                - generic [ref=f4e421]: In Stock
+                - generic [ref=f4e422]: Product details
+              - button "Brand 1 18 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e427] [cursor=pointer]:
+                - generic [ref=f4e429]: Brand 1
+                - generic [ref=f4e430]: 18 kg 22mm
+                - generic [ref=f4e431]:
+                  - generic "100 filled" [ref=f4e432]: "100"
+                  - generic "100 empty" [ref=f4e437]: "100"
+                - generic [ref=f4e442]: In Stock
+                - generic [ref=f4e443]: Product details
+              - button "Brand 1 19 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e448] [cursor=pointer]:
+                - generic [ref=f4e450]: Brand 1
+                - generic [ref=f4e451]: 19 kg 22mm
+                - generic [ref=f4e452]:
+                  - generic "100 filled" [ref=f4e453]: "100"
+                  - generic "100 empty" [ref=f4e458]: "100"
+                - generic [ref=f4e463]: In Stock
+                - generic [ref=f4e464]: Product details
+          - region "Brand 2 products" [ref=f4e469]:
+            - heading "Brand 2" [level=3] [ref=f4e470]
+            - generic [ref=f4e471]:
+              - button "Brand 2 5 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e472] [cursor=pointer]:
+                - generic [ref=f4e474]: Brand 2
+                - generic [ref=f4e475]: 5 kg 22mm
+                - generic [ref=f4e476]:
+                  - generic "100 filled" [ref=f4e477]: "100"
+                  - generic "100 empty" [ref=f4e482]: "100"
+                - generic [ref=f4e487]: In Stock
+                - generic [ref=f4e488]: Product details
+              - button "Brand 2 6 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e493] [cursor=pointer]:
+                - generic [ref=f4e495]: Brand 2
+                - generic [ref=f4e496]: 6 kg 22mm
+                - generic [ref=f4e497]:
+                  - generic "100 filled" [ref=f4e498]: "100"
+                  - generic "100 empty" [ref=f4e503]: "100"
+                - generic [ref=f4e508]: In Stock
+                - generic [ref=f4e509]: Product details
+              - button "Brand 2 7 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e514] [cursor=pointer]:
+                - generic [ref=f4e516]: Brand 2
+                - generic [ref=f4e517]: 7 kg 22mm
+                - generic [ref=f4e518]:
+                  - generic "100 filled" [ref=f4e519]: "100"
+                  - generic "100 empty" [ref=f4e524]: "100"
+                - generic [ref=f4e529]: In Stock
+                - generic [ref=f4e530]: Product details
+              - button "Brand 2 8 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e535] [cursor=pointer]:
+                - generic [ref=f4e537]: Brand 2
+                - generic [ref=f4e538]: 8 kg 22mm
+                - generic [ref=f4e539]:
+                  - generic "100 filled" [ref=f4e540]: "100"
+                  - generic "100 empty" [ref=f4e545]: "100"
+                - generic [ref=f4e550]: In Stock
+                - generic [ref=f4e551]: Product details
+              - button "Brand 2 9 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e556] [cursor=pointer]:
+                - generic [ref=f4e558]: Brand 2
+                - generic [ref=f4e559]: 9 kg 22mm
+                - generic [ref=f4e560]:
+                  - generic "100 filled" [ref=f4e561]: "100"
+                  - generic "100 empty" [ref=f4e566]: "100"
+                - generic [ref=f4e571]: In Stock
+                - generic [ref=f4e572]: Product details
+              - button "Brand 2 10 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e577] [cursor=pointer]:
+                - generic [ref=f4e579]: Brand 2
+                - generic [ref=f4e580]: 10 kg 22mm
+                - generic [ref=f4e581]:
+                  - generic "100 filled" [ref=f4e582]: "100"
+                  - generic "100 empty" [ref=f4e587]: "100"
+                - generic [ref=f4e592]: In Stock
+                - generic [ref=f4e593]: Product details
+              - button "Brand 2 11 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e598] [cursor=pointer]:
+                - generic [ref=f4e600]: Brand 2
+                - generic [ref=f4e601]: 11 kg 22mm
+                - generic [ref=f4e602]:
+                  - generic "100 filled" [ref=f4e603]: "100"
+                  - generic "100 empty" [ref=f4e608]: "100"
+                - generic [ref=f4e613]: In Stock
+                - generic [ref=f4e614]: Product details
+              - button "Brand 2 12 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e619] [cursor=pointer]:
+                - generic [ref=f4e621]: Brand 2
+                - generic [ref=f4e622]: 12 kg 22mm
+                - generic [ref=f4e623]:
+                  - generic "100 filled" [ref=f4e624]: "100"
+                  - generic "100 empty" [ref=f4e629]: "100"
+                - generic [ref=f4e634]: In Stock
+                - generic [ref=f4e635]: Product details
+              - button "Brand 2 13 kg 22mm 100 filled 100 empty In Stock Product details" [ref=f4e640] [cursor=pointer]:
+                - generic [ref=f4e642]: Brand 2
+                - generic [ref=f4e643]: 13 kg 22mm
+                - generic [ref=f4e644]:
+                  - generic "100 filled" [ref=f4e645]: "100"
+                  - generic "100 empty" [ref=f4e650]: "100"
+                - generic [ref=f4e655]: In Stock
+                - generic [ref=f4e656]: Product details
+        - navigation "products pages" [ref=f4e661]:
+          - generic [ref=f4e662]: 1–24 of 30 products
+          - generic [ref=f4e663]:
+            - button "Previous page" [disabled] [ref=f4e664]
+            - button "Page 1" [ref=f4e668] [cursor=pointer]: "1"
+            - button "Page 2" [ref=f4e670] [cursor=pointer]: "2"
+            - button "Next page" [ref=f4e671] [cursor=pointer]

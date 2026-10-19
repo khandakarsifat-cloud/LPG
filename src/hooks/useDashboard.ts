@@ -41,11 +41,13 @@ export interface SaleTransaction {
   exchange_fee: number;
   notes?: string;
   customer_name?: string;
+  user_profiles?: { full_name: string | null; email: string | null } | null;
   customers?: {
     name: string;
     phone: string;
     shop_name?: string;
     tier?: string;
+    address?: string | null;
   };
   sale_items?: Array<{
     quantity: number;
@@ -55,6 +57,7 @@ export interface SaleTransaction {
     items?: {
       brand?: string;
       size_kg?: string;
+      mouth_size?: string | null;
       lpg_brands?: {
         brand_name: string;
       };
@@ -70,8 +73,8 @@ export const useSaleDetails = (saleId: string | null) => useQuery<SaleTransactio
     if (!saleId) throw new Error('No sale selected');
     const { data, error } = await supabase.from('sales').select(`
       sale_id, sale_tier, created_at, total_amount, subtotal, discount_amount, exchange_fee, notes,
-      customers(name, phone, shop_name, tier),
-      sale_items(quantity, unit_price, line_total, type, items(brand, size_kg, lpg_brands(brand_name)))
+      customers(name, phone, shop_name, address, tier), user_profiles(full_name, email),
+      sale_items(quantity, unit_price, line_total, type, items(brand, size_kg, mouth_size, lpg_brands(brand_name)))
     `).eq('sale_id', saleId).abortSignal(signal).single()
       .overrideTypes<SaleTransaction, { merge: false }>();
     if (error) throw error;
@@ -79,10 +82,10 @@ export const useSaleDetails = (saleId: string | null) => useQuery<SaleTransactio
   },
 });
 
-export const useTodaySalesFeed = () =>
-  useQuery<SaleTransaction[]>({
-    queryKey: [...dashboardKeys.all, 'today_sales'],
-    queryFn: async () => {
+export const useTodaySalesFeed = (page = 0) =>
+  useQuery<{ entries: SaleTransaction[]; hasMore: boolean }>({
+    queryKey: [...dashboardKeys.all, 'today_sales', page],
+    queryFn: async ({ signal }) => {
       const todayIso = startOfDay(new Date()).toISOString();
       const { data, error } = await supabase
         .from('sales')
@@ -117,8 +120,8 @@ export const useTodaySalesFeed = () =>
         `)
         .gte('created_at', todayIso)
         .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .order('created_at', { ascending: false }).order('sale_id', { ascending: false })
+        .range(page * 8, page * 8 + 8).abortSignal(signal);
       
       if (error) {
         console.error('Error fetching full sales feed:', error);
@@ -128,14 +131,16 @@ export const useTodaySalesFeed = () =>
           .select('sale_id, sale_tier, created_at, total_amount, subtotal, discount_amount, exchange_fee, notes')
           .gte('created_at', todayIso)
           .eq('status', 'completed')
-          .order('created_at', { ascending: false })
-          .limit(50);
+          .order('created_at', { ascending: false }).order('sale_id', { ascending: false })
+          .range(page * 8, page * 8 + 8).abortSignal(signal);
           
         if (fallbackError) throw fallbackError;
-        return (fallbackData as unknown as SaleTransaction[]) || [];
+        const rows = (fallbackData as unknown as SaleTransaction[]) || [];
+        return { entries: rows.slice(0, 8), hasMore: rows.length > 8 };
       }
       
-      return (data as unknown as SaleTransaction[]) || [];
+      const rows = (data as unknown as SaleTransaction[]) || [];
+      return { entries: rows.slice(0, 8), hasMore: rows.length > 8 };
     },
     refetchInterval: 30_000,
   });

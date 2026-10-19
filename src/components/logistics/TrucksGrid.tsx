@@ -1,3 +1,5 @@
+import { useListPage, usePageSize } from '../../hooks/useListPage';
+import { Pagination } from '../ui/Pagination';
 import { useState } from 'react';
 import { Truck as TruckIcon, AlertCircle, MapPin, Pencil, Check, X } from 'lucide-react';
 import { useTrucks, useSetTruckLocation } from '../../hooks/useLogistics';
@@ -33,6 +35,7 @@ const LocationCell = ({ truck }: { truck: Truck }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
         <input
           autoFocus
+          className="input-field"
           type="text"
           value={val}
           onChange={(e) => setVal(e.target.value)}
@@ -111,6 +114,7 @@ const StatusCell = ({ truck }: { truck: Truck }) => {
 // ── Main Grid ─────────────────────────────────────────────────────────────────
 export const TrucksGrid = () => {
   const { data: trucks = [], isLoading } = useTrucks();
+  const paging = useListPage(trucks, usePageSize(12, 4));
 
   if (isLoading) {
     return (
@@ -138,7 +142,7 @@ export const TrucksGrid = () => {
   const goingCount  = trucks.filter((t) => t.status === 'going').length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="fleet-view" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Fleet summary chips */}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
         {[
@@ -168,10 +172,11 @@ export const TrucksGrid = () => {
 
       {/* Trucks table */}
       <div className="glass-panel">
-        <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
+        <div className="fleet-heading" style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
           <h3 style={{ fontWeight: 600 }}>Fleet ({trucks.length})</h3>
         </div>
-        <table className="data-table">
+        <div className="table-scroll" tabIndex={0} role="region" aria-label="Fleet table">
+        <table className="data-table mobile-record-table fleet-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -183,28 +188,30 @@ export const TrucksGrid = () => {
             </tr>
           </thead>
           <tbody>
-            {trucks.map((truck) => (
+            {paging.entries.map((truck) => (
               <tr key={truck.truck_id}>
-                <td className="td-strong">{truck.name}</td>
-                <td style={{ fontFamily: 'monospace', fontSize: '0.85rem', letterSpacing: '0.04em' }}>
+                <td data-label="Truck" className="td-strong record-title">{truck.name}</td>
+                <td data-label="Serial number" style={{ fontFamily: 'monospace', fontSize: '0.85rem', letterSpacing: '0.04em' }}>
                   {truck.serial_no}
                 </td>
-                <td>{truck.capacity}</td>
-                <td>
+                <td data-label="Capacity (units)">{truck.capacity}</td>
+                <td data-label="Size">
                   <span className="type-badge">{TRUCK_SIZE_LABELS[truck.size]}</span>
                 </td>
-                <td>
+                <td data-label="Status">
                   <StatusCell truck={truck} />
                 </td>
-                <td>
+                <td data-label="Location" className="record-wide">
                   <LocationCell truck={truck} />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
+      <Pagination {...paging} onChange={paging.setPage} label="trucks" />
       {trucks.length === 0 && (
         <div className="empty-state" style={{ padding: '2rem' }}>
           <AlertCircle size={28} style={{ color: 'var(--text-muted)', opacity: 0.4 }} />

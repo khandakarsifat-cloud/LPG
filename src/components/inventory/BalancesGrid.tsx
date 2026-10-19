@@ -1,10 +1,12 @@
+import { useListPage, usePageSize } from '../../hooks/useListPage';
 import { useState } from 'react';
 import { Package, AlertTriangle, RefreshCw, Droplets, Box, History, Check } from 'lucide-react';
 import { useInventoryBalances } from '../../hooks/useInventory';
 import { useLPGBrands } from '../../hooks/useBrands';
 import { groupInventoryByBrand } from '../../lib/inventoryGroups';
 import { ProductHistoryModal } from './ProductHistoryModal';
-import type { ItemWithBrand } from '../../types/inventory';
+import type { InventoryProductIdentity, ItemWithBrand } from '../../types/inventory';
+import { Pagination } from '../ui/Pagination';
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 const getStockStatus = (filled: number, empty: number) => {
@@ -31,12 +33,13 @@ const STATUS_LABEL: Record<string, string> = {
 
 // ── Single compact tile ───────────────────────────────────────────────────────
 interface TileProps {
-  item: ItemWithBrand;
+  item: InventoryProductIdentity & Partial<Pick<ItemWithBrand, 'filled_quantity' | 'empty_quantity'>>;
   onClick: () => void;
   selected?: boolean;
+  showStock?: boolean;
 }
 
-export const ProductTile = ({ item, onClick, selected }: TileProps) => {
+export const ProductTile = ({ item, onClick, selected, showStock = true }: TileProps) => {
   const filled  = item.filled_quantity ?? 0;
   const empty   = item.empty_quantity  ?? 0;
   const status  = getStockStatus(filled, empty);
@@ -55,7 +58,7 @@ export const ProductTile = ({ item, onClick, selected }: TileProps) => {
       <div className="inv-tile-size">{item.size_kg} <span>kg</span> {item.mouth_size && <small className="inv-mouth-size">{item.mouth_size}</small>}</div>
 
       {/* Stock counts */}
-      <div className="inv-tile-counts">
+      {showStock && <div className="inv-tile-counts">
         <div className="inv-tile-count inv-tile-count-filled" title="Filled" aria-label={`${filled} filled`}>
           <Droplets size={11} />
           <span>{filled}</span>
@@ -64,12 +67,12 @@ export const ProductTile = ({ item, onClick, selected }: TileProps) => {
           <Box size={11} />
           <span>{empty}</span>
         </div>
-      </div>
+      </div>}
 
       {/* Status badge */}
-      <div className="inv-tile-status" style={{ color, background: `${color}18` }}>
+      {showStock && <div className="inv-tile-status" style={{ color, background: `${color}18` }}>
         {STATUS_LABEL[status]}
-      </div>
+      </div>}
 
       {/* History hint */}
       <div className="inv-tile-history-hint">
@@ -85,6 +88,9 @@ export const BalancesGrid = () => {
   const { data: items = [], isLoading, isError, refetch, isFetching } = useInventoryBalances();
   const brands = useLPGBrands();
   const [selectedItem, setSelectedItem] = useState<ItemWithBrand | null>(null);
+  const groups = groupInventoryByBrand(items, brands.data ?? []);
+  const paging = useListPage(groups.flatMap(group => group.items), usePageSize(24, 6));
+  const visible = new Set(paging.entries.map(item => item.item_id));
 
   if (isLoading || brands.isPending) {
     return (
@@ -121,7 +127,7 @@ export const BalancesGrid = () => {
   return (
     <>
       {/* Toolbar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+      <div className="inventory-catalog-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
           Select a product for prices, buying costs and weekly history.
         </p>
@@ -139,13 +145,14 @@ export const BalancesGrid = () => {
       {/* Tile grid */}
       <div className="inv-brand-groups">
         {brands.isError && <p className="product-error" role="alert">Could not load saved brand order. <button className="btn btn-ghost" onClick={() => brands.refetch()}>Retry</button></p>}
-        {groupInventoryByBrand(items, brands.data ?? []).map(group => <section className="inv-brand-group" key={group.key} aria-label={`${group.name} products`}>
+        {groups.filter(group => group.items.some(item => visible.has(item.item_id))).map(group => <section className="inv-brand-group" key={group.key} aria-label={`${group.name} products`}>
           <h3 className="inv-brand-heading">{group.name}</h3>
-          <div className="inv-tiles-grid">{group.items.map(item => <ProductTile key={item.item_id} item={item} onClick={() => setSelectedItem(item)} />)}</div>
+          <div className="inv-tiles-grid">{group.items.filter(item => visible.has(item.item_id)).map(item => <ProductTile key={item.item_id} item={item} onClick={() => setSelectedItem(item)} />)}</div>
         </section>)}
       </div>
 
       {/* Per-product history modal */}
+      <Pagination {...paging} onChange={paging.setPage} label="products" />
       {selectedItem && (
         <ProductHistoryModal
           item={items.find(item => item.item_id === selectedItem.item_id) ?? selectedItem}

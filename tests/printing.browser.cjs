@@ -97,6 +97,9 @@ async page => {
   cashier = true; bridgeRunning = false;
   await page.reload();
   await page.getByText('Receipt Customer বাংলা', { exact: true }).click();
+  await page.getByLabel('Receipt printer', { exact: true }).click();
+  await page.keyboard.press('Escape');
+  check(await page.getByRole('button', { name: 'Print Receipt Again' }).isVisible(), 'Dismissing receipt picker closed sale details');
   await page.getByLabel('Receipt printer', { exact: true }).selectOption('browser');
   await page.getByRole('button', { name: 'Print Receipt Again' }).click();
   await waitPrints(2);

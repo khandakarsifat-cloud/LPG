@@ -92,6 +92,11 @@ export interface ItemWithBrand extends Item {
   lpg_brands: LPGBrand | null;
 }
 
+/** Product identity can be shared without granting access to current stock balances. */
+export type InventoryProductIdentity = Pick<Item, 'item_id' | 'brand_id' | 'brand' | 'size_kg' | 'mouth_size'> & {
+  lpg_brands: Pick<LPGBrand, 'brand_id' | 'brand_name'> | null;
+};
+
 export interface InventoryMovement {
   tenant_id: string;
   movement_id: string;

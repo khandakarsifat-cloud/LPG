@@ -49,6 +49,8 @@ export const POSPage = () => {
   const { mutateAsync: createSale } = useCreatePOSSale();
   const printSale = usePrintSale();
   const checkoutLock = useRef(false);
+  const productsPanel = useRef<HTMLDivElement>(null);
+  const checkoutPanel = useRef<HTMLDivElement>(null);
 
   const handleCustomerChange = (nextCustomer: POSCustomerDraft | null) => {
     const nextTier = nextCustomer?.tier || 'retail';
@@ -168,27 +170,30 @@ export const POSPage = () => {
   const blockReason = getCheckoutBlockReason();
 
   return (
-    <div className="pos-page" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+    <div className="pos-page">
 
       {/* 2-column layout */}
-      <div className="pos-workspace" style={{ display: 'flex', gap: 'var(--space-md)', flex: 1, minHeight: 0 }}>
+      <div className="pos-workspace">
 
         {/* LEFT: Products Grid */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)', minHeight: 0, minWidth: 0 }}>
+        <div className="pos-products" ref={productsPanel}>
           {/* Title + Mouth Size toggle row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0, flexWrap: 'wrap' }}>
+          <div className="pos-products-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Products</span>
+            <button className="btn btn-secondary pos-checkout-link" onClick={() => checkoutPanel.current?.scrollIntoView({ block: 'start' })}>
+              <ShoppingCart size={14} /> Checkout{items.length > 0 ? ` (${items.length})` : ''}
+            </button>
 
             {/* Mouth Size Pill Toggle */}
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mouth Size</span>
+              <span className="pos-mouth-label" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mouth Size</span>
               <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: 8, padding: '0.2rem', gap: '0.15rem', border: '1px solid var(--border-color)' }}>
                 {MOUTH_SIZE_OPTIONS.map(size => (
                   <button
                     key={size}
                     onClick={() => setMouthSize(size)}
                     style={{
-                      padding: '0.3rem 0.75rem',
+                      padding: '4px 8px',
                       borderRadius: 6,
                       border: 'none',
                       cursor: 'pointer',
@@ -207,7 +212,7 @@ export const POSPage = () => {
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: '0.25rem' }}>
+          <div>
             <POSItemsGrid
               cartItems={items}
               onAddItem={handleAddItem}
@@ -219,10 +224,11 @@ export const POSPage = () => {
         </div>
 
         {/* RIGHT: Customer + Cart stacked */}
-        <div className="pos-side-panel" style={{ width: 'clamp(16.5rem, 22vw, 18.75rem)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)', minHeight: 0 }}>
+        <div className="pos-side-panel" ref={checkoutPanel}>
+          <button className="btn btn-secondary pos-products-link" onClick={() => productsPanel.current?.scrollIntoView({ block: 'start' })}>Back to products</button>
 
           {/* Customer Details */}
-          <div className="card" style={{
+          <div className="card pos-customer" style={{
             flexShrink: 0,
             background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)',
             padding: 'var(--space-sm) var(--space-md)',
@@ -242,21 +248,20 @@ export const POSPage = () => {
           </div>
 
           {/* Cart */}
-          <div className="card" style={{
-            flex: 1, minHeight: 0,
+          <div className="card pos-checkout" style={{
             display: 'flex', flexDirection: 'column',
             background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)',
             padding: 0, overflow: 'hidden',
           }}>
             {/* Cart header */}
-            <div style={{ padding: 'var(--space-sm) var(--space-md)', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
+            <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                 <ShoppingCart size={14} /> {customer?.tier === 'wholesale' ? 'Wholesale' : 'Retail'} Sale
               </span>
             </div>
 
             {/* POSCart scrollable */}
-            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="pos-cart-body">
               <POSCart
                 items={items}
                 onChangeItems={setItems}
@@ -270,7 +275,7 @@ export const POSPage = () => {
             </div>
 
             {/* Checkout button */}
-            <div style={{ padding: 'var(--space-sm)', borderTop: '1px solid var(--border-color)', flexShrink: 0 }}>
+            <div style={{ padding: '6px', borderTop: '1px solid var(--border-color)', flexShrink: 0 }}>
               <button
                 className="btn btn-primary"
                 style={{

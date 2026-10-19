@@ -23,19 +23,23 @@ select.input-field, .date-calendar select {
   background-position: right .75rem center;
   background-repeat: no-repeat;
   border-radius: .625rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  line-height: 1.25;
 }
 select.input-field:disabled { cursor: not-allowed; }
 
 @supports (appearance: base-select) {
   select.input-field, .date-calendar select, select::picker(select) { appearance: base-select; }
-  select.input-field, .date-calendar select { background-image: none; padding-right: .75rem; gap: .75rem; align-items: center; }
+  select.input-field, .date-calendar select { background-image: none; padding-right: .625rem; gap: .5rem; align-items: center; }
   select::picker-icon { color: var(--text-muted); transition: rotate 150ms; margin-left: auto; flex-shrink: 0; }
   select:open::picker-icon { rotate: 180deg; }
   select::picker(select) {
     margin-block: .375rem;
     padding: .375rem;
     border: 1px solid var(--border-strong);
-    border-radius: .875rem;
+    border-radius: var(--radius-lg);
     background: var(--surface-raised);
     color: var(--text-main);
     box-shadow: var(--shadow-lg);
@@ -47,10 +51,10 @@ select.input-field:disabled { cursor: not-allowed; }
   select option {
     display: flex;
     align-items: center;
-    gap: .75rem;
-    padding: .625rem .75rem;
-    min-height: 2.5rem;
-    border-radius: .5rem;
+    gap: .5rem;
+    padding: .5rem .625rem;
+    min-height: 2.25rem;
+    border-radius: var(--radius-sm);
     font-size: .8125rem;
     line-height: 1.4;
     white-space: normal;

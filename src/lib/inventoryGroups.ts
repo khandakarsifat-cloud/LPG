@@ -1,10 +1,10 @@
-import type { ItemWithBrand, LPGBrand } from '../types/inventory.ts';
+import type { InventoryProductIdentity, LPGBrand } from '../types/inventory.ts';
 
 /** Catalog order comes from Settings; distinct legacy/unassigned products stay visible. */
-export function groupInventoryByBrand(items: readonly ItemWithBrand[], brands: readonly LPGBrand[]) {
+export function groupInventoryByBrand<T extends InventoryProductIdentity>(items: readonly T[], brands: readonly Pick<LPGBrand, 'brand_id' | 'brand_name'>[]) {
   const ranks = new Map(brands.map((brand, index) => [brand.brand_id, index]));
   const names = new Map(brands.map(brand => [brand.brand_id, brand.brand_name]));
-  const groups = new Map<string, { key: string; name: string; rank: number; items: ItemWithBrand[] }>();
+  const groups = new Map<string, { key: string; name: string; rank: number; items: T[] }>();
   for (const item of items) {
     const key = item.brand_id ?? `legacy:${item.brand}`;
     let group = groups.get(key);

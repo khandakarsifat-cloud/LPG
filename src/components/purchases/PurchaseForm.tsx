@@ -1,3 +1,5 @@
+import { useListPage } from '../../hooks/useListPage';
+import { Pagination } from '../ui/Pagination';
 import { Plus, Trash2, Package } from 'lucide-react';
 import { useItems } from '../../hooks/useInventory';
 import { useTrucks } from '../../hooks/useLogistics';
@@ -21,6 +23,7 @@ export function PurchaseForm({ draft, onChange, companyId, purchase, showShipmen
   draft: PurchaseDraft; onChange: (draft: PurchaseDraft) => void; companyId: string | null; purchase?: Purchase; showShipment?: boolean;
 }) {
   const itemsQuery = useItems();
+  const paging = useListPage(draft.items, 6, companyId ?? "");
   const items = (itemsQuery.data ?? []).filter(item => item.brand_id === companyId);
   const productsEditable = !purchase || purchase.status === 'created';
   const financialsEditable = !purchase || purchase.payment_status === 'unpaid';
@@ -39,13 +42,14 @@ export function PurchaseForm({ draft, onChange, companyId, purchase, showShipmen
     <section className="purchase-section">
       <div className="purchase-section-heading"><div><h3>Products & cylinders</h3>
         <p className="purchase-hint">{productsEditable ? 'Refills exchange one empty per cylinder. Stock moves on dispatch and receipt.' : 'Products and expected quantities are locked after dispatch.'}</p></div>
-        {productsEditable && <button type="button" className="btn btn-secondary" disabled={!companyId} onClick={() => onChange({ ...draft,
+        {productsEditable && <button type="button" className="btn btn-secondary" disabled={!companyId} onClick={() => { paging.setPage(Math.floor(draft.items.length / paging.pageSize)); onChange({ ...draft,
           items: [...draft.items, { item_id: '', type: 'refill', quantity: 1, empty_dispatched: 1, unit_price: 0 }],
-        })}><Plus size={15} /> Add product</button>}
+        }); }}><Plus size={15} /> Add product</button>}
       </div>
       {itemsQuery.isError && productsEditable && <p role="alert" className="purchase-error">Products could not be loaded. <button type="button" className="btn btn-ghost" onClick={() => void itemsQuery.refetch()}>Retry</button></p>}
       {!draft.items.length && <div className="purchase-empty"><Package size={22} /><p>Products can be added later.</p></div>}
-      <div className="purchase-lines">{draft.items.map((line, index) => {
+      <div className="purchase-lines">{paging.entries.map((line, localIndex) => {
+        const index = paging.page * paging.pageSize + localIndex;
         const item = items.find(item => item.item_id === line.item_id);
         const saved = purchase?.items.find(item => item.purchase_item_id === line.purchase_item_id);
         return <article className={`purchase-line${productsEditable ? ' purchase-line-editable' : ''}`} key={line.purchase_item_id ?? index}>
@@ -77,6 +81,7 @@ export function PurchaseForm({ draft, onChange, companyId, purchase, showShipmen
               : <span className="purchase-hint">{line.type === 'refill' ? 'Refill' : 'New cylinders'}</span>}
         </article>;
       })}</div>
+      <Pagination {...paging} onChange={paging.setPage} label="product lines" />
     </section>
     <PurchaseFinancials draft={draft} totals={totals} onChange={financialsEditable ? onChange : undefined} />
     <section className="purchase-section"><label className="input-label" htmlFor="purchase-notes">Notes</label>

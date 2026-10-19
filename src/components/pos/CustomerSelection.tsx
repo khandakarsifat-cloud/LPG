@@ -1,3 +1,5 @@
+import { useListPage } from '../../hooks/useListPage';
+import { Pagination } from '../ui/Pagination';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Edit2, MapPin, Phone, Save, Store, User } from 'lucide-react';
@@ -35,6 +37,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(customer?.customer_id ?? null);
 
   const { data: customers } = useCustomers(searchTerm);
+  const customerPages = useListPage(customers ?? [], 8, searchTerm);
   const addCustomer = useAddCustomer();
 
   const currentCustomer = customer ?? {};
@@ -141,7 +144,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
       {(['retail', 'wholesale'] as const).map(value => (
         <button key={value} type="button" aria-pressed={tier === value}
           className={`btn ${tier === value ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ flex: 1, padding: '0.4rem 0.5rem', fontSize: '0.78rem', fontWeight: 600 }}
+          style={{ flex: 1, padding: '4px 6px', fontSize: '12px', fontWeight: 600 }}
           onClick={() => handleTierChange(value)}>
           {value === 'retail' ? 'Retail' : 'Wholesale'}
         </button>
@@ -156,7 +159,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
       : 'Retail customer';
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {tierToggle}
         <div style={{
           display: 'flex',
@@ -206,7 +209,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
       {tierToggle}
 
       <div style={{ position: 'relative' }}>
@@ -227,8 +230,8 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
             className="input-field"
             style={{
               flex: 1,
-              padding: '0.4rem 0.55rem',
-              fontSize: '0.8rem',
+              padding: '4px 6px',
+              fontSize: '12px',
               borderColor: !hasPhone || phoneError ? 'rgba(248,113,113,0.5)' : undefined,
               transition: 'border-color 0.2s',
             }}
@@ -266,7 +269,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
             overscrollBehavior: 'contain',
             marginTop: '4px',
           }}>
-            {customers.map(c => (
+            {customerPages.entries.map(c => (
               <div
                 key={c.customer_id}
                 style={{
@@ -295,7 +298,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
                     {c.tier === 'wholesale' ? <Store size={14} /> : <User size={14} />}
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontWeight: 700, fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {c.name || c.shop_name || 'Unnamed customer'}
                     </div>
                     {c.shop_name && c.shop_name !== c.name && (
@@ -337,6 +340,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
                 </div>
               </div>
             ))}
+            <div onMouseDown={event => event.preventDefault()}><Pagination {...customerPages} onChange={customerPages.setPage} label="customers" /></div>
           </div>
         )}
       </div>
@@ -348,7 +352,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
         <input
           type="text"
           className="input-field"
-          style={{ flex: 1, padding: '0.4rem 0.55rem', fontSize: '0.8rem' }}
+          style={{ flex: 1, padding: '4px 6px', fontSize: '12px' }}
           placeholder={tier === 'wholesale' ? 'Shop name...' : 'Customer name...'}
           value={tier === 'wholesale' ? customer?.shop_name || '' : customer?.name || ''}
           onChange={(e) => handleChange(tier === 'wholesale' ? 'shop_name' : 'name', e.target.value)}
@@ -362,7 +366,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
         <input
           type="text"
           className="input-field"
-          style={{ flex: 1, padding: '0.4rem 0.55rem', fontSize: '0.8rem' }}
+          style={{ flex: 1, padding: '4px 6px', fontSize: '12px' }}
           placeholder="Optional address..."
           value={customer?.address || ''}
           onChange={(e) => handleChange('address', e.target.value)}
@@ -373,7 +377,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
         <button
           type="button"
           className="btn btn-primary"
-          style={{ width: '100%', padding: '0.45rem 0.6rem', fontSize: '0.78rem', fontWeight: 700 }}
+          style={{ width: '100%', padding: '0.45rem 0.6rem', fontSize: '12px', fontWeight: 700 }}
           onClick={handleSaveCustomer}
           disabled={!canSaveCustomer}
           title={phoneError || (!requiredName ? `Enter ${tier === 'wholesale' ? 'shop name' : 'customer name'} to save` : undefined)}
