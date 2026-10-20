@@ -1,4 +1,5 @@
-import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useBatchedDirectory } from './useBatchedDirectory';
 import { supabase } from '../lib/supabase';
 import type { Purchase, PurchaseActivity, CreatePurchasePayload, PurchaseDraft } from '../types/purchase';
 import { PurchaseStockError, type EmptyShortage } from '../lib/purchase';
@@ -34,15 +35,12 @@ export const usePurchaseDetails = (id: string | null) => useQuery<Purchase>({
   staleTime: 0, refetchInterval: 30_000,
 });
 
-export const usePurchaseDirectory = (filters: PurchaseFilters, page: number, pageSize: number) => useQuery<{ entries: Purchase[]; total: number }>({
-  queryKey: [...purchaseKeys.all, 'directory', filters, page, pageSize],
-  placeholderData: keepPreviousData,
-  queryFn: async ({ signal }) => {
-    const { data, error } = await supabase.rpc('get_purchase_directory', { p_filters: filters, p_offset: page * pageSize, p_limit: pageSize }).abortSignal(signal);
+export const usePurchaseDirectory = (filters: PurchaseFilters, page: number, pageSize: number) => useBatchedDirectory<Purchase>(
+  [...purchaseKeys.all, 'directory', filters], page, pageSize, async (offset, limit, signal) => {
+    const { data, error } = await supabase.rpc('get_purchase_directory', { p_filters: filters, p_offset: offset, p_limit: limit }).abortSignal(signal);
     if (error) throw error;
     return data as { entries: Purchase[]; total: number };
-  }, refetchInterval: 30_000,
-});
+  });
 
 export const usePurchaseOverview = () => useQuery<{ total: number; created: number; in_transit: number; unpaid: number; company_payable: number }>({
   queryKey: [...purchaseKeys.all, 'overview'],

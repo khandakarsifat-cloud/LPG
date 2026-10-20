@@ -64,8 +64,8 @@ async page => {
   const check=(value,message)=>{if(!value)throw Error(message);};
   await page.goto(origin+'/?pagination-fixtures=1#/purchases');await page.locator('.purchase-card').first().waitFor();
   await page.waitForFunction(()=>document.querySelector('.purchases-grid')?.getAttribute('aria-busy')==='false');
-  const firstPageSize=calls.filter(c=>c.name==='get_purchase_directory').at(-1).args.p_limit;
-  check(await page.locator('.purchase-card').count()===Math.min(firstPageSize,purchases.length),'Responsive purchase directory page size');
+  const firstPageSize=await page.locator('.purchase-card').count();
+  check(calls.filter(c=>c.name==='get_purchase_directory').every(c=>c.args.p_limit===25),'Purchase directory uses 25-record batches');
   check((await page.locator('.purchase-list-summary').textContent()).includes('14'),'Purchase overview must use all pages');
   await page.getByRole('navigation',{name:'purchases pages'}).getByRole('button',{name:'Next page'}).click();
   await page.waitForFunction(()=>document.querySelector('.purchases-grid')?.getAttribute('aria-busy')==='false');

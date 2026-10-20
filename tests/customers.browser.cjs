@@ -67,8 +67,15 @@ async page => {
   await page.goto(origin + '/?customer-ui-fixtures=1#/customers');
   await card().first().waitFor();
   await page.waitForFunction(()=>document.querySelector('.customer-grid')?.parentElement.getAttribute('aria-busy')==='false');
-  let firstPageSize=calls.filter(c=>c.name==='get_customer_directory'&&!c.args.p_customer_id).at(-1).args.p_limit;
-  check(await card().count() === Math.min(firstPageSize,customers.length), 'Directory must use its responsive server page size');
+  // The reported 1366px layout left most of a second row blank behind pagination.
+  await page.setViewportSize({width:1366,height:734});
+  await page.waitForFunction(()=>{
+    const cards=[...document.querySelectorAll('.customer-card')],top=cards[0]?.getBoundingClientRect().top;
+    return document.querySelector('.customer-grid')?.getAttribute('aria-busy')==='false'&&cards.length===12&&cards.some(c=>c.getBoundingClientRect().top>top+2&&c.getBoundingClientRect().top<innerHeight);
+  },null,{timeout:5000});
+  await page.screenshot({path:'.temp/customer-release/browser-artifacts/customer-visible-second-row.png'});
+  let firstPageSize=await card().count();
+  check(calls.filter(c=>c.name==='get_customer_directory'&&!c.args.p_customer_id).every(c=>c.args.p_limit===25), 'Directory fetches fixed batches of 25');
   const previewName = await card().first().locator('strong').first().textContent();
   await card().first().click();
   const previewDialog = page.getByRole('dialog', { name: 'Customer details', exact: true });
@@ -78,7 +85,7 @@ async page => {
   holdProfile = false; releaseProfile();
   await closeDialog();
   await page.waitForFunction(()=>{const cards=[...document.querySelectorAll('.customer-card')],top=cards[0]?.getBoundingClientRect().top,columns=cards.filter(c=>Math.abs(c.getBoundingClientRect().top-top)<2).length;return columns&&cards.length%columns===0&&document.querySelector('.customer-grid')?.parentElement.getAttribute('aria-busy')==='false';});
-  firstPageSize=calls.filter(c=>c.name==='get_customer_directory'&&!c.args.p_customer_id).at(-1).args.p_limit;
+  firstPageSize=await card().count();
   await page.getByRole('navigation', { name: 'customers pages' }).getByRole('button', { name: 'Next page' }).click();
   await page.waitForFunction(size => new RegExp('^'+(size+1)+'[^0-9]').test(document.querySelector('.customer-directory-pages .list-pagination > span')?.textContent || ''),firstPageSize);
   await page.locator('#customer-search').fill('bismillah mirpur');

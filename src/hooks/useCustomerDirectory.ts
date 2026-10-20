@@ -1,23 +1,21 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useBatchedDirectory } from './useBatchedDirectory';
 import { supabase } from '../lib/supabase';
 import { defaultCustomerFilters } from '../lib/customer';
 import { assertBDMobilePhone } from '../lib/bdPhone';
 import { customerKeys, type Customer, type CustomerInput } from './useCustomers';
 import type { CustomerFilters, CustomerOverview, CustomerProductOptions, CustomerResult, CustomerSummary, CustomerTransaction } from '../types/customer';
 
-export const CUSTOMER_PAGE_SIZE = 6;
+export const CUSTOMER_PAGE_SIZE = 12;
 export const CUSTOMER_TRANSACTION_PAGE_SIZE = 4;
 
 export function useCustomerDirectory(filters: CustomerFilters, page: number, pageSize = CUSTOMER_PAGE_SIZE) {
-  return useQuery<CustomerResult<CustomerSummary>>({
-    queryKey: [...customerKeys.all, 'directory', filters, page, pageSize],
-    placeholderData: keepPreviousData,
-    queryFn: async ({ signal }) => {
-      const { data, error } = await supabase.rpc('get_customer_directory', { p_filters: filters, p_offset: page * pageSize, p_limit: pageSize }).abortSignal(signal);
+  return useBatchedDirectory<CustomerSummary>([...customerKeys.all, 'directory', filters], page, pageSize,
+    async (offset, limit, signal) => {
+      const { data, error } = await supabase.rpc('get_customer_directory', { p_filters: filters, p_offset: offset, p_limit: limit }).abortSignal(signal);
       if (error) throw error;
       return data as CustomerResult<CustomerSummary>;
-    }, refetchInterval: 30_000,
-  });
+    });
 }
 export function useCustomerOverview() {
   return useQuery<CustomerOverview>({

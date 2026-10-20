@@ -72,9 +72,9 @@ async page => {
           const selector=path==='/purchases'?'.purchases-grid':'.customer-grid';
           await page.locator(selector+' > button').first().waitFor();
           await page.waitForFunction(selector=>{const el=document.querySelector(selector);return (selector==='.customer-grid'?el.parentElement:el)?.getAttribute('aria-busy')==='false';},selector);
-          const row=await page.locator(selector).evaluate(grid=>{const box=grid.getBoundingClientRect(),cards=[...grid.children].map(c=>c.getBoundingClientRect()),top=Math.max(...cards.map(c=>Math.round(c.top))),last=cards.filter(c=>Math.abs(c.top-top)<2);return {left:Math.min(...last.map(c=>c.left)),right:Math.max(...last.map(c=>c.right)),expectedLeft:box.left,expectedRight:box.right,count:cards.length};});
-          if(Math.abs(row.left-row.expectedLeft)>2||Math.abs(row.right-row.expectedRight)>2)failures.push({path,width,height,collapsed,lastRowNotFilled:row});
-          if(!collapsed&&[1920,1366,390].includes(width))await page.screenshot({path:'.temp/responsive/'+path.slice(1)+'-filled-'+width+'.png',animations:'disabled'});
+          const geometry=await page.locator(selector).evaluate(grid=>{const cards=[...grid.children].map(c=>c.getBoundingClientRect()),width=cards[0].width;return {width,widths:cards.map(c=>c.width)};});
+          if(geometry.widths.some(w=>Math.abs(w-geometry.width)>2))failures.push({path,width,height,collapsed,unequalCardWidths:geometry});
+          if(!collapsed&&[1920,1366,390].includes(width))await page.screenshot({path:'.temp/responsive/'+path.slice(1)+'-measured-'+width+'.png',animations:'disabled'});
         }
 
       }
@@ -144,7 +144,10 @@ async page => {
   // Product cards remain bounded while even an empty sidebar fills the workspace.
   items.splice(4);await page.reload();await page.locator('.pos-item-row').first().waitFor();
   await page.setViewportSize({width:2560,height:1408});
-  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await page.waitForFunction(()=>{
+    const area=document.querySelector('.page-content'),panel=document.querySelector('.pos-side-panel'),style=getComputedStyle(area);
+    return Math.abs(panel.getBoundingClientRect().height-area.clientHeight+parseFloat(style.paddingTop)+parseFloat(style.paddingBottom))<=2;
+  });
   const minimal=await page.evaluate(()=>({count:document.querySelectorAll('.pos-product-card').length,width:document.querySelector('.pos-product-card').getBoundingClientRect().width,cart:document.querySelector('.pos-side-panel').getBoundingClientRect().height}));
   const available=await page.locator('.page-content').evaluate(el=>el.clientHeight-parseFloat(getComputedStyle(el).paddingTop)-parseFloat(getComputedStyle(el).paddingBottom));
   if(minimal.count!==4||minimal.width>281||Math.abs(minimal.cart-available)>2)failures.push({minimal,available});

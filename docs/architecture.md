@@ -90,4 +90,4 @@ Use [Operations: checks and tests](../OPERATIONS.md#10-checks-and-tests) for com
 
 Backend query boundaries, synthetic measurements and remaining growth work are documented in [backend performance](modules/backend-performance.md).
 
-Customer and purchase directories use `useGridPageSize` to request complete rows for the current workspace and stretch final-row cards across its width. POS lists and the main Inventory catalog scroll without pagination; Inventory movement history retains bounded server pages with source, product and inclusive Bangladesh date filters.
+Customer and purchase directories use `useGridPageSize` for three desktop rows based on actual CSS columns, or ten cards on phones. `useBatchedDirectory` separately caches 25-record server batches per filter/sort scope and fetches only missing batches for the displayed range, including direct page jumps. Existing mutation invalidation and active-read refresh apply to batches. Equal grid columns preserve card widths. POS lists and the main Inventory catalog scroll without pagination; Inventory movement history retains bounded server pages with source, product and inclusive Bangladesh date filters.

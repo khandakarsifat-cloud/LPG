@@ -271,7 +271,7 @@ async page => {
   const searchControl=page.getByLabel('Search purchases',{exact:true});
   await searchControl.fill('  JAMUNA   ashok 22mm 12KG  ');
   await settlePurchases();
-  await check(await page.locator('.purchase-card').count()===5,'AND search matches company, vehicle and specifications');
+  await check(await page.locator('.purchase-card').count()===Math.min(purchasePageLimit,5)&&(await page.locator('.purchase-results-heading').textContent()).includes('5'),'AND search matches company, vehicle and specifications');
   await page.getByRole('combobox',{name:'Purchase status',exact:true}).selectOption('received');
   await settlePurchases();
   await page.getByRole('combobox',{name:'Payment status',exact:true}).selectOption('paid');
@@ -280,10 +280,10 @@ async page => {
   await settlePurchases();
   await page.getByLabel('To',{exact:true}).fill('2026-10-07');
   await settlePurchases();
-  await check(await page.locator('.purchase-card').count()===3,'search combines with status, payment and inclusive dates');
+  await check(await page.locator('.purchase-card').count()===Math.min(purchasePageLimit,3)&&(await page.locator('.purchase-results-heading').textContent()).includes('3'),'search combines with status, payment and inclusive dates');
   await searchControl.fill('jamuna ashok, bashundhara 12kg');
   await settlePurchases();
-  await check(await page.locator('.purchase-card').count()===5,'OR groups stay within active filters');
+  await check(await page.locator('.purchase-card').count()===Math.min(purchasePageLimit,5)&&(await page.locator('.purchase-results-heading').textContent()).includes('5'),'OR groups stay within active filters');
   await page.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('amount_desc');
   await settlePurchases();
   await check(await page.locator('.purchase-card').first().getAttribute('data-purchase-id')===purchases.find(p=>p.plant_name==='Delivery plant 7').purchase_id,'highest total first');

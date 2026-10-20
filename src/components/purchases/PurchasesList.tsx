@@ -21,13 +21,13 @@ export function PurchasesList({ totalPurchases }: { totalPurchases?: number }) {
   const [sort, setSort] = useState<PurchaseSort>('date_desc');
   const hasFilters = search.trim() !== '' || status !== 'all' || payment !== 'all' || from !== '' || to !== '' || sort !== 'date_desc';
   const resetFilters = () => { setSearch(''); setStatus('all'); setPayment('all'); setFrom(''); setTo(''); setSort('date_desc'); };
-  const { anchor, pageSize } = useGridPageSize(200, 10);
   const deferredSearch = useDeferredValue(search);
   const deferred = { search: deferredSearch, status, payment, from, to, sort };
-  const resetKey = JSON.stringify([deferred, pageSize]);
-  const [position, setPosition] = useState({ page: 0, key: resetKey });
-  const page = position.key === resetKey ? position.page : 0;
-  const setPage = (next: number) => setPosition({ page: next, key: resetKey });
+  const resetKey = JSON.stringify(deferred);
+  const { anchor, grid, pageSize } = useGridPageSize();
+  const [position, setPosition] = useState({ page: 0, size: pageSize, key: resetKey });
+  const page = position.key === resetKey ? Math.floor(position.page * position.size / pageSize) : 0;
+  const setPage = (next: number) => setPosition({ page: next, size: pageSize, key: resetKey });
   const query = usePurchaseDirectory(deferred, page, pageSize);
   const purchases = query.data?.entries ?? [];
   const total = query.data?.total ?? 0;
@@ -59,7 +59,7 @@ export function PurchasesList({ totalPurchases }: { totalPurchases?: number }) {
       {page > 0 && <button className="btn btn-secondary" onClick={() => setPage(0)}>Go to first page</button>}
       {hasFilters && <button className="btn btn-secondary" onClick={resetFilters}>Clear filters</button>}
     </div>}
-    <div className="purchases-grid" aria-busy={query.isFetching}>{purchases.map(purchase => <button key={purchase.purchase_id} className="glass-panel purchase-card purchase-card-button" data-status={purchase.status} data-purchase-id={purchase.purchase_id} onClick={() => setSelected(purchase)}>
+    <div className="purchases-grid" ref={grid} aria-busy={query.isFetching}>{purchases.map(purchase => <button key={purchase.purchase_id} className="glass-panel purchase-card purchase-card-button" data-status={purchase.status} data-purchase-id={purchase.purchase_id} onClick={() => setSelected(purchase)}>
       <div className="purchase-card-header"><div><strong>{purchase.company_name ?? 'Historical purchase'}</strong></div><PurchaseStatuses purchase={purchase} /></div>
       <div className="purchase-card-meta"><div className="purchase-info-row"><Calendar size={14} /><span>{new Date(purchase.created_at).toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
         <div className="purchase-info-row"><Truck size={14} /><span>{purchase.truck_name ?? 'Truck not assigned'}</span></div></div>

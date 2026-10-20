@@ -10,32 +10,24 @@ export function usePageSize(desktop: number, phone: number) {
   return narrow ? phone : desktop;
 }
 
-/** Match server pages to complete card rows in the actual workspace, including a collapsed sidebar. */
-export function useGridPageSize(cardHeight = 200, gap = 8) {
+/** Desktop pages have three normal-width rows; phone pages show ten cards. */
+export function useGridPageSize() {
   const anchor = useRef<HTMLDivElement>(null);
-  const [pageSize, setPageSize] = useState(6);
+  const [grid, setGrid] = useState<HTMLDivElement | null>(null);
+  const [columns, setColumns] = useState(4);
+  const pageSize = usePageSize(columns * 3, 10);
   useLayoutEffect(() => {
-    const element = anchor.current;
-    if (!element) return;
-    const workspace = element.closest('.page-content');
+    if (!grid) return;
     const measure = () => {
-      const rect = element.getBoundingClientRect();
-      const columns = window.matchMedia('(max-width: 600px)').matches ? 1 : Math.max(1, Math.floor((rect.width + gap) / (240 + gap)));
-      const bottom = workspace?.getBoundingClientRect().bottom ?? window.innerHeight;
-      const available = bottom - rect.top - (workspace?.scrollTop ?? 0) - 12;
-      const rows = Math.max(2, Math.floor((available + gap) / (cardHeight + gap)));
-      const next = Math.min(rows, Math.floor(100 / columns)) * columns;
-      setPageSize(previous => previous === next ? previous : next);
+      const next = Math.max(1, getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length);
+      setColumns(previous => previous === next ? previous : next);
     };
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    if (element.parentElement) observer.observe(element.parentElement);
-    if (workspace) observer.observe(workspace);
-    window.addEventListener('resize', measure);
-    return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
-  }, [cardHeight, gap]);
-  return { anchor, pageSize };
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, [grid]);
+  return { anchor, grid: setGrid, pageSize };
 }
 
 /** Selection, totals and filters always refer to the full collection, not this slice. */
