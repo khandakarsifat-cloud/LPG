@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { defaultCustomerFilters } from '../lib/customer';
 import { assertBDMobilePhone } from '../lib/bdPhone';
@@ -11,6 +11,7 @@ export const CUSTOMER_TRANSACTION_PAGE_SIZE = 4;
 export function useCustomerDirectory(filters: CustomerFilters, page: number, pageSize = CUSTOMER_PAGE_SIZE) {
   return useQuery<CustomerResult<CustomerSummary>>({
     queryKey: [...customerKeys.all, 'directory', filters, page, pageSize],
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase.rpc('get_customer_directory', { p_filters: filters, p_offset: page * pageSize, p_limit: pageSize }).abortSignal(signal);
       if (error) throw error;

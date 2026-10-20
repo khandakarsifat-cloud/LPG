@@ -4,6 +4,14 @@ export type InventoryHistorySource = 'all' | 'purchase' | 'sale';
 export const PURCHASE_MOVEMENT_FILTER = 'reference_type.in.(purchase_dispatch,purchase_receipt_refill,purchase_receipt_new,purchase_cancellation),movement_type.in.(purchase,refill,purchase_adjustment)';
 export const SALE_MOVEMENT_FILTER = 'reference_type.eq.sale,movement_type.eq.sale';
 
+/** Inclusive calendar days in Bangladesh, expressed as a half-open timestamp range. */
+export function inventoryHistoryBounds(from: string, to: string) {
+  const since = from ? new Date(`${from}T00:00:00+06:00`).toISOString() : undefined;
+  const end = to ? new Date(`${to}T00:00:00+06:00`) : undefined;
+  if (end) end.setUTCDate(end.getUTCDate() + 1);
+  return { since, until: end?.toISOString() };
+}
+
 /** Full saved references only. A short note or coincidental UUID is not a relationship. */
 export function inventoryMovementSource(movement: Pick<InventoryMovement, 'reference_type' | 'reference_id' | 'movement_type' | 'notes'>): {
   kind: Exclude<InventoryHistorySource, 'all'> | null; id: string | null;

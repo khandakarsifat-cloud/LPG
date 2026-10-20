@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Truck, CheckCircle2, CreditCard, Save } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useUpdatePurchase, useDispatchPurchase, usePayPurchase, useReceivePurchase, useCancelPurchase, purchaseKeys } from '../../hooks/usePurchases';
+import { useUpdatePurchase, useDispatchPurchase, usePayPurchase, useReceivePurchase, useCancelPurchase, usePurchaseDetails, purchaseKeys } from '../../hooks/usePurchases';
 import { useItems } from '../../hooks/useInventory';
 import { purchaseAccess, purchaseDraft, purchaseTotals, validatePurchaseDraft, purchaseEmptyShortages, PurchaseStockError, type EmptyShortage } from '../../lib/purchase';
 import { formatBDT } from '../../lib/formatBDT';
@@ -14,7 +14,9 @@ import { PurchaseStockWarning } from './PurchaseStockWarning';
 import type { Purchase } from '../../types/purchase';
 
 export function UpdatePurchaseModal({ open, purchase, onClose }: { open: boolean; purchase: Purchase | null; onClose: () => void }) {
-  return open && purchase ? <PurchaseDetails key={purchase.purchase_id} purchase={purchase} onClose={onClose} /> : null;
+  const fresh = usePurchaseDetails(open && purchase ? purchase.purchase_id : null);
+  const current = purchase && fresh.data && fresh.data.revision >= purchase.revision ? fresh.data : purchase;
+  return open && current ? <PurchaseDetails key={current.purchase_id} purchase={current} onClose={onClose} /> : null;
 }
 
 function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: () => void }) {
@@ -70,7 +72,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
       await update.mutateAsync({ purchase_id: purchase.purchase_id, revision: draftRevision,
         draft: access.financials ? draft : { notes: draft.notes },
       });
-      const saved = qc.getQueryData<Purchase[]>(purchaseKeys.purchases)?.find(p => p.purchase_id === purchase.purchase_id);
+      const saved = qc.getQueryData<Purchase>(purchaseKeys.detail(purchase.purchase_id));
       if (saved) {
         const next = purchaseDraft(saved);
         setDraft(next); setBaseline(JSON.stringify(next)); setDraftRevision(saved.revision);

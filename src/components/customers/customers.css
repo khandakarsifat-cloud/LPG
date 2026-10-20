@@ -193,14 +193,15 @@
   color:var(--text-muted)
 }
 .customer-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));
-  align-items:start;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:stretch;
   gap:8px
 }
 .customer-card{
   width:100%;
-  max-width:320px;
+  max-width:none;
+  flex:1 1 240px;
   display:flex;
   flex-direction:column;
   text-align:left;
@@ -860,10 +861,11 @@
     display:none
   }
   .customer-grid{
-    grid-template-columns:1fr;
+    max-width:none;
     gap:.625rem
   }
   .customer-card{
+    flex-basis:100%;
     padding:.625rem;
     max-width:none
   }

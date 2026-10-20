@@ -1,8 +1,8 @@
 import { useDeferredValue, useState } from 'react';
 import { Box, Clock3, Droplets, MapPin, Phone, Plus, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { CUSTOMER_PAGE_SIZE, useCustomerDirectory, useCustomerOverview } from '../hooks/useCustomerDirectory';
-import { usePageSize } from '../hooks/useListPage';
+import { useCustomerDirectory, useCustomerOverview } from '../hooks/useCustomerDirectory';
+import { useGridPageSize } from '../hooks/useListPage';
 import { customerActivityFilterCount, customerDay, customerDisplayName, defaultCustomerFilters } from '../lib/customer';
 import { formatBDQty } from '../lib/formatBDT';
 import { PurchaseSelect } from '../components/purchases/PurchaseControls';
@@ -16,7 +16,7 @@ import '../components/customers/customers.css';
 export const CustomersPage = () => {
   const { can } = useAuth();
   const [filters, setFilters] = useState(defaultCustomerFilters); const deferred = useDeferredValue(filters);
-  const pageSize = usePageSize(CUSTOMER_PAGE_SIZE, 4);
+  const { anchor, pageSize } = useGridPageSize();
   const [position, setPosition] = useState({ page: 0, size: pageSize });
   const page = position.size === pageSize ? position.page : 0;
   const setPage = (next: number) => setPosition({ page: next, size: pageSize });
@@ -52,7 +52,8 @@ export const CustomersPage = () => {
       </div>}
     </div>
     <div className="customer-directory-heading"><h2>Customer directory <span>{query.data ? formatBDQty(query.data.total) : ''}</span></h2><small>Total sold: {scope ? `${deferred.from || 'Start'} – ${deferred.to || 'Today'} · ${deferred.item_ids === null ? 'all products' : `${deferred.item_ids.length} products`}` : 'all time, all products'}</small></div>
-    {query.data && <div className="customer-directory-pages"><Pagination page={page} pageSize={pageSize} total={query.data.total} label="customers" onChange={setPage} busy={query.isFetching} alwaysVisible /></div>}
+    <div className="customer-directory-pages"><Pagination page={page} pageSize={pageSize} total={query.data?.total ?? 0} label="customers" onChange={setPage} busy={query.isFetching} alwaysVisible /></div>
+    <div className="directory-page-anchor" ref={anchor} />
     {query.isPending && <div className="customer-empty" role="status">Loading customers…</div>}
     {query.isError && <div className="purchase-error" role="alert">Customers could not be loaded. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></div>}
     {query.data && <div aria-busy={query.isFetching}><div className="customer-grid">{query.data.entries.map(customer => {

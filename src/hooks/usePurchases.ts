@@ -1,23 +1,56 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { Purchase, PurchaseActivity, CreatePurchasePayload, PurchaseDraft } from '../types/purchase';
 import { PurchaseStockError, type EmptyShortage } from '../lib/purchase';
+import type { PurchaseFilters } from '../lib/purchase';
 
 export const purchaseKeys = {
   all: ['purchases'] as const,
   purchases: ['purchases', 'list'] as const,
   activity: (id: string) => ['purchases', 'activity', id] as const,
+  detail: (id: string) => ['purchases', 'detail', id] as const,
 };
 
-export const usePurchases = ({ enabled = true }: { enabled?: boolean } = {}) => useQuery<Purchase[]>({
-  queryKey: purchaseKeys.purchases,
-  enabled,
-  queryFn: async () => {
-    const { data, error } = await supabase.rpc('list_purchases');
+export const usePurchases = ({ ids, enabled = true }: { ids: string[]; enabled?: boolean }) => useQuery<Purchase[]>({
+  queryKey: [...purchaseKeys.purchases, ids],
+  enabled: enabled && ids.length > 0,
+  queryFn: async ({ signal }) => {
+    const { data, error } = await supabase.rpc('get_purchases_by_ids', { p_ids: ids }).abortSignal(signal);
     if (error) throw error;
     return (data ?? []) as Purchase[];
   },
   refetchInterval: 30_000,
+});
+
+export const usePurchaseDetails = (id: string | null) => useQuery<Purchase>({
+  queryKey: purchaseKeys.detail(id ?? ''), enabled: Boolean(id),
+  queryFn: async ({ signal }) => {
+    const { data, error } = await supabase.rpc('get_purchases_by_ids', { p_ids: [id] }).abortSignal(signal);
+    if (error) throw error;
+    const rows = (data ?? []) as Purchase[];
+    if (!rows[0]) throw new Error('Purchase not found.');
+    return rows[0];
+  },
+  staleTime: 0, refetchInterval: 30_000,
+});
+
+export const usePurchaseDirectory = (filters: PurchaseFilters, page: number, pageSize: number) => useQuery<{ entries: Purchase[]; total: number }>({
+  queryKey: [...purchaseKeys.all, 'directory', filters, page, pageSize],
+  placeholderData: keepPreviousData,
+  queryFn: async ({ signal }) => {
+    const { data, error } = await supabase.rpc('get_purchase_directory', { p_filters: filters, p_offset: page * pageSize, p_limit: pageSize }).abortSignal(signal);
+    if (error) throw error;
+    return data as { entries: Purchase[]; total: number };
+  }, refetchInterval: 30_000,
+});
+
+export const usePurchaseOverview = () => useQuery<{ total: number; created: number; in_transit: number; unpaid: number; company_payable: number }>({
+  queryKey: [...purchaseKeys.all, 'overview'],
+  queryFn: async ({ signal }) => {
+    const { data, error } = await supabase.rpc('get_purchase_overview').abortSignal(signal);
+    if (error) throw error;
+    return data as { total: number; created: number; in_transit: number; unpaid: number; company_payable: number };
+  }, refetchInterval: 30_000,
 });
 
 export const PURCHASE_ACTIVITY_PAGE_SIZE = 6;

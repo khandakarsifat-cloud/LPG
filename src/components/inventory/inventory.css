@@ -83,10 +83,15 @@
 
 /* The overview uses the same filled / empty symbols as product tiles. */
 .inv-history { display: flex; flex-direction: column; gap: .875rem; }
-.inv-history-toolbar { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(12rem, 1.4fr) auto; align-items: end; gap: .75rem; padding: .875rem; }
+.inv-history-toolbar { display: grid; grid-template-columns: minmax(0,.9fr) minmax(0,1fr) minmax(0,1.15fr); align-items: end; gap: .5rem; padding: .625rem; max-width: 46rem; }
 .inv-history-toolbar .input-group { margin: 0; min-width: 0; gap: .25rem; }
 .inv-history-toolbar .input-label { margin: 0; font-size: .75rem; }
-.inv-history-toolbar .input-field, .inv-history-toolbar .btn { min-height: 2.375rem; font-size: .8125rem; }
+.inv-history-toolbar .input-field, .inv-history-toolbar .btn { min-height: 2rem; font-size: .75rem; padding: .375rem .5rem; }
+.inv-timeline-filter .btn { width: 100%; justify-content: flex-start; gap: .375rem; }
+.inv-timeline-filter .btn span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.inv-timeline-filter .btn[data-filtered=true] { border-color: var(--primary); color: var(--primary); }
+.inv-timeline-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; }
+.inv-history-actions-bar { display: flex; align-items: center; gap: .375rem; }
 .inv-product-filter > .btn { width: 100%; justify-content: flex-start; }
 .inv-filter-count { margin-left: auto; padding: .125rem .4375rem; border-radius: .375rem; font-size: .75rem; background: var(--primary-weak); color: var(--primary); }
 .inv-clear-filters { white-space: nowrap; }
@@ -125,7 +130,11 @@
 @media (max-width: 600px) {
   .inventory-page .inv-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .inventory-page .inv-tab { justify-content: center; padding: .5rem .375rem; gap: .3125rem; font-size: .75rem; }
-  .inv-history-toolbar { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: .625rem; padding: .75rem; }
+  .inv-history-toolbar { grid-template-columns: minmax(0,.9fr) minmax(0,1fr) minmax(0,1.1fr); gap: .375rem; padding: .5rem; }
+  .inv-history-toolbar .input-field, .inv-history-toolbar .btn { padding: .375rem; font-size: .6875rem; }
+  .inv-history-toolbar .input-label { font-size: .6875rem; }
+  .inv-product-filter .btn > svg { display: none; }
+  .inv-filter-count { font-size: .625rem; padding: .0625rem .1875rem; }
   .inv-history-toolbar .inv-clear-filters { grid-column: 1 / -1; justify-self: end; min-height: 1.75rem; padding: .125rem .25rem; }
   .inv-product-filter > .btn { gap: .375rem; padding: .5rem; }
   .inv-history-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; padding: .875rem; }
@@ -134,7 +143,9 @@
   .inv-picker-toolbar .btn { font-size: .75rem; padding: .375rem .5rem; }
 }
 @media (max-width: 380px) {
-  .inv-history-toolbar { grid-template-columns: minmax(0, 1fr); }
+  .inv-history-toolbar { grid-template-columns: minmax(0,.9fr) minmax(0,1fr) minmax(0,1.1fr); }
+  .inv-history-actions-bar .btn { padding-inline: .25rem; font-size: .6875rem; }
+  .inv-history-heading h3 { font-size: .8125rem; }
   .inv-history-toolbar .inv-clear-filters { grid-column: 1; }
 }
 

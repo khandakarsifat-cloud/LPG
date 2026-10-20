@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import type { Item, ItemWithBrand, InventoryMovement, CreateItemPayload, CreateMovementPayload } from '../types/inventory';
 import type { ProductInventory, SaveProductPrices, SetProductCommission } from '../types/inventory';
 import { posKeys } from './usePOS';
-import { inventoryMovementSource, PURCHASE_MOVEMENT_FILTER, SALE_MOVEMENT_FILTER, type InventoryHistorySource } from '../lib/inventoryMovement';
+import { inventoryHistoryBounds, inventoryMovementSource, PURCHASE_MOVEMENT_FILTER, SALE_MOVEMENT_FILTER, type InventoryHistorySource } from '../lib/inventoryMovement';
 
 // ── Query Keys ────────────────────────────────────────────────────────────────
 export const inventoryKeys = {
@@ -60,13 +60,13 @@ export const useInventoryMovements = (limit = 100) =>
   });
 
 export const INVENTORY_HISTORY_PAGE_SIZE = 10;
-export const useInventoryHistory = ({ source, itemIds, page }: {
-  source: InventoryHistorySource; itemIds: string[] | null; page: number;
+export const useInventoryHistory = ({ source, itemIds, page, from, to }: {
+  source: InventoryHistorySource; itemIds: string[] | null; page: number; from: string; to: string;
 }) => {
   const { can } = useAuth();
   const canReadSales = can('sales:view') || can('receipts:print') || can('dashboard:view');
   return useQuery({
-    queryKey: [...inventoryKeys.movements, 'history', source, itemIds ? [...itemIds].sort() : null, page, canReadSales],
+    queryKey: [...inventoryKeys.movements, 'history', source, itemIds ? [...itemIds].sort() : null, from, to, page, canReadSales],
     queryFn: async ({ signal }) => {
       if (itemIds?.length === 0) return { entries: [], hasMore: false };
       let query = supabase.from('inventory_movements')
@@ -75,6 +75,9 @@ export const useInventoryHistory = ({ source, itemIds, page }: {
       if (source === 'sale') query = query.or(SALE_MOVEMENT_FILTER);
       if (source === 'purchase') query = query.or(PURCHASE_MOVEMENT_FILTER);
       if (itemIds) query = query.in('item_id', itemIds);
+      const { since, until } = inventoryHistoryBounds(from, to);
+      if (since) query = query.gte('created_at', since);
+      if (until) query = query.lt('created_at', until);
       const start = page * INVENTORY_HISTORY_PAGE_SIZE;
       const { data, error } = await query.range(start, start + INVENTORY_HISTORY_PAGE_SIZE).abortSignal(signal);
       if (error) throw error;

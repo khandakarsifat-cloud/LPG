@@ -1,5 +1,3 @@
-import { useListPage } from '../../hooks/useListPage';
-import { Pagination } from '../ui/Pagination';
 import { Box, Minus, Package, Plus, RefreshCw, RotateCcw } from 'lucide-react';
 import { useInventoryBalances } from '../../hooks/useInventory';
 import { usePriceBooks } from '../../hooks/usePOS';
@@ -114,7 +112,6 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
   const { data: priceBooks, isLoading: loadingPrices } = usePriceBooks();
 
   const items = allItems?.filter(i => !i.mouth_size || i.mouth_size === mouthSize);
-  const paging = useListPage(items ?? [], 12, mouthSize);
 
   if (loadingItems || loadingPrices) {
     return (
@@ -141,7 +138,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
 
   return (
     <div className="pos-products-grid">
-      {paging.entries.map(item => {
+      {(items ?? []).map(item => {
         const refillPrice = getPrice(item.item_id, 'refill');
         const packagePrice = getPrice(item.item_id, 'package');
         const inStock = item.filled_quantity > 0;
@@ -230,7 +227,6 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
           </div>
         );
       })}
-      <div style={{ gridColumn: "1 / -1" }}><Pagination {...paging} onChange={paging.setPage} label="products" /></div>
     </div>
   );
 };

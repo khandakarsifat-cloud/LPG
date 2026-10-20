@@ -18,6 +18,24 @@ async page => {
   const plants=Array.from({length:14},(_,n)=>({plant_id:id(1000+n),plant_name:`Plant ${n+1}`,brand_id:brands[0].brand_id,brand_name:brands[0].brand_name,location:'Dhaka',is_active:true,officer_id:null}));
   const calls=[];
   await page.route('**/auth/v1/**',r=>r.fulfill({json:user}));
+
+  const purchasePage = (args) => {
+    const f={search:'',status:'all',payment:'all',from:'',to:'',sort:'date_desc',...args.p_filters};
+    const groups=f.search.toLowerCase().split(',').map(g=>g.trim().split(/\s+/).filter(Boolean)).filter(g=>g.length);
+    const rows=purchases.filter(p=>{
+      const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dhaka',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(p.created_at));
+      const text=[p.purchase_id,p.company_name,p.plant_name,p.truck_name,p.notes,p.receipt_notes,p.status,p.payment_status,...p.items.flatMap(i=>[i.brand_name,`${i.size_kg}kg`,`${i.size_kg} kg`,i.mouth_size,i.type==='refill'?'refill exchange':'package new cylinders'])].join(' ').toLowerCase();
+      return (f.status==='all'||p.status===f.status)&&(f.payment==='all'||p.payment_status===f.payment)&&(!f.from||day>=f.from)&&(!f.to||day<=f.to)&&(!groups.length||groups.some(g=>g.every(t=>text.includes(t))));
+    }).sort((a,b)=>{
+      const d=f.sort.startsWith('amount')?Number(a.total_cost)-Number(b.total_cost):Date.parse(a.created_at)-Date.parse(b.created_at);
+      return (f.sort.endsWith('desc')?-d:d)||a.purchase_id.localeCompare(b.purchase_id);
+    });
+    return {total:rows.length,entries:rows.slice(args.p_offset||0,(args.p_offset||0)+(args.p_limit||6))};
+  };
+  const purchaseOverview=()=>{
+    const unpaid=purchases.filter(p=>p.payment_status==='unpaid'&&!['created','cancelled'].includes(p.status));
+    return {total:purchases.length,created:purchases.filter(p=>p.status==='created').length,in_transit:purchases.filter(p=>p.status==='in_transit').length,unpaid:unpaid.length,company_payable:unpaid.reduce((sum,p)=>sum+Number(p.company_payable),0)};
+  };
   await page.route('**/rest/v1/**',async route=>{
     const req=route.request(),url=new URL(req.url()),name=url.pathname.split('/').pop(),args=req.method()==='POST'?req.postDataJSON():{};
     calls.push({name,args});let data=[];
@@ -28,7 +46,10 @@ async page => {
     else if(name==='list_lpg_brands')data=brands;
     else if(name==='list_trucks')data=trucks;
     else if(name==='list_transits')data=transits;
-    else if(name==='list_purchases')data=purchases;
+    else if(name==='list_purchases')throw Error('Unbounded purchase read');
+    else if(name==='get_purchase_directory')data=purchasePage(args);
+    else if(name==='get_purchase_overview')data=purchaseOverview();
+    else if(name==='get_purchases_by_ids')data=purchases.filter(p=>args.p_ids.includes(p.purchase_id));
     else if(name==='list_employees')data=employees;
     else if(name==='list_employee_payments')data=payments;
     else if(name==='list_employee_payment_categories')data=[{category_id:id(950),code:'bonus',name:'Bonus',category_kind:'bonus',is_active:true}];
@@ -42,10 +63,13 @@ async page => {
   });
   const check=(value,message)=>{if(!value)throw Error(message);};
   await page.goto(origin+'/?pagination-fixtures=1#/purchases');await page.locator('.purchase-card').first().waitFor();
-  check(await page.locator('.purchase-card').count()===6,'Purchase directory page size');
+  await page.waitForFunction(()=>document.querySelector('.purchases-grid')?.getAttribute('aria-busy')==='false');
+  const firstPageSize=calls.filter(c=>c.name==='get_purchase_directory').at(-1).args.p_limit;
+  check(await page.locator('.purchase-card').count()===Math.min(firstPageSize,purchases.length),'Responsive purchase directory page size');
   check((await page.locator('.purchase-list-summary').textContent()).includes('14'),'Purchase overview must use all pages');
   await page.getByRole('navigation',{name:'purchases pages'}).getByRole('button',{name:'Next page'}).click();
-  check(await page.locator('.purchase-card').count()===6,'Remaining purchases missing');
+  await page.waitForFunction(()=>document.querySelector('.purchases-grid')?.getAttribute('aria-busy')==='false');
+  check(await page.locator('.purchase-card').count()===Math.min(firstPageSize,purchases.length-firstPageSize),'Remaining purchases missing');
   await page.locator('.purchase-card').first().click();
   const purchase=page.getByRole('dialog',{name:'Purchase details',exact:true});await purchase.locator('.purchase-line').first().waitFor();
   await purchase.getByLabel('Expected refills',{exact:true}).first().fill('3');
@@ -62,9 +86,8 @@ async page => {
   check(saved?.items.length===8&&saved.items[0].quantity===3&&saved.items[7].item_id===items[7].item_id,'Saved purchase must contain all draft pages');
   await purchase.getByRole('button',{name:'Close dialog',exact:true}).click();
   await page.goto(origin+'/#/inventory');await page.locator('.inv-tile:not(.inv-tile-skeleton)').first().waitFor();
-  check(await page.locator('.inv-tile').count()===24,'Catalog first page size');
-  await page.getByRole('navigation',{name:'products pages'}).getByRole('button',{name:'Next page'}).click();
-  check(await page.locator('.inv-tile').count()===6,'Catalog last page missing');
+  check(await page.locator('.inv-tile').count()===items.length,'Inventory must show the complete catalog');
+  check(await page.getByRole('navigation',{name:'products pages'}).count()===0,'Inventory items must not paginate');
   await page.goto(origin+'/#/employees');await page.locator('.employees-table tbody tr').first().waitFor();
   check(await page.locator('.employees-table tbody tr').count()===12,'Employee directory page size');
   await page.getByRole('navigation',{name:'employees pages'}).getByRole('button',{name:'Next page'}).click();

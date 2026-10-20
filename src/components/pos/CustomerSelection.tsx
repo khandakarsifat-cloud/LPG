@@ -1,5 +1,3 @@
-import { useListPage } from '../../hooks/useListPage';
-import { Pagination } from '../ui/Pagination';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Edit2, MapPin, Phone, Save, Store, User } from 'lucide-react';
@@ -37,7 +35,6 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(customer?.customer_id ?? null);
 
   const { data: customers } = useCustomers(searchTerm);
-  const customerPages = useListPage(customers ?? [], 8, searchTerm);
   const addCustomer = useAddCustomer();
 
   const currentCustomer = customer ?? {};
@@ -269,7 +266,7 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
             overscrollBehavior: 'contain',
             marginTop: '4px',
           }}>
-            {customerPages.entries.map(c => (
+            {(customers ?? []).map(c => (
               <div
                 key={c.customer_id}
                 style={{
@@ -340,7 +337,6 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
                 </div>
               </div>
             ))}
-            <div onMouseDown={event => event.preventDefault()}><Pagination {...customerPages} onChange={customerPages.setPage} label="customers" /></div>
           </div>
         )}
       </div>

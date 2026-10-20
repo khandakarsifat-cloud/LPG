@@ -27,12 +27,15 @@ async page => {
     else if(name==='items')data=items;
     else if(name==='price_books')data=items.flatMap(item=>['refill','package'].map(type=>({item_id:item.item_id,price_type:type,customer_tier:'retail',price:type==='refill'?1250:3500,effective_from:'2020-01-01',effective_to:null})));
     else if(name==='get_dashboard_stats')data={todayRevenue:123456,todayMovements:25,totalCustomers:35};
-    else if(name==='get_customer_directory')data={entries:Array.from({length:6},(_,n)=>({customer_id:id(1500+n),display_name:'Customer '+n,name:'Customer '+n,tier:'retail',phone:'01712345678',address:'Dhaka',created_at:now,transactions:10,refill:5,package:2,total_sold:7,last_transaction_at:now})),total:30};
+    else if(name==='get_customer_directory')data={entries:Array.from({length:Math.min(30,Number(route.request().postDataJSON()?.p_limit??6))},(_,n)=>({customer_id:id(1500+n),display_name:'Customer '+n,name:'Customer '+n,tier:'retail',phone:'01712345678',address:'Dhaka',created_at:now,transactions:10,refill:5,package:2,total_sold:7,last_transaction_at:now})),total:30};
     else if(name==='get_customer_overview')data={wholesale:15,retail:15,new_wholesale:2,new_retail:3,inactive_wholesale:1,inactive_retail:2,week_start:now,inactive_since:now};
     else if(name==='list_lpg_brands')data=brands;
     else if(name==='list_trucks')data=trucks;
     else if(name==='list_transits')data=transits;
     else if(name==='list_purchases')data=purchases;
+    else if(name==='get_purchase_directory'){const a=route.request().postDataJSON();data={total:purchases.length,entries:purchases.slice(a.p_offset,a.p_offset+a.p_limit)};}
+    else if(name==='get_purchase_overview'){const unpaid=purchases.filter(p=>p.payment_status==='unpaid'&&!['created','cancelled'].includes(p.status));data={total:purchases.length,created:purchases.filter(p=>p.status==='created').length,in_transit:purchases.filter(p=>p.status==='in_transit').length,unpaid:unpaid.length,company_payable:unpaid.reduce((sum,p)=>sum+Number(p.company_payable),0)};}
+    else if(name==='get_purchases_by_ids')data=purchases.filter(p=>route.request().postDataJSON().p_ids.includes(p.purchase_id));
     else if(name==='list_employees')data=employees;
     else if(name==='list_employee_payments')data=payments;
     else if(name==='list_employee_payment_categories')data=[{category_id:id(950),code:'bonus',name:'Bonus',category_kind:'bonus',is_active:true}];
@@ -65,10 +68,32 @@ async page => {
           return {width:content.clientWidth,scroll:content.scrollWidth,root:document.documentElement.scrollWidth,viewport:innerWidth,scrolling,bar:bar.getBoundingClientRect().bottom,top:content.getBoundingClientRect().top};
         });
         if(result.scroll>result.width+2||result.root>width+2||result.scrolling||result.top<result.bar-1) failures.push({path,width,height,collapsed,...result});
+        if(path==='/purchases'||path==='/customers'){
+          const selector=path==='/purchases'?'.purchases-grid':'.customer-grid';
+          await page.locator(selector+' > button').first().waitFor();
+          await page.waitForFunction(selector=>{const el=document.querySelector(selector);return (selector==='.customer-grid'?el.parentElement:el)?.getAttribute('aria-busy')==='false';},selector);
+          const row=await page.locator(selector).evaluate(grid=>{const box=grid.getBoundingClientRect(),cards=[...grid.children].map(c=>c.getBoundingClientRect()),top=Math.max(...cards.map(c=>Math.round(c.top))),last=cards.filter(c=>Math.abs(c.top-top)<2);return {left:Math.min(...last.map(c=>c.left)),right:Math.max(...last.map(c=>c.right)),expectedLeft:box.left,expectedRight:box.right,count:cards.length};});
+          if(Math.abs(row.left-row.expectedLeft)>2||Math.abs(row.right-row.expectedRight)>2)failures.push({path,width,height,collapsed,lastRowNotFilled:row});
+          if(!collapsed&&[1920,1366,390].includes(width))await page.screenshot({path:'.temp/responsive/'+path.slice(1)+'-filled-'+width+'.png',animations:'disabled'});
+        }
+
       }
       await page.goto(origin+'/#/pos');await page.locator('.pos-item-row').first().waitFor();
       const pos=await page.evaluate(()=>({card:document.querySelector('.pos-product-card').getBoundingClientRect().width,empty:document.querySelector('.pos-cart-empty').getBoundingClientRect().height,lines:document.querySelector('.pos-cart-lines').getBoundingClientRect().height,columns:getComputedStyle(document.querySelector('.pos-products-grid')).gridTemplateColumns.split(' ').length}));
-      if(pos.card>(width<600?401:281)||pos.empty>110||pos.lines<pos.empty)failures.push({path:'POS density',width,height,collapsed,...pos});
+      const fillsCart=width>=1200&&await page.locator('.page-content').evaluate(el=>el.clientHeight-parseFloat(getComputedStyle(el).paddingTop)-parseFloat(getComputedStyle(el).paddingBottom)>=512);
+      if(pos.card>(width<600?401:281)||(!fillsCart&&pos.empty>110)||pos.lines<pos.empty)failures.push({path:'POS density',width,height,collapsed,...pos});
+      if(fillsCart){
+        const available=await page.locator('.pos-cart-lines').evaluate(el=>el.clientHeight-parseFloat(getComputedStyle(el).paddingTop)-parseFloat(getComputedStyle(el).paddingBottom));
+        if(Math.abs(pos.empty-available)>2)failures.push({path:'Empty state fills cart',width,height,collapsed,available,...pos});
+      }
+      if(width>=1200){
+        const bounds=await page.evaluate(()=>{
+          const content=document.querySelector('.page-content'),panel=document.querySelector('.pos-side-panel');
+          const box=content.getBoundingClientRect(),style=getComputedStyle(content),rect=panel.getBoundingClientRect();
+          return {top:rect.top,bottom:rect.bottom,expectedTop:box.top+parseFloat(style.paddingTop),expectedBottom:box.bottom-parseFloat(style.paddingBottom)};
+        });
+        if(Math.abs(bounds.top-bounds.expectedTop)>2||Math.abs(bounds.bottom-bounds.expectedBottom)>2)failures.push({path:'POS sidebar fills viewport',width,height,collapsed,...bounds});
+      }
       samples.push({width,height,collapsed,...pos});
     }
   }
@@ -78,9 +103,9 @@ async page => {
   if(await page.locator('.sidebar.mobile-open').count())failures.push('Mobile drawer did not close');
   await page.goto(origin+'/#/pos');await page.locator('.pos-item-row').first().waitFor();
   for(const button of (await page.getByRole('button',{name:/^New Package for /}).all()).slice(0,8)) await button.click();
-  await page.getByRole('navigation',{name:'cart lines pages'}).getByRole('button',{name:'Next page'}).click();
-  await page.getByRole('navigation',{name:'cart lines pages'}).getByRole('button',{name:'Previous page'}).click();
-  if(!(await page.locator('.pos-cart').textContent()).includes('28,000'))failures.push('Cart totals omitted paginated lines');
+  if(await page.locator('.pos-cart-line').count()!==8)failures.push('Cart must render all eight lines');
+  if(await page.getByRole('navigation',{name:/products pages|cart lines pages|customers pages/}).count())failures.push('POS must not paginate products, cart or customers');
+  if(!(await page.locator('.pos-cart').textContent()).includes('28,000'))failures.push('Cart totals omitted lines');
   for(const [width,height,label] of [[1920,1080,'desktop'],[1280,600,'short'],[834,1194,'tablet'],[390,844,'mobile']]){
     await page.setViewportSize({width,height});await page.locator('.page-content').evaluate(e=>e.scrollTop=0);
     await page.screenshot({path:'.temp/responsive/pos-'+label+'.png'});
@@ -116,11 +141,13 @@ async page => {
     }
     await page.goto(origin+'/#/pos');await page.reload();await page.locator('.pos-item-row').first().waitFor();
   }
-  // Minimal content must not stretch into unused space.
+  // Product cards remain bounded while even an empty sidebar fills the workspace.
   items.splice(4);await page.reload();await page.locator('.pos-item-row').first().waitFor();
   await page.setViewportSize({width:2560,height:1408});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   const minimal=await page.evaluate(()=>({count:document.querySelectorAll('.pos-product-card').length,width:document.querySelector('.pos-product-card').getBoundingClientRect().width,cart:document.querySelector('.pos-side-panel').getBoundingClientRect().height}));
-  if(minimal.count!==4||minimal.width>281||minimal.cart>750)failures.push({minimal});
+  const available=await page.locator('.page-content').evaluate(el=>el.clientHeight-parseFloat(getComputedStyle(el).paddingTop)-parseFloat(getComputedStyle(el).paddingBottom));
+  if(minimal.count!==4||minimal.width>281||Math.abs(minimal.cart-available)>2)failures.push({minimal,available});
   await page.screenshot({path:'.temp/responsive/pos-minimal.png'});
   const cdp=await page.context().newCDPSession(page);
   for(const scale of [1.25,2]){

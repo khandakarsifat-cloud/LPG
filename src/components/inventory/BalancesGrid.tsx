@@ -1,4 +1,3 @@
-import { useListPage, usePageSize } from '../../hooks/useListPage';
 import { useState } from 'react';
 import { Package, AlertTriangle, RefreshCw, Droplets, Box, History, Check } from 'lucide-react';
 import { useInventoryBalances } from '../../hooks/useInventory';
@@ -6,7 +5,6 @@ import { useLPGBrands } from '../../hooks/useBrands';
 import { groupInventoryByBrand } from '../../lib/inventoryGroups';
 import { ProductHistoryModal } from './ProductHistoryModal';
 import type { InventoryProductIdentity, ItemWithBrand } from '../../types/inventory';
-import { Pagination } from '../ui/Pagination';
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 const getStockStatus = (filled: number, empty: number) => {
@@ -89,8 +87,6 @@ export const BalancesGrid = () => {
   const brands = useLPGBrands();
   const [selectedItem, setSelectedItem] = useState<ItemWithBrand | null>(null);
   const groups = groupInventoryByBrand(items, brands.data ?? []);
-  const paging = useListPage(groups.flatMap(group => group.items), usePageSize(24, 6));
-  const visible = new Set(paging.entries.map(item => item.item_id));
 
   if (isLoading || brands.isPending) {
     return (
@@ -145,14 +141,13 @@ export const BalancesGrid = () => {
       {/* Tile grid */}
       <div className="inv-brand-groups">
         {brands.isError && <p className="product-error" role="alert">Could not load saved brand order. <button className="btn btn-ghost" onClick={() => brands.refetch()}>Retry</button></p>}
-        {groups.filter(group => group.items.some(item => visible.has(item.item_id))).map(group => <section className="inv-brand-group" key={group.key} aria-label={`${group.name} products`}>
+        {groups.map(group => <section className="inv-brand-group" key={group.key} aria-label={`${group.name} products`}>
           <h3 className="inv-brand-heading">{group.name}</h3>
-          <div className="inv-tiles-grid">{group.items.filter(item => visible.has(item.item_id)).map(item => <ProductTile key={item.item_id} item={item} onClick={() => setSelectedItem(item)} />)}</div>
+          <div className="inv-tiles-grid">{group.items.map(item => <ProductTile key={item.item_id} item={item} onClick={() => setSelectedItem(item)} />)}</div>
         </section>)}
       </div>
 
       {/* Per-product history modal */}
-      <Pagination {...paging} onChange={paging.setPage} label="products" />
       {selectedItem && (
         <ProductHistoryModal
           item={items.find(item => item.item_id === selectedItem.item_id) ?? selectedItem}

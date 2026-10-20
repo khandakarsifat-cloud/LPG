@@ -1,4 +1,3 @@
-import { useListPage } from '../../hooks/useListPage';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, CheckCircle2 } from 'lucide-react';
@@ -8,7 +7,6 @@ import { useInventoryBalances } from '../../hooks/useInventory';
 import { formatBDNumber } from '../../lib/formatBDT';
 import { useAuth } from '../../contexts/AuthContext';
 import { ReceiptPrintMethodSelect } from './ReceiptPrintMethodSelect';
-import { Pagination } from '../ui/Pagination';
 
 interface CheckoutConfirmModalProps {
   isOpen: boolean;
@@ -31,7 +29,6 @@ export const CheckoutConfirmModal = ({
 }: CheckoutConfirmModalProps) => {
   const { data: inventoryItems } = useInventoryBalances();
   const { profile, can } = useAuth();
-  const paging = useListPage(items, 8, saleResult?.sale_id ?? 'draft');
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape
@@ -188,7 +185,7 @@ export const CheckoutConfirmModal = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.1rem 0.5rem', fontSize: '0.65rem', fontWeight: 700, color: '#777', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
                 <span>Item</span><span style={{ textAlign: 'right' }}>Qty</span><span style={{ textAlign: 'right' }}>Total</span>
               </div>
-              {paging.entries.map((item, idx) => (
+              {items.map((item, idx) => (
                 <div key={idx} style={{ marginBottom: '0.35rem' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.1rem 0.5rem', alignItems: 'start' }}>
                     <div>
@@ -207,7 +204,6 @@ export const CheckoutConfirmModal = ({
                   </div>
                 </div>
               ))}
-              <Pagination {...paging} onChange={paging.setPage} label="receipt lines" />
             </div>
 
             <div style={{ borderTop: '1px solid #bbb', margin: '0.5rem 0 0.4rem' }} />

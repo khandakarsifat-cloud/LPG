@@ -1,5 +1,3 @@
-import { useListPage } from '../../hooks/useListPage';
-import { Pagination } from '../ui/Pagination';
 import { PurchaseNumber } from '../purchases/PurchaseControls';
 import { AlertTriangle, Minus, Plus, ShoppingCart } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -29,7 +27,6 @@ export const POSCart = ({
   onChangeNotes,
 }: POSCartProps) => {
   const { data: inventoryItems } = useInventoryBalances();
-  const paging = useListPage(items, 6);
 
   const subtotal = items.reduce((acc, curr) => acc + (curr.quantity * Number(curr.unit_price || 0)), 0);
   const total = subtotal - Number(discount || 0) + Number(exchangeFee || 0);
@@ -73,7 +70,7 @@ export const POSCart = ({
             <p style={{ margin: 0 }}>Cart is empty</p>
           </div>
         ) : (
-          paging.entries.map((item, index) => {
+          items.map((item, index) => {
             const invItem = inventoryItems?.find(i => i.item_id === item.item_id);
             const name = invItem ? `${invItem.lpg_brands?.brand_name} ${invItem.size_kg}kg` : 'Unknown';
 
@@ -112,7 +109,6 @@ export const POSCart = ({
             );
           })
         )}
-        <Pagination {...paging} onChange={paging.setPage} label="cart lines" />
       </div>
 
       {refillsCount !== emptiesCount && (

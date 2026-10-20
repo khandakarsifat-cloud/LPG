@@ -32,12 +32,33 @@ async page => {
     else if(name==='list_lpg_brands')data=brands;
     else if(name==='list_trucks')data=trucks;
     else if(name==='list_transits')data=transits;
-    else if(name==='list_purchases')data=purchases;
+    else if(name==='list_purchases')throw Error('Unbounded purchase read');
+    else if(name==='get_purchase_directory')data=purchasePage(route.request().postDataJSON());
+    else if(name==='get_purchase_overview')data=purchaseOverview();
+    else if(name==='get_purchases_by_ids')data=purchases.filter(p=>route.request().postDataJSON().p_ids.includes(p.purchase_id));
     else if(name==='list_employees')data=employees;
     else if(name==='list_employee_payments')data=payments;
     else if(name==='list_employee_payment_categories')data=[{category_id:id(950),code:'bonus',name:'Bonus',category_kind:'bonus',is_active:true}];
     else if(name==='list_gas_plants')data=plants;
     return route.fulfill({json:data});
+  };
+
+  const purchasePage = (args) => {
+    const f={search:'',status:'all',payment:'all',from:'',to:'',sort:'date_desc',...args.p_filters};
+    const groups=f.search.toLowerCase().split(',').map(g=>g.trim().split(/\s+/).filter(Boolean)).filter(g=>g.length);
+    const rows=purchases.filter(p=>{
+      const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dhaka',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(p.created_at));
+      const text=[p.purchase_id,p.company_name,p.plant_name,p.truck_name,p.notes,p.receipt_notes,p.status,p.payment_status,...p.items.flatMap(i=>[i.brand_name,`${i.size_kg}kg`,`${i.size_kg} kg`,i.mouth_size,i.type==='refill'?'refill exchange':'package new cylinders'])].join(' ').toLowerCase();
+      return (f.status==='all'||p.status===f.status)&&(f.payment==='all'||p.payment_status===f.payment)&&(!f.from||day>=f.from)&&(!f.to||day<=f.to)&&(!groups.length||groups.some(g=>g.every(t=>text.includes(t))));
+    }).sort((a,b)=>{
+      const d=f.sort.startsWith('amount')?Number(a.total_cost)-Number(b.total_cost):Date.parse(a.created_at)-Date.parse(b.created_at);
+      return (f.sort.endsWith('desc')?-d:d)||a.purchase_id.localeCompare(b.purchase_id);
+    });
+    return {total:rows.length,entries:rows.slice(args.p_offset||0,(args.p_offset||0)+(args.p_limit||6))};
+  };
+  const purchaseOverview=()=>{
+    const unpaid=purchases.filter(p=>p.payment_status==='unpaid'&&!['created','cancelled'].includes(p.status));
+    return {total:purchases.length,created:purchases.filter(p=>p.status==='created').length,in_transit:purchases.filter(p=>p.status==='in_transit').length,unpaid:unpaid.length,company_payable:unpaid.reduce((sum,p)=>sum+Number(p.company_payable),0)};
   };
   await page.route('**/rest/v1/**',serveFixture);
   items.splice(4);brands[0].brand_name='Jamuna Gas';brands[1].brand_name='Omera Gas';

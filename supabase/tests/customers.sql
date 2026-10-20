@@ -65,6 +65,13 @@ do $$ declare r jsonb; c jsonb; begin
  if (r->>'new_wholesale')::int<>1 or (r->>'new_retail')::int<>86 then raise exception 'Saturday week/new customer count failed'; end if;
  r:=public.get_customer_transactions('a7400000-0000-4000-8000-000000000001','{}',1,1);
  if (r->>'total')::int<>3 or jsonb_array_length(r->'entries')<>1 then raise exception 'Transaction paging failed'; end if;
+ r:=public.get_customer_transactions('a7400000-0000-4000-8000-000000000001','{"item_ids":["a7500000-0000-4000-8000-000000000001"],"from":"2026-10-02","to":"2026-10-02"}',0,1);
+ if (r->>'total')::int<>1 or (r->'entries'->0->>'refill')::int<>10 or (r->'entries'->0->>'package')::int<>2 then raise exception 'Paged history changed product-scoped quantities or dates'; end if;
+ if (public.get_customer_transactions('a7400000-0000-4000-8000-000000000001','{"item_ids":[]}')->>'total')::int<>0 then raise exception 'History empty product selection failed'; end if;
+ if (public.get_customer_transactions('a7400000-0000-4000-8000-000000000001','{"search":"no matching product"}')->>'total')::int<>0 then raise exception 'History search ignored'; end if;
+ r:=public.get_customer_directory('{"transactions_min":"0"}',0,6);
+ if r is distinct from public.get_customer_directory('{}',0,6) then raise exception 'Paged directory differs from full reporting path'; end if;
+ if public.get_customer_directory('{"transactions_min":"0","sort":"name_desc"}',0,6) is distinct from public.get_customer_directory('{"sort":"name_desc"}',0,6) then raise exception 'Descending customer page changed'; end if;
  r:=public.get_customer_filter_products();
  if jsonb_array_length(r->'items')<>2 or (r->'items'->0)?'filled_quantity' then raise exception 'Catalog identity boundary failed'; end if;
  begin perform public.get_customer_directory('{"transactions_min":"-1"}'); raise exception 'Negative range accepted'; exception when raise_exception then if sqlerrm<>'Invalid activity range' then raise; end if; end;

@@ -22,6 +22,7 @@ async page => {
   const transits=[];
   let emptyAvailable=20;
   const calls=[];
+  let purchasePageLimit=6;
   const activityRequests=[];
   let role='manage';
   let failDispatch=false;
@@ -35,6 +36,24 @@ async page => {
     history.set(p.purchase_id,[...(history.get(p.purchase_id)||[]),{activity_id:crypto.randomUUID(),action,details,actor_name:'Purchase Operator',created_at:new Date().toISOString()}]);
   }
   await page.route('**/auth/v1/**',route=>route.fulfill({json:user}));
+
+  const purchasePage = (args) => {
+    const f={search:'',status:'all',payment:'all',from:'',to:'',sort:'date_desc',...args.p_filters};
+    const groups=f.search.toLowerCase().split(',').map(g=>g.trim().split(/\s+/).filter(Boolean)).filter(g=>g.length);
+    const rows=purchases.filter(p=>{
+      const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dhaka',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(p.created_at));
+      const text=[p.purchase_id,p.company_name,p.plant_name,p.truck_name,p.notes,p.receipt_notes,p.status,p.payment_status,...p.items.flatMap(i=>[i.brand_name,`${i.size_kg}kg`,`${i.size_kg} kg`,i.mouth_size,i.type==='refill'?'refill exchange':'package new cylinders'])].join(' ').toLowerCase();
+      return (f.status==='all'||p.status===f.status)&&(f.payment==='all'||p.payment_status===f.payment)&&(!f.from||day>=f.from)&&(!f.to||day<=f.to)&&(!groups.length||groups.some(g=>g.every(t=>text.includes(t))));
+    }).sort((a,b)=>{
+      const d=f.sort.startsWith('amount')?Number(a.total_cost)-Number(b.total_cost):Date.parse(a.created_at)-Date.parse(b.created_at);
+      return (f.sort.endsWith('desc')?-d:d)||a.purchase_id.localeCompare(b.purchase_id);
+    });
+    return {total:rows.length,entries:rows.slice(args.p_offset||0,(args.p_offset||0)+(args.p_limit||6))};
+  };
+  const purchaseOverview=()=>{
+    const unpaid=purchases.filter(p=>p.payment_status==='unpaid'&&!['created','cancelled'].includes(p.status));
+    return {total:purchases.length,created:purchases.filter(p=>p.status==='created').length,in_transit:purchases.filter(p=>p.status==='in_transit').length,unpaid:unpaid.length,company_payable:unpaid.reduce((sum,p)=>sum+Number(p.company_payable),0)};
+  };
   await page.route('**/rest/v1/**',async route=>{
     const request=route.request();
     const path=new URL(request.url()).pathname.split('/').pop();
@@ -44,7 +63,10 @@ async page => {
       case 'user_profiles': data=[{tenant_id:tenant,email:user.email,full_name:'Purchase Operator',tenants:{business_name:'Purchase UI Verification'}}]; break;
       case 'get_my_permissions': data=role==='manage'?['purchases:view','purchases:manage','logistics:view','logistics:manage','inventory:view','dashboard:view']:['purchases:view']; break;
       case 'wallets': data=[{type:'dealership',balance:-1703906}]; break;
-      case 'list_purchases': data=purchases; break;
+      case 'list_purchases': throw Error('Unbounded purchase read');
+      case 'get_purchase_directory': purchasePageLimit=params.p_limit; data=purchasePage(params); break;
+      case 'get_purchase_overview': data=purchaseOverview(); break;
+      case 'get_purchases_by_ids': data=purchases.filter(p=>params.p_ids.includes(p.purchase_id)); break;
       case 'list_transits': data=transits; break;
       case 'list_gas_plants': data=[{plant_id:plant,plant_name:'Meghna Filling Plant',brand_id:brand,brand_name:'Beximco LPG',location:'Narayanganj',is_active:true}]; break;
       case 'list_trucks': data=[{truck_id:truck,name:'Dhaka Delivery Truck',serial_no:'Dhaka Metro 11-4520',status:purchases.some(p=>p.status==='in_transit')||transits.some(t=>t.status==='active')?'going':'idle',capacity:100}]; break;
@@ -225,6 +247,7 @@ async page => {
   await completed.getByRole('button',{name:'Cancel purchase',exact:true}).click();
   await page.getByRole('dialog',{name:'Cancel this purchase?',exact:true}).getByRole('button',{name:'Go back',exact:true}).click();
   await completed.getByRole('button',{name:'Close',exact:true}).click();
+  const settlePurchases=async()=>{if(!await page.locator('#purchase-search').count())return;await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await page.waitForFunction(()=>document.querySelector('.purchases-grid')?.getAttribute('aria-busy')==='false');};
   // Exercise the list with enough orders to overflow a short desktop viewport.
   for(let i=0;i<10;i++) purchases.push({...purchases[0],purchase_id:crypto.randomUUID(),plant_name:`Delivery plant ${i+1}`,
     created_at:`2026-10-${String(i+1).padStart(2,'0')}T12:00:00Z`,payment_status:'paid',subtotal:1000+i*100,company_payable:1000+i*100,total_cost:1000+i*100,
@@ -241,30 +264,44 @@ async page => {
   await page.locator('.page-content').evaluate(el=>el.scrollTop=0);
   await page.screenshot({path:'.temp/purchase-verification/list-desktop.png'});
   await page.getByLabel('Search purchases',{exact:true}).fill('not-a-plant');
+  await settlePurchases();
   await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
-  await check(await page.locator('.purchase-card').count()===Math.min(6,purchases.length)&&(await page.locator('.purchase-results-heading').textContent()).includes(String(purchases.length)),'clear filters restores the unfiltered first page and full count');
+  await settlePurchases();
+  await check(await page.locator('.purchase-card').count()===Math.min(purchasePageLimit,purchases.length)&&(await page.locator('.purchase-results-heading').textContent()).includes(String(purchases.length)),'clear filters restores the unfiltered first page and full count');
   const searchControl=page.getByLabel('Search purchases',{exact:true});
   await searchControl.fill('  JAMUNA   ashok 22mm 12KG  ');
+  await settlePurchases();
   await check(await page.locator('.purchase-card').count()===5,'AND search matches company, vehicle and specifications');
   await page.getByRole('combobox',{name:'Purchase status',exact:true}).selectOption('received');
+  await settlePurchases();
   await page.getByRole('combobox',{name:'Payment status',exact:true}).selectOption('paid');
+  await settlePurchases();
   await page.getByLabel('From',{exact:true}).fill('2026-10-03');
+  await settlePurchases();
   await page.getByLabel('To',{exact:true}).fill('2026-10-07');
+  await settlePurchases();
   await check(await page.locator('.purchase-card').count()===3,'search combines with status, payment and inclusive dates');
   await searchControl.fill('jamuna ashok, bashundhara 12kg');
+  await settlePurchases();
   await check(await page.locator('.purchase-card').count()===5,'OR groups stay within active filters');
   await page.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('amount_desc');
+  await settlePurchases();
   await check(await page.locator('.purchase-card').first().getAttribute('data-purchase-id')===purchases.find(p=>p.plant_name==='Delivery plant 7').purchase_id,'highest total first');
   await page.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('amount_asc');
+  await settlePurchases();
   await check(await page.locator('.purchase-card').first().getAttribute('data-purchase-id')===purchases.find(p=>p.plant_name==='Delivery plant 3').purchase_id,'lowest total first');
   await page.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('date_desc');
+  await settlePurchases();
   await check(await page.locator('.purchase-card').first().getAttribute('data-purchase-id')===purchases.find(p=>p.plant_name==='Delivery plant 7').purchase_id,'newest date first');
   await page.getByRole('combobox',{name:'Sort by',exact:true}).selectOption('date_asc');
+  await settlePurchases();
   await check(await page.locator('.purchase-card').first().getAttribute('data-purchase-id')===purchases.find(p=>p.plant_name==='Delivery plant 3').purchase_id,'oldest date first');
   await page.getByRole('combobox',{name:'Payment status',exact:true}).selectOption('unpaid');
+  await settlePurchases();
   await check(await page.getByText('No purchases match these filters.',{exact:true}).isVisible(),'OR search cannot bypass payment filter');
   await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
-  await check(await page.locator('.purchase-card').count()===Math.min(6,purchases.length),'reset clears search, statuses, dates and sort on the first page');
+  await settlePurchases();
+  await check(await page.locator('.purchase-card').count()===Math.min(purchasePageLimit,purchases.length),'reset clears search, statuses, dates and sort on the first page');
   await check(await page.locator('.topbar h1').innerText()==='Purchases','page name replaces header search');
   await check(await page.getByRole('textbox',{name:'Search workspace'}).count()===0,'workspace search removed');
   await check(await page.locator('.purchase-card .purchase-items-count, .purchase-card-action').count()===0,'cards omit product count labels and summary links');
@@ -273,6 +310,7 @@ async page => {
   await check(await page.locator('.purchase-card .purchase-card-footer').first().innerText().then(text=>text.includes('Total purchase cost')),'card shows one total row');
   const dateInput=page.getByLabel('From',{exact:true});
   await dateInput.fill('2026-10-05');
+  await settlePurchases();
   await page.getByRole('button',{name:'Choose date: From',exact:true}).click();
   const calendar=page.getByRole('dialog',{name:'Choose date: From',exact:true});
   await calendar.waitFor();
@@ -282,11 +320,14 @@ async page => {
   await page.getByRole('button',{name:'Choose date: To',exact:true}).click();
   const toCalendar=page.getByRole('dialog',{name:'Choose date: To',exact:true});
   await toCalendar.getByRole('combobox',{name:'Calendar month',exact:true}).selectOption('9');
+  await settlePurchases();
   await toCalendar.getByRole('spinbutton',{name:'Calendar year',exact:true}).fill('2026');
+  await settlePurchases();
   await check(await toCalendar.getByRole('button',{name:'Monday, October 5, 2026',exact:true}).getAttribute('aria-disabled')==='true','calendar respects date range minimum');
   await page.screenshot({path:'.temp/purchase-verification/calendar-desktop.png'});
   await toCalendar.getByRole('button',{name:'Clear',exact:true}).click();
   await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
+  await settlePurchases();
   await page.getByRole('combobox',{name:'Purchase status',exact:true}).click();
   await page.screenshot({path:'.temp/purchase-verification/dropdown-desktop.png'});
   await page.keyboard.press('Escape');
@@ -359,19 +400,28 @@ async page => {
   const custom=page.getByRole('dialog',{name:'New custom transit',exact:true});
   await check(await custom.getByRole('button',{name:'Start transit',exact:true}).isDisabled(),'custom transit requires client and truck');
   await custom.getByLabel('Client name *',{exact:true}).fill('Rahim Traders');
+  await settlePurchases();
   await custom.getByRole('combobox',{name:'Truck *',exact:true}).selectOption(truck);
+  await settlePurchases();
   await custom.getByLabel('Destination',{exact:true}).fill('Dhaka');
+  await settlePurchases();
   await custom.getByLabel('Description',{exact:true}).fill('Cylinder delivery');
+  await settlePurchases();
   await custom.getByLabel('Client transport fee (Tk)',{exact:true}).fill('1000.50');
+  await settlePurchases();
   await custom.getByRole('button',{name:'Start transit',exact:true}).click();
   await page.locator('.transit-card').first().click();
   const transit=page.getByRole('dialog',{name:'Transit details',exact:true});
   await check(await transit.locator('select').count()===0,'transit has workflow buttons and no status dropdown');
   await transit.getByLabel('Driver cost (Tk)',{exact:true}).fill('100.50');
+  await settlePurchases();
   await transit.getByLabel('Others cost (Tk)',{exact:true}).fill('25');
+  await settlePurchases();
   await transit.getByRole('button',{name:'Add cost',exact:true}).click();
   await transit.getByLabel('Cost name',{exact:true}).fill('Toll');
+  await settlePurchases();
   await transit.getByLabel('Amount (Tk)',{exact:true}).fill('10.25');
+  await settlePurchases();
   await transit.getByRole('button',{name:'Save changes',exact:true}).click();
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('dialog button')).some(b=>b.textContent.includes('Save changes')&&b.disabled));
   await check(await transit.isVisible(),'transit stays open after saving');
@@ -380,6 +430,7 @@ async page => {
   await transit.getByRole('button',{name:'Close transit',exact:true}).waitFor();
   await check(!(await transit.getByLabel('Others cost (Tk)',{exact:true}).isDisabled()),'completed transit costs remain editable');
   await transit.getByLabel('Others cost (Tk)',{exact:true}).fill('30');
+  await settlePurchases();
   await transit.getByRole('button',{name:'Save changes',exact:true}).click();
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('dialog button')).some(b=>b.textContent.includes('Save changes')&&b.disabled));
   for(const width of [320,390,768,1366]) {

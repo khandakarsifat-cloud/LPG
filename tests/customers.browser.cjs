@@ -66,7 +66,9 @@ async page => {
   const closeDialog = async () => page.locator('dialog[open]').last().getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.goto(origin + '/?customer-ui-fixtures=1#/customers');
   await card().first().waitFor();
-  check(await card().count() === 6, 'Directory must show one page of customers');
+  await page.waitForFunction(()=>document.querySelector('.customer-grid')?.parentElement.getAttribute('aria-busy')==='false');
+  let firstPageSize=calls.filter(c=>c.name==='get_customer_directory'&&!c.args.p_customer_id).at(-1).args.p_limit;
+  check(await card().count() === Math.min(firstPageSize,customers.length), 'Directory must use its responsive server page size');
   const previewName = await card().first().locator('strong').first().textContent();
   await card().first().click();
   const previewDialog = page.getByRole('dialog', { name: 'Customer details', exact: true });
@@ -75,8 +77,10 @@ async page => {
   check(await previewDialog.getByText('Loading customer…', { exact: true }).count() === 0, 'Loaded customer card was discarded on open');
   holdProfile = false; releaseProfile();
   await closeDialog();
+  await page.waitForFunction(()=>{const cards=[...document.querySelectorAll('.customer-card')],top=cards[0]?.getBoundingClientRect().top,columns=cards.filter(c=>Math.abs(c.getBoundingClientRect().top-top)<2).length;return columns&&cards.length%columns===0&&document.querySelector('.customer-grid')?.parentElement.getAttribute('aria-busy')==='false';});
+  firstPageSize=calls.filter(c=>c.name==='get_customer_directory'&&!c.args.p_customer_id).at(-1).args.p_limit;
   await page.getByRole('navigation', { name: 'customers pages' }).getByRole('button', { name: 'Next page' }).click();
-  await page.waitForFunction(() => document.querySelector('.list-pagination')?.textContent.includes('7–12'));
+  await page.waitForFunction(size => new RegExp('^'+(size+1)+'[^0-9]').test(document.querySelector('.customer-directory-pages .list-pagination > span')?.textContent || ''),firstPageSize);
   await page.locator('#customer-search').fill('bismillah mirpur');
   await page.waitForFunction(() => document.querySelectorAll('.customer-card').length === 1);
   check(calls.some(c => c.name === 'get_customer_directory' && c.args.p_filters.search === 'bismillah mirpur' && c.args.p_offset === 0), 'Search must reset server page');

@@ -2,7 +2,9 @@
 
 [Architecture](../architecture.md) · [Stock rules](sales-and-inventory.md) · [Authorization](../../supabase/authorization.md)
 
-Purchase lists show six orders per desktop page and four per phone page, with page controls above the cards. Filters and sorting apply before the page slice; business-wide financial summaries continue to use the full collection.
+Purchase lists adapt their page capacity to the workspace width and height in complete card rows, with page controls above the cards. Final-row cards share the available row width; content determines their height. `get_purchase_directory` applies filters, AND/OR search, inclusive Dhaka dates and sorting before pagination, then builds products and operating costs only for that page. `get_purchase_overview` calculates business-wide financial summaries from purchase headers without loading every order's lines. The prior `list_purchases` contract remains available for compatibility; application screens use the bounded APIs.
+
+`get_purchases_by_ids` accepts at most 100 IDs. Inventory history requests only referenced purchases on its current page, plus any open purchase. An open detail dialog separately refreshes its selected purchase, so saving or filtering an order out of the current page cannot strand its details. Purchase mutations invalidate directory, overview and detail caches together; dirty forms retain their existing revision checks.
 
 Fleet and each transit group show twelve records per desktop page and four per phone page. On phones the fleet table becomes labeled records with location editing in view; its status summaries still count all trucks.
 

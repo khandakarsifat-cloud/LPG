@@ -47,10 +47,12 @@ async page => {
         else if(or.includes('sale'))rows=rows.filter(m=>m.reference_type==='sale'||m.movement_type==='sale');
         const selected=url.searchParams.get('item_id');
         if(selected)rows=rows.filter(m=>selected.includes(m.item_id));
+        for(const bound of url.searchParams.getAll('created_at')){const time=Date.parse(bound.slice(4));rows=rows.filter(m=>bound.startsWith('gte.')?Date.parse(m.created_at)>=time:Date.parse(m.created_at)<Date.parse(bound.slice(3)));}
         const offset=Number(url.searchParams.get('offset')??0),limit=Number(url.searchParams.get('limit')??31);
         data=rows.slice(offset,offset+limit);break;
       }
-      case 'list_purchases':if(viewer)throw Error('Viewer requested purchases');data=[purchase];break;
+      case 'list_purchases':throw Error('Unbounded purchase read');
+      case 'get_purchases_by_ids':if(viewer)throw Error('Viewer requested purchases');data=route.request().postDataJSON().p_ids.includes(purchaseId)?[purchase]:[];break;
       case 'get_purchase_activity':data=[];break;
       case 'sales':{
         if(viewer)throw Error('Viewer requested sales');
@@ -120,10 +122,26 @@ async page => {
   await picker.getByRole('button',{name:'Select all',exact:true}).click();
   await picker.getByRole('button',{name:'Apply all products',exact:true}).click();
   await page.waitForFunction(()=>document.querySelectorAll('.inv-history-row').length===10);
-  await page.getByRole('button',{name:'Clear filters',exact:true}).click();
+  await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
+  await page.getByRole('button',{name:'Next',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.inv-history-pagination')?.textContent.includes('Page 2'));
+  await page.getByRole('button',{name:'Filter inventory history dates',exact:true}).click();
+  const dates=page.getByRole('dialog',{name:'Inventory history dates',exact:true});
+  await dates.getByLabel('From',{exact:true}).fill('2026-10-18');
+  await dates.getByLabel('To',{exact:true}).fill('2026-10-18');
+  await dates.getByRole('button',{name:'Apply dates',exact:true}).click();
+  await page.getByText('No inventory history matches these filters.',{exact:true}).waitFor();
+  check(requests.at(-1).getAll('created_at').includes('gte.2026-10-17T18:00:00.000Z')&&requests.at(-1).getAll('created_at').includes('lt.2026-10-18T18:00:00.000Z'),'Dhaka calendar bounds must filter on the server before pagination');
+  check(Number(requests.at(-1).get('offset')??0)===0,'Timeline change resets history page');
+  await page.getByRole('button',{name:'Filter inventory history dates',exact:true}).click();
+  await dates.getByLabel('From',{exact:true}).fill('2026-10-19');
+  await dates.getByRole('button',{name:'Cancel',exact:true}).click();
+  check(await page.getByText('No inventory history matches these filters.',{exact:true}).isVisible(),'Cancelling dates retains the applied timeline');
+  await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
+  await page.locator('.inv-history-row').first().waitFor();
   for(const width of [1440,768,390,320])for(const theme of ['light','dark']){
     await page.setViewportSize({width,height:900});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
-    check(await page.locator('.inv-history-toolbar').evaluate(el=>el.scrollWidth<=el.clientWidth+1),`history filters fit ${width} ${theme}`);
+    check(await page.locator('.inv-history-toolbar').evaluate(el=>el.scrollWidth<=el.clientWidth+1&&new Set([...el.children].map(child=>Math.round(child.getBoundingClientRect().bottom))).size===1),`history filters fit ${width} ${theme}`);
     check(await page.locator('.inv-history-row').evaluateAll(rows=>rows.every(el=>el.scrollWidth<=el.clientWidth+1)),`rows fit ${width}`);
     await page.screenshot({path:`.temp/inventory-history/history-${width}-${theme}.png`,animations:'disabled'});
   }

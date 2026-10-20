@@ -3,10 +3,17 @@ import assert from 'node:assert/strict';
 import { getSellingPrice } from '../src/lib/productPricing.ts';
 import { formatReceipt } from '../src/lib/receipt.ts';
 import { groupInventoryByBrand } from '../src/lib/inventoryGroups.ts';
-import { inventoryMovementActions, inventoryMovementSource } from '../src/lib/inventoryMovement.ts';
+import { inventoryHistoryBounds, inventoryMovementActions, inventoryMovementSource } from '../src/lib/inventoryMovement.ts';
 import type { ItemWithBrand, LPGBrand } from '../src/types/inventory.ts';
 
 const now = Date.parse('2026-10-18T10:00:00Z');
+
+test('inventory history calendar includes the complete Bangladesh day and supports open bounds', () => {
+  assert.deepEqual(inventoryHistoryBounds('2026-10-01', '2026-10-01'), { since: '2026-09-30T18:00:00.000Z', until: '2026-10-01T18:00:00.000Z' });
+  assert.deepEqual(inventoryHistoryBounds('', '2028-02-29'), { since: undefined, until: '2028-02-29T18:00:00.000Z' });
+  assert.deepEqual(inventoryHistoryBounds('2026-12-31', ''), { since: '2026-12-30T18:00:00.000Z', until: undefined });
+  assert.deepEqual(inventoryHistoryBounds('', ''), { since: undefined, until: undefined });
+});
 const row = { item_id: 'a', customer_tier: 'retail', price_type: 'refill' as const, price: 1200, mrp: 1500, effective_from: '2026-01-01' };
 
 test('inventory history links recorded references and exact legacy notes, never guessing a sale from short notes', () => {

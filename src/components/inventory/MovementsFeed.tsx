@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Activity, ShoppingBag, Truck, Droplets, Box, Package, RotateCcw, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Activity, ShoppingBag, Truck, Droplets, Box, Package, RotateCcw, ChevronLeft, ChevronRight, RefreshCw, CalendarDays } from 'lucide-react';
 import { useInventoryBalances, useInventoryHistory } from '../../hooks/useInventory';
 import { useLPGBrands } from '../../hooks/useBrands';
 import { usePurchases } from '../../hooks/usePurchases';
@@ -9,13 +9,16 @@ import { PurchaseDialog, PurchaseSelect } from '../purchases/PurchaseControls';
 import { UpdatePurchaseModal } from '../purchases/UpdatePurchaseModal';
 import { TransactionDetailsModal } from '../transactions/TransactionDetailsModal';
 import { InventoryProductPicker } from './InventoryProductPicker';
+import { DatePicker } from '../ui/DatePicker';
 import '../purchases/purchases.css';
 import './inventory.css';
 
 export const MovementsFeed = () => {
   const { can } = useAuth();
-  const [filters, setFilters] = useState<{ source: InventoryHistorySource; itemIds: string[] | null; page: number }>({ source: 'all', itemIds: null, page: 0 });
+  const [filters, setFilters] = useState<{ source: InventoryHistorySource; itemIds: string[] | null; page: number; from: string; to: string }>({ source: 'all', itemIds: null, page: 0, from: '', to: '' });
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timeline, setTimeline] = useState({ from: '', to: '' });
   const [detail, setDetail] = useState<{ kind: 'sale' | 'purchase'; id: string } | null>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   const history = useInventoryHistory(filters);
@@ -23,10 +26,16 @@ export const MovementsFeed = () => {
   const brands = useLPGBrands();
   const canReadPurchases = can('purchases:view') || can('purchases:manage');
   const canReadSales = can('sales:view') || can('receipts:print') || can('dashboard:view');
-  const purchases = usePurchases({ enabled: canReadPurchases });
+  const purchaseIds = [...new Set([...(history.data?.entries ?? []).flatMap(movement => {
+    const ref = inventoryMovementSource(movement);
+    return ref.kind === 'purchase' && ref.id ? [ref.id] : [];
+  }), ...(detail?.kind === 'purchase' ? [detail.id] : [])])].sort();
+  const purchases = usePurchases({ ids: purchaseIds, enabled: canReadPurchases });
   const selectedPurchase = detail?.kind === 'purchase' ? purchases.data?.find(purchase => purchase.purchase_id === detail.id) : null;
-  const hasFilters = filters.source !== 'all' || filters.itemIds !== null;
-  const reset = () => setFilters({ source: 'all', itemIds: null, page: 0 });
+  const hasFilters = filters.source !== 'all' || filters.itemIds !== null || Boolean(filters.from || filters.to);
+  const reset = () => setFilters({ source: 'all', itemIds: null, page: 0, from: '', to: '' });
+  const shortDate = (value: string) => value ? new Date(`${value}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Dhaka' }) : '';
+  const timelineLabel = filters.from || filters.to ? `${shortDate(filters.from) || 'Start'} – ${shortDate(filters.to) || 'Today'}` : 'All dates';
   const closeDetail = () => { setDetail(null); requestAnimationFrame(() => opener.current?.focus()); };
 
   return <div className="inv-history">
@@ -34,17 +43,21 @@ export const MovementsFeed = () => {
       <PurchaseSelect label="Activity" value={filters.source} options={[{ value: 'all', label: 'All activity' }, { value: 'purchase', label: 'Purchase' }, { value: 'sale', label: 'Sale' }]}
         onChange={value => setFilters(previous => ({ ...previous, source: value === 'sale' ? 'sale' : value === 'purchase' ? 'purchase' : 'all', page: 0 }))} />
       <div className="input-group inv-product-filter"><span className="input-label">Products</span>
-        <button className="btn btn-secondary" onClick={() => setPickerOpen(true)} disabled={items.isPending || items.isError || brands.isPending || brands.isError}>
-          <Package size={15} />Select products<span className="inv-filter-count">{filters.itemIds === null ? 'All' : filters.itemIds.length}</span></button></div>
-      <button className="btn btn-ghost inv-clear-filters" onClick={reset} disabled={!hasFilters}><RotateCcw size={14} />Clear filters</button>
+        <button className="btn btn-secondary" aria-label="Select products" onClick={() => setPickerOpen(true)} disabled={items.isPending || items.isError || brands.isPending || brands.isError}>
+          <Package size={14} /><span>Products</span><span className="inv-filter-count">{filters.itemIds === null ? 'All' : filters.itemIds.length}</span></button></div>
+      <div className="input-group inv-timeline-filter"><span className="input-label">Timeline</span>
+        <button className="btn btn-secondary" aria-label="Filter inventory history dates" title={filters.from || filters.to ? `${filters.from || 'Start'} to ${filters.to || 'Today'}` : 'All dates'}
+          data-filtered={Boolean(filters.from || filters.to)} onClick={() => { setTimeline({ from: filters.from, to: filters.to }); setTimelineOpen(true); }}>
+          <CalendarDays size={14} /><span>{timelineLabel}</span></button></div>
     </div>
     {(items.isError || brands.isError) && <p className="product-error" role="alert">Product selection could not be loaded.
       <button className="btn btn-ghost" onClick={() => { void items.refetch(); void brands.refetch(); }}>Retry products</button></p>}
     {canReadPurchases && purchases.isError && <p className="product-error" role="alert">Purchase names and details could not be loaded.
       <button className="btn btn-ghost" onClick={() => void purchases.refetch()}>Retry purchases</button></p>}
-    <div className="inv-history-heading"><h3>Inventory history</h3>
+    <div className="inv-history-heading"><h3>Inventory history</h3><div className="inv-history-actions-bar">
+      <button className="btn btn-ghost inv-clear-filters" onClick={reset} disabled={!hasFilters}><RotateCcw size={14} />Clear filters</button>
       <button className="btn btn-ghost" disabled={history.isFetching} onClick={() => { void history.refetch(); if (canReadPurchases) void purchases.refetch(); }}>
-        <RefreshCw size={13} className={history.isFetching ? 'spin' : ''} />Refresh</button></div>
+        <RefreshCw size={13} className={history.isFetching ? 'spin' : ''} />Refresh</button></div></div>
     {history.isSuccess && <nav className="inv-history-pagination" aria-label="Inventory history pages">
       <button className="btn btn-secondary" disabled={filters.page === 0 || history.isFetching} onClick={() => setFilters(previous => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} />Previous</button>
       <span>Page {filters.page + 1}</span><button className="btn btn-secondary" disabled={!history.data.hasMore || history.isFetching} onClick={() => setFilters(previous => ({ ...previous, page: previous.page + 1 }))}>Next<ChevronRight size={15} /></button></nav>}
@@ -83,6 +96,14 @@ export const MovementsFeed = () => {
             <QuantityIcon size={14} aria-hidden="true" />{value > 0 ? '+' : ''}{value.toLocaleString()}</span>)}</div>
       </article>;
     })}</div>}
+    {timelineOpen && <PurchaseDialog title="Inventory history dates" subtitle="Include transactions from both selected dates, Bangladesh time." onClose={() => setTimelineOpen(false)} compact>
+      <div className="modal-body inv-timeline-fields">
+        <div className="input-group"><label className="input-label" htmlFor="inventory-history-from">From</label><DatePicker id="inventory-history-from" label="From" value={timeline.from} max={timeline.to || undefined} onChange={from => setTimeline(previous => ({ ...previous, from }))} /></div>
+        <div className="input-group"><label className="input-label" htmlFor="inventory-history-to">To</label><DatePicker id="inventory-history-to" label="To" value={timeline.to} min={timeline.from || undefined} onChange={to => setTimeline(previous => ({ ...previous, to }))} /></div>
+      </div>
+      <div className="modal-footer"><button className="btn btn-secondary" onClick={() => setTimelineOpen(false)}>Cancel</button><button className="btn btn-ghost" onClick={() => setTimeline({ from: '', to: '' })}>Clear dates</button>
+        <button className="btn btn-primary" disabled={Boolean(timeline.from && timeline.to && timeline.from > timeline.to)} onClick={() => { setFilters(previous => ({ ...previous, ...timeline, page: 0 })); setTimelineOpen(false); }}>Apply dates</button></div>
+    </PurchaseDialog>}
     {pickerOpen && <InventoryProductPicker items={items.data ?? []} brands={brands.data ?? []} selected={filters.itemIds} onClose={() => setPickerOpen(false)}
       onApply={itemIds => { setFilters(previous => ({ ...previous, itemIds, page: 0 })); setPickerOpen(false); }} />}
     {detail?.kind === 'sale' && canReadSales && <TransactionDetailsModal saleId={detail.id} onClose={closeDetail} returnLabel="Back to history" />}
