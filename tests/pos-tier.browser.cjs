@@ -45,6 +45,7 @@ async page => {
       case 'user_profiles': data = [{ tenant_id: tenant, full_name: 'Tier Operator', email: user.email, tenants: { business_name: 'Tier verification' } }]; break;
       case 'get_my_permissions': data = ['dashboard:view', 'sales:view', 'receipts:print', 'pos:sell']; break;
       case 'get_dashboard_stats': data = { todayRevenue: 0, todayMovements: 0, totalCustomers: 1 }; break;
+      case 'get_sale_settlement': data = { total: sales[0]?.total_amount ?? 0, paid: sales[0]?.total_amount ?? 0, due: 0, payments: [], payment_count: 0 }; break;
       case 'items': data = items; break;
       case 'price_books': data = prices; break;
       case 'customers': data = [customer]; break;
@@ -78,19 +79,21 @@ async page => {
   await add('New Package for Fallback Gas 5kg');
   await expectVisible('refill - Tk 1,200.00');
   await expectVisible('package - Tk 2,500.00');
-  await page.getByPlaceholder('Phone, name, shop, address...').fill('01712345678');
-  await page.getByText(customer.name, { exact: true }).click();
   const tier = page.getByRole('group', { name: 'Sale pricing' });
   await tier.getByRole('button', { name: 'Wholesale', exact: true }).click();
   await expectVisible('refill - Tk 1,100.00');
   await expectVisible('package - Tk 2,300.00');
   await expectVisible('package - Tk 900.00');
-  await expectVisible('Wholesale Sale');
-  check(await page.getByRole('button', { name: 'Choose another customer' }).isVisible(), 'Tier change detached saved customer');
-  await tier.getByRole('button', { name: 'Retail', exact: true }).click();
+  await page.getByPlaceholder('Phone, name, shop, address...').fill('01712345678');
+  await page.getByText(customer.name, { exact: true }).click();
+  for (const button of await tier.getByRole('button').all()) {
+    check(await button.isDisabled(), 'Saved customer pricing is editable');
+    await button.evaluate(el => el.click());
+  }
+  await expectVisible('Retail Sale');
   await expectVisible('refill - Tk 1,200.00');
   await expectVisible('package - Tk 2,500.00');
-  await tier.getByRole('button', { name: 'Wholesale', exact: true }).click();
+  check(await page.getByRole('button', { name: 'Choose another customer' }).isVisible(), 'Selected customer was lost');
   await add('New Package for Tier Gas 12kg');
   // Editing cents must survive each keystroke; wheel/arrow navigation must not step money.
   for (const label of ['Discount (Tk)', 'Exchange Fee (Tk)']) {
@@ -117,22 +120,21 @@ async page => {
   await page.keyboard.press('Escape');
   check(await page.getByRole('button', { name: 'Confirm', exact: true }).isVisible(), 'Dismissing receipt picker closed checkout');
   await add('Confirm');
-  await page.getByText(/Saved wholesale sale/).waitFor();
+  await page.getByText(/Saved retail sale/).waitFor();
   const submitted = checkouts[0];
-  check(submitted.p_customer_id === customerId && submitted.p_customer_tier === 'wholesale', 'Checkout lost customer or tier');
-  check(submitted.p_items.find(line => line.type === 'refill').unit_price === 1100, 'Refill checkout price is stale');
+  check(submitted.p_customer_id === customerId && submitted.p_customer_tier === 'retail', 'Checkout lost customer or tier');
+  check(submitted.p_items.find(line => line.type === 'refill').unit_price === 1200, 'Refill checkout price is stale');
   const packageLine = submitted.p_items.find(line => line.item_id === sku && line.type === 'package');
-  check(packageLine.unit_price === 2300 && packageLine.quantity === 3, 'Existing line increment used stale price');
-  check(sales[0].total_amount === 8850, 'Repriced total, discount or exchange fee is incorrect');
+  check(packageLine.unit_price === 2500 && packageLine.quantity === 3, 'Existing line increment used stale price');
+  check(sales[0].total_amount === 9550, 'Repriced total, discount or exchange fee is incorrect');
   await page.getByRole('button', { name: 'Reprint Last Sale' }).click();
   await page.getByText('Browser print dialog opened. Confirm printing in your browser.', { exact: true }).waitFor();
   await page.waitForFunction(() => !document.querySelector('iframe[title="Printable sales receipt"]'));
-  check(printed.length === 1 && printed[0].includes('wholesale'), 'Receipt used customer retail tier instead of saved sale tier');
+  check(printed.length === 1 && printed[0].includes('retail'), 'Receipt lost saved retail sale tier');
   await page.goto(origin + '/?sale-tier-fixtures=1#/');
   await page.getByText(customer.name, { exact: true }).click();
-  await expectVisible('wholesale');
-  // Selecting a wholesale customer also reprices a retail draft, then an explicit
-  // retail override must be captured independently of that customer's profile.
+  check(/retail/i.test(await page.getByRole('dialog').innerText()), 'Saved sale details lost retail classification');
+  // Wholesale selection locks both controls; clearing restores the draft choice.
   customer.tier = 'wholesale';
   await page.goto(origin + '/?sale-tier-fixtures=1#/pos');
   await page.reload();
@@ -141,14 +143,21 @@ async page => {
   await page.getByPlaceholder('Phone, name, shop, address...').fill('01712345678');
   await page.getByText(customer.name, { exact: true }).click();
   await expectVisible('package - Tk 2,300.00');
+  check(await tier.getByRole('button', { name: 'Retail', exact: true }).isDisabled(), 'Wholesale customer can switch to retail');
+  await page.getByRole('button', { name: 'Choose another customer' }).click();
+  check(await tier.getByRole('button', { name: 'Wholesale', exact: true }).isEnabled(), 'Clearing customer did not unlock pricing');
+  await tier.getByRole('button', { name: 'Wholesale', exact: true }).click();
   await tier.getByRole('button', { name: 'Retail', exact: true }).click();
   await expectVisible('package - Tk 2,500.00');
+  await page.getByPlaceholder('Phone, name, shop, address...').fill('01712345678');
+  await page.getByText(customer.name, { exact: true }).click();
+  await expectVisible('package - Tk 2,300.00');
   await add('Complete Checkout');
   await add('Confirm');
-  await page.getByText(/Saved retail sale/).waitFor();
-  check(checkouts[1].p_customer_id === customerId && checkouts[1].p_customer_tier === 'retail'
-    && checkouts[1].p_items[0].unit_price === 2500, 'Wholesale customer retail override failed');
+  await page.getByText(/Saved wholesale sale/).waitFor();
+  check(checkouts[1].p_customer_id === customerId && checkouts[1].p_customer_tier === 'wholesale'
+    && checkouts[1].p_items[0].unit_price === 2300, 'Wholesale customer pricing was lost');
   check(errors.length === 0, errors.join('\n'));
   return { checkoutTiers: checkouts.map(body => body.p_customer_tier),
-    total: sales[0].total_amount, receipts: printed.length, checks: 'cart repricing both ways, quantities, retail fallback, customer retention, saved sale, receipt, responsive controls' };
+    total: sales[0].total_amount, receipts: printed.length, checks: 'cart repricing both ways, quantities, retail fallback, customer pricing lock, clearing and reselection, saved sale, receipt, responsive controls' };
 }

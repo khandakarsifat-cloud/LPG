@@ -27,7 +27,7 @@ async page => {
     else if(name==='items')data=items;
     else if(name==='price_books')data=items.flatMap(item=>['refill','package'].map(type=>({item_id:item.item_id,price_type:type,customer_tier:'retail',price:type==='refill'?1250:3500,effective_from:'2020-01-01',effective_to:null})));
     else if(name==='get_dashboard_stats')data={todayRevenue:123456,todayMovements:25,totalCustomers:35};
-    else if(name==='get_customer_directory')data={entries:Array.from({length:Math.min(30,Number(route.request().postDataJSON()?.p_limit??6))},(_,n)=>({customer_id:id(1500+n),display_name:'Customer '+n,name:'Customer '+n,tier:'retail',phone:'01712345678',address:'Dhaka',created_at:now,transactions:10,refill:5,package:2,total_sold:7,last_transaction_at:now})),total:30};
+    else if(name==='get_customer_directory')data={entries:Array.from({length:Math.min(30,Number(route.request().postDataJSON()?.p_limit??6))},(_,n)=>({customer_id:id(1500+n),display_name:'Customer '+n,name:'Customer '+n,tier:'retail',phone:'01712345678',address:'Dhaka',created_at:now,transactions:10,refill:5,package:2,total_sold:7,total_sold_amount:7000,total_due:700,last_transaction_at:now})),total:30};
     else if(name==='get_customer_overview')data={wholesale:15,retail:15,new_wholesale:2,new_retail:3,inactive_wholesale:1,inactive_retail:2,week_start:now,inactive_since:now};
     else if(name==='list_lpg_brands')data=brands;
     else if(name==='list_trucks')data=trucks;

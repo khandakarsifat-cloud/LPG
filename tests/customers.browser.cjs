@@ -12,7 +12,7 @@ async page => {
   let permissions = ['customers:view', 'customers:manage', 'sales:view', 'receipts:print', 'dashboard:view', 'inventory:view', 'inventory:manage', 'purchases:view', 'purchases:manage', 'pos:sell', 'logistics:view', 'logistics:manage', 'employees:view', 'employees:manage', 'settings:manage', 'gas_plants:view', 'gas_plants:manage'];
   const brands = Array.from({ length: 15 }, (_, n) => ({ brand_id: id(10 + n), brand_name: n === 0 ? 'Jamuna Gas' : n === 1 ? 'Omera' : `Brand ${n + 1}`, is_active: true }));
   const items = brands.flatMap((brand, n) => [5, 12].map((size, i) => ({ tenant_id: tenant, item_id: id(100 + n * 2 + i), brand_id: brand.brand_id, brand: brand.brand_name, size_kg: size, mouth_size: n % 2 ? '20mm' : '22mm', filled_quantity: 100, empty_quantity: 100, lpg_brands: brand })));
-  let customers = Array.from({ length: 31 }, (_, n) => ({ tenant_id: tenant, customer_id: id(200 + n), name: n === 0 ? 'Shahidul Islam' : n === 1 ? 'Nusrat Jahan' : `Customer ${n + 1}`, tier: n % 3 === 0 ? 'wholesale' : 'retail', shop_name: n === 0 ? 'Bismillah Traders' : n % 3 === 0 ? `Shop ${n + 1}` : null, phone: `017${String(n + 1).padStart(8, '0')}`, address: n === 2 ? 'Uttara, Dhaka' : 'Mirpur, Dhaka', created_at: '2025-02-12T00:00:00+06:00', transactions: 20 + n, refill: 100 + n * 4, package: n + 2, total_sold: 102 + n * 5, last_transaction_at: '2026-10-19T04:42:00Z' }));
+  let customers = Array.from({ length: 31 }, (_, n) => ({ tenant_id: tenant, customer_id: id(200 + n), name: n === 0 ? 'Shahidul Islam' : n === 1 ? 'Nusrat Jahan' : `Customer ${n + 1}`, tier: n % 3 === 0 ? 'wholesale' : 'retail', shop_name: n === 0 ? 'Bismillah Traders' : n % 3 === 0 ? `Shop ${n + 1}` : null, phone: `017${String(n + 1).padStart(8, '0')}`, address: n === 2 ? 'Uttara, Dhaka' : 'Mirpur, Dhaka', created_at: '2025-02-12T00:00:00+06:00', transactions: 20 + n, refill: 100 + n * 4, package: n + 2, total_sold: 102 + n * 5, total_sold_amount: 10200 + n * 500, total_due: n * 100, last_transaction_at: '2026-10-19T04:42:00Z' }));
   const transactions = Array.from({ length: 9 }, (_, n) => ({ sale_id: id(400 + n), created_at: new Date(Date.parse('2026-10-19T04:42:00Z') - n * 86400000).toISOString(), sale_tier: 'wholesale', total_amount: 4700, refill: 5, package: 2, products: 'Jamuna Gas 12 kg 22mm, Omera 12 kg 20mm' }));
   const lines = Array.from({ length: 10 }, (_, n) => ({ type: n % 2 ? 'empty_return' : 'refill', quantity: 1, unit_price: n % 2 ? 0 : 100, line_total: n % 2 ? 0 : 100, items: items[n % items.length] }));
   lines.push({ type: 'package', quantity: 2, unit_price: 2200, line_total: 4400, items: items[1] });
@@ -32,6 +32,8 @@ async page => {
     else if (name === 'wallets') data = [{ type: 'dealership', balance: 248650 }];
     else if (name === 'get_customer_overview') data = { wholesale: 11, retail: 20, new_wholesale: 2, new_retail: 4, inactive_wholesale: 1, inactive_retail: 3, week_start: '2026-10-17', inactive_since: '2026-08-19' };
     else if (name === 'get_customer_filter_products') data = { items, brands };
+    else if (name === 'get_customer_balance') data = 0;
+    else if (name === 'get_sale_settlement') data = { total: 4700, paid: 4700, due: 0, tracking: false, payments: [], payment_count: 0, receipt_payments: [] };
     else if (name === 'get_customer_directory') {
       if (args.p_customer_id && holdProfile) await profileGate;
       if (failDirectory) return route.fulfill({ status: 500, json: { message: 'Directory temporarily unavailable' } });
@@ -43,7 +45,7 @@ async page => {
       if (groups.length) rows = rows.filter(c => groups.some(g => g.every(t => `${c.name} ${c.shop_name} ${c.phone} ${c.address}`.toLowerCase().includes(t))));
       if (f.item_ids?.length === 0) rows = [];
       for (const k of ['transactions', 'refill', 'package']) rows = rows.filter(c => (!f[`${k}_min`] || c[k] >= Number(f[`${k}_min`])) && (!f[`${k}_max`] || c[k] <= Number(f[`${k}_max`])));
-      rows.sort((a, b) => (f.sort || '').startsWith('sold') ? (a.total_sold - b.total_sold) * (f.sort.endsWith('desc') ? -1 : 1) : a.display_name.localeCompare(b.display_name) * (f.sort === 'name_desc' ? -1 : 1));
+      rows.sort((a, b) => { const key = (f.sort || 'name_asc').replace(/_(asc|desc)$/, ''); const compare = key === 'sold' ? a.total_sold_amount - b.total_sold_amount : key === 'due' ? a.total_due - b.total_due : key === 'last_sale' ? new Date(a.last_transaction_at) - new Date(b.last_transaction_at) : a.display_name.localeCompare(b.display_name); return compare * (f.sort?.endsWith('desc') ? -1 : 1) || a.customer_id.localeCompare(b.customer_id); });
       data = { total: rows.length, entries: rows.slice(args.p_offset || 0, (args.p_offset || 0) + (args.p_limit || 12)) };
     } else if (name === 'get_customer_transactions') {
       const rows = transactions.filter(t => !(args.p_filters?.search) || `${t.sale_id} ${t.products}`.toLowerCase().includes(args.p_filters.search.toLowerCase()));
@@ -53,7 +55,7 @@ async page => {
       const c = customers.find(c => c.customer_id === args.p_customer_id); Object.assign(c, args.p_payload); data = c;
     } else if (name === 'sales') data = { sale_id: transactions[0].sale_id, sale_tier: 'wholesale', created_at: transactions[0].created_at, subtotal: 4900, discount_amount: 200, exchange_fee: 0, total_amount: 4700, notes: 'Delivered to shop; empties collected.', customers: customers[0], user_profiles: { full_name: 'Customer Operator' }, sale_items: lines };
     else if (name === 'customers') {
-      if (req.method() === 'POST') { const c = { ...args[0], customer_id: id(1000), created_at: new Date().toISOString(), transactions: 0, refill: 0, package: 0, total_sold: 0, last_transaction_at: null }; customers.push(c); data = c; }
+      if (req.method() === 'POST') { const c = { ...args[0], customer_id: id(1000), created_at: new Date().toISOString(), transactions: 0, refill: 0, package: 0, total_sold: 0, total_sold_amount: 0, total_due: 0, last_transaction_at: null }; customers.push(c); data = c; }
       else data = [];
     } else if (name === 'items') data = items;
     else if (name === 'list_lpg_brands') data = brands;
@@ -94,8 +96,20 @@ async page => {
   await page.locator('#customer-search').fill('bismillah, uttara');
   await page.waitForFunction(() => document.querySelectorAll('.customer-card').length === 2);
   await page.locator('#customer-search').fill('');
-  await page.getByLabel('Sort by', { exact: true }).selectOption('sold_desc');
-  await page.waitForFunction(() => document.querySelector('.customer-card-total strong')?.textContent.startsWith('252'));
+  await page.getByLabel('Sort by', { exact: true }).selectOption('sold');
+  await page.getByRole('button', { name: 'Sort direction: ascending', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('.customer-card-total strong')?.textContent === 'Tk 25,200.00');
+  check(calls.some(c => c.args?.p_filters?.sort === 'sold_desc'), 'Metric and arrow must send one combined server sort');
+  for (const metric of ['due', 'last_sale', 'name']) {
+    await page.getByLabel('Sort by', { exact: true }).selectOption(metric);
+    await page.waitForFunction(() => document.querySelector('.customer-grid')?.getAttribute('aria-busy') === 'false');
+    check(calls.some(c => c.args?.p_filters?.sort === metric + '_desc'), 'Metric switch lost direction');
+    await page.getByRole('button', { name: 'Sort direction: descending', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('.customer-grid')?.getAttribute('aria-busy') === 'false');
+    check(calls.some(c => c.args?.p_filters?.sort === metric + '_asc'), 'Arrow did not reverse current metric');
+    await page.getByRole('button', { name: 'Sort direction: ascending', exact: true }).click();
+  }
+  await page.getByLabel('Sort by', { exact: true }).selectOption('sold');
   await page.getByRole('button', { name: /^Advanced filters/ }).click();
   let modal = page.getByRole('dialog', { name: 'Advanced filters', exact: true });
   await modal.getByLabel('Transactions minimum').fill('5');
@@ -116,6 +130,7 @@ async page => {
   await picker.getByRole('button', { name: 'Apply 2 products', exact: true }).click();
   await modal.getByRole('button', { name: 'Apply filters' }).click();
   await page.waitForFunction(() => document.querySelector('.customer-active-filters')?.textContent.includes('2 products'));
+  await page.waitForFunction(() => document.querySelector('.customer-grid')?.getAttribute('aria-busy') === 'false');
   check(calls.some(c => c.name === 'get_customer_directory' && c.args.p_filters.item_ids?.length === 2 && c.args.p_filters.transactions_min === '5' && c.args.p_filters.from), 'Combined filters must reach reporting RPC');
   await page.getByRole('button', { name: 'Clear all', exact: true }).click();
   await page.locator('#customer-search').fill('bismillah');

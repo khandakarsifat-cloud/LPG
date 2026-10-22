@@ -111,8 +111,8 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
   };
 
   const handleTierChange = (newTier: 'retail' | 'wholesale') => {
+    if (currentCustomer.customer_id) return;
     setTier(newTier);
-    // This is the sale tier; changing it must not detach or edit a saved customer.
     onChange({ ...currentCustomer, tier: newTier });
   };
 
@@ -140,6 +140,8 @@ export const CustomerSelection = ({ customer, onChange }: CustomerSelectionProps
     <div role="group" aria-label="Sale pricing" style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.25rem' }}>
       {(['retail', 'wholesale'] as const).map(value => (
         <button key={value} type="button" aria-pressed={tier === value}
+          disabled={Boolean(currentCustomer.customer_id)}
+          title={currentCustomer.customer_id ? "Pricing follows the selected customer type" : undefined}
           className={`btn ${tier === value ? 'btn-primary' : 'btn-secondary'}`}
           style={{ flex: 1, padding: '4px 6px', fontSize: '12px', fontWeight: 600 }}
           onClick={() => handleTierChange(value)}>

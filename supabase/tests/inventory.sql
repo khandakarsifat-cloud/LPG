@@ -1,12 +1,23 @@
 -- Product pricing, buying-cost allocation, weekly boundaries and capability isolation.
 -- Every fixture and price change rolls back. Run after the inventory migration.
 begin;
+do $$ begin
+  if exists(select 1 from pg_proc where pronamespace='public'::regnamespace
+    and position('errcode=''40001''' in prosrc)>0) then
+    raise exception 'Business validation must not request serialization retries';
+  end if;
+end $$;
 create function pg_temp.inv_check(ok boolean,label text) returns void language plpgsql as $$
 begin if ok is not true then raise exception 'FAIL: %',label; end if; end $$;
 create function pg_temp.inv_fails(statement text,expected text) returns void language plpgsql as $$
 begin
   begin execute statement; exception when others then
-    if position(expected in sqlerrm)>0 then return; end if;
+    if position(expected in sqlerrm)>0 then
+      if expected like '%changed%' and sqlstate <> 'P0001' then
+        raise exception 'FAIL: stale edits must reject once with P0001, got %',sqlstate;
+      end if;
+      return;
+    end if;
     raise exception 'FAIL: expected %, got %',expected,sqlerrm;
   end;
   raise exception 'FAIL: request succeeded: %',statement;

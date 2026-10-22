@@ -1,5 +1,7 @@
 # Windows production deployments
 
+For the **new production VPS `144.79.249.4`**, read [the production VPS configuration and deployment guide](production-vps.md) first. This document and the current deployment commands describe the existing Azure/Cloudflare installation; they do not bootstrap the prepared, empty production VPS.
+
 For the combined local Docker, development, build and production command guide, see [OPERATIONS.md](../OPERATIONS.md).
 
 The VPS deployment reuses `compose.yml` plus `compose.azure.yml`. Its ten production services are PostgreSQL, Auth, PostgREST, Realtime, Storage, imgproxy, Studio, postgres-meta, Envoy and Caddy. Mailpit, Edge Functions, Supavisor and the frontend are optional profiles and are excluded by the deployment command, including through dependencies. Existing excluded containers are stopped without removing containers or volumes. No Supabase Cloud service is used. Local `compose.yml` behavior is unchanged.

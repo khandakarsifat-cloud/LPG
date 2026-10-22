@@ -74,13 +74,13 @@ begin
  perform pg_temp.pos_fails(format('select public.create_pos_sale(''01700000000'',null,null,null,''retail'',0,0,null,%L,null,%L)',jsonb_build_array((items->0)||'{"type":"empty_return","unit_price":1}'::jsonb),gen_random_uuid()),'zero price');
  perform pg_temp.pos_check((select count(*) from public.sales)=1 and not exists(select 1 from public.customers where phone='01700000007'),'failed requests roll back all writes');
  perform pg_temp.pos_check((select balance from public.wallets where type='cash')=2300 and (select count(*) from public.inventory_movements)=1,'failed requests preserve wallet and stock');
- result:=public.create_pos_sale('01700000000',null,null,null,'wholesale',2300,0,null,items,'c5555555-5555-4555-8555-555555555555',gen_random_uuid());
+ result:=public.create_pos_sale('01700000001',null,null,null,'wholesale',2300,0,null,items,'c6666666-6666-4666-8666-666666666666',gen_random_uuid());
  perform pg_temp.pos_check((result->>'total_amount')::numeric=0,'wholesale fallback and full discount');
  perform pg_temp.pos_check(not exists(select 1 from public.wallet_transactions where reference_id=(result->>'sale_id')::uuid),'zero-total sale creates no received money');
 end $$;
 reset role;
 update public.price_books set price=2400 where tenant_id='c1111111-1111-4111-8111-111111111111';
-update public.customers set name='Changed later' where tenant_id='c1111111-1111-4111-8111-111111111111';
+update public.customers set name='Changed later',tier='wholesale' where tenant_id='c1111111-1111-4111-8111-111111111111';
 set local role authenticated;
 do $$ declare items jsonb:='[{"item_id":"c3333333-3333-4333-8333-333333333333","type":"package","quantity":1,"unit_price":2300}]';r jsonb;
 begin

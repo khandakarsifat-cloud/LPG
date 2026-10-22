@@ -7,7 +7,12 @@ create function pg_temp.purchase_fails(statement text, expected text) returns vo
 begin
   begin execute statement;
   exception when others then
-    if position(expected in sqlerrm)>0 then return; end if;
+    if position(expected in sqlerrm)>0 then
+      if expected like '%changed%' and sqlstate <> 'P0001' then
+        raise exception 'FAIL: stale edit must reject once with P0001, got %',sqlstate;
+      end if;
+      return;
+    end if;
     raise exception 'FAIL: expected %, got %',expected,sqlerrm;
   end;
   raise exception 'FAIL: invalid request succeeded: %',statement;
@@ -86,6 +91,8 @@ begin
  select wallet_id into bk from public.wallets where tenant_id=app_private.current_tenant_id() and type='bkash';
  select wallet_id into ng from public.wallets where tenant_id=app_private.current_tenant_id() and type='nagad';
  draft_id:=(public.create_purchase(jsonb_build_object('plant_id','dd000000-0000-4000-8000-000000000001','request_id',gen_random_uuid()))->>'purchase_id')::uuid;
+ perform pg_temp.purchase_fails(format('select public.update_purchase(%L,%L,0)',draft_id,'{"notes":"stale"}'),'Purchase changed');
+ perform pg_temp.purchase_fails(format('select public.initiate_purchase_cancellation(%L,0,%L,%L)',draft_id,'CANCEL',gen_random_uuid()),'Purchase changed');
  perform pg_temp.purchase_fails(format('select public.initiate_purchase_cancellation(%L,1,%L,%L)',draft_id,'cancel',gen_random_uuid()),'exactly CANCEL');
  key:=gen_random_uuid();
  result:=public.initiate_purchase_cancellation(draft_id,1,'CANCEL',key);

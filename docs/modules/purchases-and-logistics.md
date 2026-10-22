@@ -66,6 +66,8 @@ Purchase activity records creation, edits, dispatch, expected receipt, payment, 
 
 ## Verification and deployment
 
+Stale revision guards return HTTP 400 with SQLSTATE `P0001` and the existing reload message. Migration `20261022181704` replaces the old custom `40001` codes, which PostgREST 14 could retry indefinitely. True database serialization errors remain database-managed; business validation must not manufacture them.
+
 `20261021184107_purchase_wallet_lifecycle.sql` follows `20261020155555_multi_wallet_finance.sql`. Apply it before publishing its dependent frontend through the existing backup/migration/deployment workflow. No original wallet balance, stock movement, billed line, transit or ledger value is recalculated or deleted. Legacy paid headers retain full-settlement meaning without invented payment attribution.
 
 `npm run purchase:test` covers frontend calculations/access. `purchase-wallets.sql` covers rolled-back financial/lifecycle fixtures; `purchase-wallets-legacy.before.sql` / `.after.sql` verify transition preservation. The older `purchases.sql` describes the previous full-payment/cancellation contract and is retained as historical test evidence. `run-purchases.mjs` runs the current suite. `run-transaction-concurrency.py` replays ordered migrations and nine regression suites in a disposable real PostgreSQL database, then races checkout, purchase payments/receipt, cancellation, refunds, collections and transfers. Existing databases are not reset or migrated by that verifier.

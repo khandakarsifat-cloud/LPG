@@ -10,7 +10,8 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[2])
 parser.add_argument('--azure',action='store_true')
 parser.add_argument('--source',type=Path,help='Read migrations/tests from an isolated staged source directory')
-parser.add_argument('--performance',action='store_true',help='Also check a 20,000-entry ledger fixture')
+parser.add_argument('--performance',action='store_true',help='Also check large ledger and customer directory fixtures')
+parser.add_argument('--customer-performance',action='store_true',help='Check only the large customer directory fixture in addition to correctness suites')
 args=parser.parse_args()
 root=args.root.resolve()
 source=(args.source or root).resolve()
@@ -18,6 +19,9 @@ bundle={'migrations':[(p.name,p.read_text()) for p in sorted((source/'supabase/m
  'tests':[(name,(source/'supabase/tests'/name).read_text()) for name in ['purchase-wallets.sql','authorization.sql','receipt_printers.sql','inventory.sql','sale-tier.sql','pos-integrity.sql','customers.sql','reporting.sql','finance.sql']],
  'seed':(source/'supabase/tests/sale-tier.sql').read_text().split('do $$')[0]}
 if args.performance:bundle['tests'].append(('finance-performance.sql',(source/'supabase/tests/finance-performance.sql').read_text()))
+
+if args.performance or args.customer_performance:
+ bundle['tests'].append(('customer-performance.sql',(source/'supabase/tests/customer-performance.sql').read_text()))
 
 name='lpg_verify_'+uuid.uuid4().hex[:12]
 base=['docker','compose','--project-directory',str(root),'--env-file',str(root/'.env'),'-f',str(root/'compose.yml')]
@@ -28,8 +32,8 @@ container=subprocess.check_output(base+['ps','-q','db'],text=True).strip()
 if not re.fullmatch('[0-9a-f]{12,64}',container):raise RuntimeError('Expected one configured database container')
 base=['docker','exec','-i',container,'psql','-X','-U','supabase_admin','-v','ON_ERROR_STOP=1','-qAt']
 
-def sql(text,db=name):
- r=subprocess.run(base+['-d',db],input=text,text=True,capture_output=True,timeout=100)
+def sql(text,db=name,timeout=100):
+ r=subprocess.run(base+['-d',db],input=text,text=True,capture_output=True,timeout=timeout)
  if r.returncode:raise RuntimeError(r.stderr[-1800:])
  return r.stdout.strip()
 created=False
@@ -48,9 +52,10 @@ try:
   if 'purchase_wallet_lifecycle' in path:print(sql((source/'supabase/tests/purchase-wallets-legacy.after.sql').read_text()),flush=True)
   if 'multi_wallet_finance' in path:print(sql((source/'supabase/tests/finance-legacy.after.sql').read_text()),flush=True)
  for path,source in bundle['tests']:
-  result=sql(source)
+  result=sql(source,timeout=600 if path=='customer-performance.sql' else 100)
   assert 'PASS:' in result,path
   print('PostgreSQL '+path+': PASS',flush=True)
+  if path=='customer-performance.sql': print(result,flush=True)
  sql(bundle['seed']+'\ncommit;')
  auth="begin;set local role authenticated;select set_config('request.jwt.claim.sub','c2222222-2222-4222-8222-222222222222',true);"
  item='c3333333-3333-4333-8333-333333333333'

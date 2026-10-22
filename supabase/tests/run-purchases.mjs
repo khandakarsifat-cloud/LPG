@@ -94,6 +94,11 @@ if (replayIndex === -1) {
       await db.exec('set row_security=on;');
       report(name,await db.exec(read(name)));
     }
+    if(process.argv.includes('--performance')) {
+      const results=await db.exec(read('customer-performance.sql'));
+      for(const result of results) if(result.rows.length) console.log(JSON.stringify(result.rows));
+      report('customer-performance.sql',results);
+    }
   } catch(error) {
     console.error({ message:error.message,detail:error.detail,where:error.where });
     process.exitCode=1;

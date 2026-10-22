@@ -32,16 +32,34 @@ select set_config('request.jwt.claim.sub','c2222222-2222-4222-8222-222222222222'
 do $$
 declare result jsonb; payload jsonb := '[{"item_id":"c3333333-3333-4333-8333-333333333333","type":"package","quantity":1,"unit_price":2300}]';
 begin
- result := public.create_pos_sale('01700000000',null,null,null,'wholesale',100,50,null,payload,'c5555555-5555-4555-8555-555555555555',p_request_id=>gen_random_uuid());
- if result->>'sale_tier' <> 'wholesale' or (result->>'total_amount')::numeric <> 2250
- or not exists(select 1 from public.sales where sale_id=(result->>'sale_id')::uuid and sale_tier='wholesale') then
-   raise exception 'Wholesale classification or sale totals were lost';
+ -- Both overrides must fail before stock or accounting writes.
+ begin
+   perform public.create_pos_sale('01700000000',null,null,null,'wholesale',0,0,null,payload,'c5555555-5555-4555-8555-555555555555',p_request_id=>gen_random_uuid());
+   raise exception 'Retail customer wholesale override accepted';
+ exception when raise_exception then
+   if sqlerrm <> 'Sale pricing must match the selected customer type. Select the customer again.' then raise; end if;
+ end;
+ begin
+   perform public.create_pos_sale('01700000001',null,null,null,'retail',0,0,null,payload,'c6666666-6666-4666-8666-666666666666',p_request_id=>gen_random_uuid());
+   raise exception 'Wholesale customer retail override accepted';
+ exception when raise_exception then
+   if sqlerrm <> 'Sale pricing must match the selected customer type. Select the customer again.' then raise; end if;
+ end;
+ if exists(select 1 from public.sales) or exists(select 1 from public.inventory_movements)
+ or exists(select 1 from public.wallet_transactions) or exists(select 1 from public.customer_transactions)
+ or (select filled_quantity from public.items limit 1) <> 10 then
+   raise exception 'Rejected override changed stock or accounting';
+ end if;
+ result := public.create_pos_sale('01700000000',null,null,null,'retail',100,50,null,payload,'c5555555-5555-4555-8555-555555555555',p_request_id=>gen_random_uuid());
+ if result->>'sale_tier' <> 'retail' or (result->>'total_amount')::numeric <> 2250
+ or not exists(select 1 from public.sales where sale_id=(result->>'sale_id')::uuid and sale_tier='retail') then
+   raise exception 'Retail classification or sale totals were lost';
  end if;
  if (select tier from public.customers where customer_id='c5555555-5555-4555-8555-555555555555') <> 'retail' then
    raise exception 'Sale tier changed the customer profile';
  end if;
- result := public.create_pos_sale('01700000001',null,null,null,'retail',0,0,null,payload,'c6666666-6666-4666-8666-666666666666',p_request_id=>gen_random_uuid());
- if result->>'sale_tier' <> 'retail' then raise exception 'Retail override was not stored'; end if;
+ result := public.create_pos_sale('01700000001',null,null,null,'wholesale',0,0,null,payload,'c6666666-6666-4666-8666-666666666666',p_request_id=>gen_random_uuid());
+ if result->>'sale_tier' <> 'wholesale' then raise exception 'Wholesale customer tier was not stored'; end if;
  result := public.create_pos_sale('01700000002','New wholesale','Shop',null,'wholesale',0,0,null,payload,p_request_id=>gen_random_uuid());
  if result->>'sale_tier' <> 'wholesale' then raise exception 'New customer wholesale sale failed'; end if;
  result := public.create_pos_sale('01700000003',null,null,null,null,0,0,null,payload,p_request_id=>gen_random_uuid());
@@ -89,5 +107,5 @@ do $$ begin
  if exists(select 1 from public.sales) then raise exception 'Cross-tenant sale tier read allowed'; end if;
 end $$;
 reset role;
-select 'PASS: sale tier snapshots, saved/new customers, both overrides, validation, stock and tenant boundaries' as verification;
+select 'PASS: sale tier snapshots, saved/new customers, rejected overrides, validation, stock and tenant boundaries' as verification;
 rollback;

@@ -1,7 +1,8 @@
 import type { Customer } from '../hooks/useCustomers';
 import type { InventoryProductIdentity, LPGBrand } from './inventory';
 
-export type CustomerSort = 'name_asc' | 'name_desc' | 'sold_asc' | 'sold_desc';
+export type CustomerSortBy = 'sold' | 'due' | 'name' | 'last_sale';
+export type CustomerSort = `${CustomerSortBy}_${'asc' | 'desc'}`;
 export interface CustomerFilters {
   search: string; tier: 'all' | 'retail' | 'wholesale'; sort: CustomerSort;
   from: string; to: string; item_ids: string[] | null;
@@ -9,7 +10,8 @@ export interface CustomerFilters {
   refill_min: string; refill_max: string; package_min: string; package_max: string;
 }
 export interface CustomerSummary extends Customer {
-  display_name: string; transactions: number; refill: number; package: number; total_sold: number; last_transaction_at: string | null;
+  display_name: string; transactions: number; refill: number; package: number; total_sold: number;
+  total_sold_amount: number; total_due: number; last_transaction_at: string | null;
 }
 export interface CustomerOverview {
   wholesale: number; retail: number; new_wholesale: number; new_retail: number;

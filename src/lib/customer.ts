@@ -1,4 +1,13 @@
-import type { CustomerFilters } from '../types/customer.ts';
+import type { CustomerFilters, CustomerSort, CustomerSortBy } from '../types/customer.ts';
+
+export const customerSortOptions: { value: CustomerSortBy; label: string }[] = [
+  { value: 'sold', label: 'Total Sold' }, { value: 'due', label: 'Total Due' },
+  { value: 'name', label: 'Name' }, { value: 'last_sale', label: 'Last Sale' },
+];
+export const customerSortBy = (sort: CustomerSort): CustomerSortBy =>
+  sort.startsWith('last_sale_') ? 'last_sale' : sort.startsWith('sold_') ? 'sold' : sort.startsWith('due_') ? 'due' : 'name';
+export const customerSortWith = (sort: CustomerSort, by: CustomerSortBy): CustomerSort => `${by}_${sort.endsWith('_asc') ? 'asc' : 'desc'}`;
+export const reverseCustomerSort = (sort: CustomerSort): CustomerSort => `${customerSortBy(sort)}_${sort.endsWith('_asc') ? 'desc' : 'asc'}`;
 
 export const defaultCustomerFilters: CustomerFilters = {
   search: '', tier: 'all', sort: 'name_asc', from: '', to: '', item_ids: null,

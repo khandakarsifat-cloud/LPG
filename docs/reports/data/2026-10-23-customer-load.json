@@ -1,0 +1,1367 @@
+{
+  "date": "2026-10-23",
+  "timezone": "Asia/Dhaka",
+  "environment": {
+    "target": "existing Azure development VPS",
+    "sku": "Standard_B2als_v2",
+    "location": "Central India",
+    "vcpus": 2,
+    "host_memory_gib": 4,
+    "database_memory_gib": 1,
+    "postgresql": "17.6",
+    "postgrest": "14.17",
+    "pool_size": 10,
+    "pool_acquisition_timeout_seconds": 10,
+    "rest_memory_mib": 192,
+    "public_gateway_in_load_path": false,
+    "azure_credit_metrics_collected": false
+  },
+  "dataset": {
+    "sales": 12800000,
+    "users": 640,
+    "customers": 1280000,
+    "businesses": 640,
+    "sale_lines": 12800000,
+    "database_bytes": 9673362579,
+    "active_other_queries": 0
+  },
+  "method": {
+    "stored_businesses": 640,
+    "customers_per_business": 2000,
+    "sales_per_business": 20000,
+    "sale_lines_per_sale": 1,
+    "active_users_per_business": 1,
+    "think_seconds": [
+      1.5,
+      2.5
+    ],
+    "warmup_seconds": 20,
+    "measured_admission_seconds": 90,
+    "client_timeout_seconds": 30,
+    "ssh_forward_processes": 8,
+    "profile": "customer directory reads",
+    "client_retries": 0
+  },
+  "transport_control": {
+    "tunnels": 8,
+    "requests": 640,
+    "successes": 640,
+    "status": {
+      "200": 640
+    },
+    "p95_ms": 273.4
+  },
+  "stages": [
+    {
+      "businesses": 10,
+      "sales_per_business": 20000,
+      "started_unix": 1792695899.0823135,
+      "finished_unix": 1792696023.750005,
+      "ssh_tunnels": 8,
+      "warmup_seconds": 20,
+      "scheduled_measure_seconds": 90,
+      "actual_elapsed_seconds_including_warmup_and_drain": 112.08,
+      "think_seconds": 2,
+      "generator_event_loop_lag_ms_p99": 12.07,
+      "steady": {
+        "requests": 424,
+        "successes": 424,
+        "errors": {},
+        "status": {
+          "200": 424
+        },
+        "success_rps": 4.71,
+        "error_percent": 0,
+        "success_ms": {
+          "p50": 108.71,
+          "p95": 195.93,
+          "p99": 320.97,
+          "max": 1495.14
+        },
+        "all_ms_p95": 195.93,
+        "success_rps_completed_within_window": 4.71
+      },
+      "scenarios": {
+        "name": {
+          "requests": 133,
+          "successes": 133,
+          "errors": {},
+          "status": {
+            "200": 133
+          },
+          "success_rps": 1.48,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 61.73,
+            "p95": 117.7,
+            "p99": 361.99,
+            "max": 604.86
+          },
+          "all_ms_p95": 117.7
+        },
+        "search": {
+          "requests": 60,
+          "successes": 60,
+          "errors": {},
+          "status": {
+            "200": 60
+          },
+          "success_rps": 0.67,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 60.05,
+            "p95": 83.85,
+            "p99": 127.89,
+            "max": 136.87
+          },
+          "all_ms_p95": 83.85
+        },
+        "sold": {
+          "requests": 80,
+          "successes": 80,
+          "errors": {},
+          "status": {
+            "200": 80
+          },
+          "success_rps": 0.89,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 115.15,
+            "p95": 221.97,
+            "p99": 248.62,
+            "max": 279.54
+          },
+          "all_ms_p95": 221.97
+        },
+        "due": {
+          "requests": 51,
+          "successes": 51,
+          "errors": {},
+          "status": {
+            "200": 51
+          },
+          "success_rps": 0.57,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 135.71,
+            "p95": 245.16,
+            "p99": 486.1,
+            "max": 671.73
+          },
+          "all_ms_p95": 245.16
+        },
+        "last_sale": {
+          "requests": 41,
+          "successes": 41,
+          "errors": {},
+          "status": {
+            "200": 41
+          },
+          "success_rps": 0.46,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 115.69,
+            "p95": 200,
+            "p99": 996.11,
+            "max": 1495.14
+          },
+          "all_ms_p95": 200
+        },
+        "combined": {
+          "requests": 59,
+          "successes": 59,
+          "errors": {},
+          "status": {
+            "200": 59
+          },
+          "success_rps": 0.66,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 106.42,
+            "p95": 185.68,
+            "p99": 255.88,
+            "max": 327.09
+          },
+          "all_ms_p95": 185.68
+        }
+      },
+      "burst": {
+        "requests": 10,
+        "successes": 10,
+        "errors": {},
+        "status": {
+          "200": 10
+        },
+        "success_rps": 11.45,
+        "error_percent": 0,
+        "success_ms": {
+          "p50": 678.28,
+          "p95": 863.79,
+          "p99": 867.86,
+          "max": 868.88
+        },
+        "all_ms_p95": 863.79
+      },
+      "resources": {
+        "sample_count": 18,
+        "db_cpu_percent_median": 20.223356049122422,
+        "db_cpu_percent_p95": 26.635937112502805,
+        "host_busy_percent_median": 17.447657028913255,
+        "host_iowait_percent_median": 0,
+        "db_memory_peak_bytes": 1037070336,
+        "rest_memory_peak_bytes": 115757056,
+        "host_memory_available_min_bytes": 1808715776,
+        "active_queries_max": 2,
+        "connections_max": 12,
+        "postgres_blocks_read_delta": 85,
+        "temp_bytes_delta": 0,
+        "temp_files_delta": 0,
+        "wait_samples": {
+          "CPU": 4
+        },
+        "db_oom_kills": "0",
+        "deadlocks": 0
+      },
+      "correctness_errors": 0,
+      "response_bytes_max": 12330
+    },
+    {
+      "businesses": 20,
+      "sales_per_business": 20000,
+      "started_unix": 1792696039.2689157,
+      "finished_unix": 1792696164.1909332,
+      "ssh_tunnels": 8,
+      "warmup_seconds": 20,
+      "scheduled_measure_seconds": 90,
+      "actual_elapsed_seconds_including_warmup_and_drain": 112.15,
+      "think_seconds": 2,
+      "generator_event_loop_lag_ms_p99": 14.53,
+      "steady": {
+        "requests": 850,
+        "successes": 850,
+        "errors": {},
+        "status": {
+          "200": 850
+        },
+        "success_rps": 9.44,
+        "error_percent": 0,
+        "success_ms": {
+          "p50": 113.47,
+          "p95": 227.69,
+          "p99": 370.75,
+          "max": 437.26
+        },
+        "all_ms_p95": 227.69,
+        "success_rps_completed_within_window": 9.43
+      },
+      "scenarios": {
+        "name": {
+          "requests": 249,
+          "successes": 249,
+          "errors": {},
+          "status": {
+            "200": 249
+          },
+          "success_rps": 2.77,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 66.36,
+            "p95": 125.76,
+            "p99": 144.35,
+            "max": 170.88
+          },
+          "all_ms_p95": 125.76
+        },
+        "search": {
+          "requests": 128,
+          "successes": 128,
+          "errors": {},
+          "status": {
+            "200": 128
+          },
+          "success_rps": 1.42,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 62.93,
+            "p95": 103.81,
+            "p99": 121.2,
+            "max": 144
+          },
+          "all_ms_p95": 103.81
+        },
+        "sold": {
+          "requests": 125,
+          "successes": 125,
+          "errors": {},
+          "status": {
+            "200": 125
+          },
+          "success_rps": 1.39,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 152.11,
+            "p95": 347.59,
+            "p99": 381.71,
+            "max": 427.21
+          },
+          "all_ms_p95": 347.59
+        },
+        "due": {
+          "requests": 133,
+          "successes": 133,
+          "errors": {},
+          "status": {
+            "200": 133
+          },
+          "success_rps": 1.48,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 145.8,
+            "p95": 251.24,
+            "p99": 366.29,
+            "max": 414.34
+          },
+          "all_ms_p95": 251.24
+        },
+        "last_sale": {
+          "requests": 84,
+          "successes": 84,
+          "errors": {},
+          "status": {
+            "200": 84
+          },
+          "success_rps": 0.93,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 143.74,
+            "p95": 265.71,
+            "p99": 426.37,
+            "max": 437.26
+          },
+          "all_ms_p95": 265.71
+        },
+        "combined": {
+          "requests": 131,
+          "successes": 131,
+          "errors": {},
+          "status": {
+            "200": 131
+          },
+          "success_rps": 1.46,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 120.01,
+            "p95": 236.06,
+            "p99": 316.73,
+            "max": 380.48
+          },
+          "all_ms_p95": 236.06
+        }
+      },
+      "burst": {
+        "requests": 20,
+        "successes": 20,
+        "errors": {},
+        "status": {
+          "200": 20
+        },
+        "success_rps": 15.56,
+        "error_percent": 0,
+        "success_ms": {
+          "p50": 946.25,
+          "p95": 1277.04,
+          "p99": 1280.36,
+          "max": 1281.19
+        },
+        "all_ms_p95": 1277.04
+      },
+      "resources": {
+        "sample_count": 17,
+        "db_cpu_percent_median": 44.97007194268868,
+        "db_cpu_percent_p95": 53.089972212154066,
+        "host_busy_percent_median": 31.312127236580512,
+        "host_iowait_percent_median": 0,
+        "db_memory_peak_bytes": 1031262208,
+        "rest_memory_peak_bytes": 116129792,
+        "host_memory_available_min_bytes": 1828249600,
+        "active_queries_max": 4,
+        "connections_max": 12,
+        "postgres_blocks_read_delta": 548,
+        "temp_bytes_delta": 0,
+        "temp_files_delta": 0,
+        "wait_samples": {
+          "CPU": 14
+        },
+        "db_oom_kills": "0",
+        "deadlocks": 0
+      },
+      "correctness_errors": 0,
+      "response_bytes_max": 12330
+    },
+    {
+      "businesses": 40,
+      "sales_per_business": 20000,
+      "started_unix": 1792696179.5974586,
+      "finished_unix": 1792696305.9400065,
+      "ssh_tunnels": 8,
+      "warmup_seconds": 20,
+      "scheduled_measure_seconds": 90,
+      "actual_elapsed_seconds_including_warmup_and_drain": 112.36,
+      "think_seconds": 2,
+      "generator_event_loop_lag_ms_p99": 15.28,
+      "steady": {
+        "requests": 1638,
+        "successes": 1638,
+        "errors": {},
+        "status": {
+          "200": 1638
+        },
+        "success_rps": 18.2,
+        "error_percent": 0,
+        "success_ms": {
+          "p50": 134.77,
+          "p95": 439.43,
+          "p99": 711.67,
+          "max": 1442.54
+        },
+        "all_ms_p95": 439.43,
+        "success_rps_completed_within_window": 18.18
+      },
+      "scenarios": {
+        "name": {
+          "requests": 494,
+          "successes": 494,
+          "errors": {},
+          "status": {
+            "200": 494
+          },
+          "success_rps": 5.49,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 87.61,
+            "p95": 170.66,
+            "p99": 361.8,
+            "max": 1178.04
+          },
+          "all_ms_p95": 170.66
+        },
+        "search": {
+          "requests": 239,
+          "successes": 239,
+          "errors": {},
+          "status": {
+            "200": 239
+          },
+          "success_rps": 2.66,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 76.9,
+            "p95": 156.12,
+            "p99": 225.25,
+            "max": 300.36
+          },
+          "all_ms_p95": 156.12
+        },
+        "sold": {
+          "requests": 262,
+          "successes": 262,
+          "errors": {},
+          "status": {
+            "200": 262
+          },
+          "success_rps": 2.91,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 205.66,
+            "p95": 543.4,
+            "p99": 718.09,
+            "max": 1442.54
+          },
+          "all_ms_p95": 543.4
+        },
+        "due": {
+          "requests": 217,
+          "successes": 217,
+          "errors": {},
+          "status": {
+            "200": 217
+          },
+          "success_rps": 2.41,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 205.15,
+            "p95": 527.69,
+            "p99": 707.77,
+            "max": 1006.02
+          },
+          "all_ms_p95": 527.69
+        },
+        "last_sale": {
+          "requests": 167,
+          "successes": 167,
+          "errors": {},
+          "status": {
+            "200": 167
+          },
+          "success_rps": 1.86,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 210.3,
+            "p95": 625.49,
+            "p99": 883.26,
+            "max": 1296.13
+          },
+          "all_ms_p95": 625.49
+        },
+        "combined": {
+          "requests": 259,
+          "successes": 259,
+          "errors": {},
+          "status": {
+            "200": 259
+          },
+          "success_rps": 2.88,
+          "error_percent": 0,
+          "success_ms": {
+            "p50": 174.29,
+            "p95": 448.73,
+            "p99": 714.78,
+            "max": 1213.63
+          },
+          "all_ms_p95": 448.73
+        }
+      },
+      "burst": {
+        "requests": 40,
+        "successes": 40,
+        "errors": {},
+        "status": {
+          "200": 40
+        },
+        "success_rps": 14.69,
+        "error_percent": 0,
+        "success_ms": {
+          "p50": 1588.05,
+          "p95": 2688.04,
+          "p99": 2716.73,
+          "max": 2716.97
+        },
+        "all_ms_p95": 2688.04
+      },
+      "resources": {
+        "sample_count": 17,
+        "db_cpu_percent_median": 102.77188214127611,
+        "db_cpu_percent_p95": 112.71845761780793,
+        "host_busy_percent_median": 60.67101584342964,
+        "host_iowait_percent_median": 0.09718172983479105,
+        "db_memory_peak_bytes": 1063301120,
+        "rest_memory_peak_bytes": 116256768,
+        "host_memory_available_min_bytes": 1815400448,
+        "active_queries_max": 10,
+        "connections_max": 12,
+        "postgres_blocks_read_delta": 208416,
+        "temp_bytes_delta": 0,
+        "temp_files_delta": 0,
+        "wait_samples": {
+          "CPU": 62,
+          "IO:DataFileRead": 1
+        },
+        "db_oom_kills": "0",
+        "deadlocks": 0
+      },
+      "correctness_errors": 0,
+      "response_bytes_max": 12330
+    },
+    {
+      "businesses": 80,
+      "sales_per_business": 20000,
+      "started_unix": 1792696321.3401406,
+      "finished_unix": 1792696458.7031405,
+      "ssh_tunnels": 8,
+      "warmup_seconds": 20,
+      "scheduled_measure_seconds": 90,
+      "actual_elapsed_seconds_including_warmup_and_drain": 119.92,
+      "think_seconds": 2,
+      "generator_event_loop_lag_ms_p99": 14.6,
+      "steady": {
+        "requests": 901,
+        "successes": 606,
+        "errors": {
+          "PGRST003": 295
+        },
+        "status": {
+          "200": 606,
+          "504": 295
+        },
+        "success_rps": 6.73,
+        "error_percent": 32.74,
+        "success_ms": {
+          "p50": 3600.36,
+          "p95": 10822.15,
+          "p99": 13021.06,
+          "max": 13923.96
+        },
+        "all_ms_p95": 10143.27,
+        "success_rps_completed_within_window": 6.24
+      },
+      "scenarios": {
+        "name": {
+          "requests": 296,
+          "successes": 196,
+          "errors": {
+            "PGRST003": 100
+          },
+          "status": {
+            "200": 196,
+            "504": 100
+          },
+          "success_rps": 2.18,
+          "error_percent": 33.78,
+          "success_ms": {
+            "p50": 1757.26,
+            "p95": 9399.14,
+            "p99": 10393.94,
+            "max": 10719.64
+          },
+          "all_ms_p95": 10087.43
+        },
+        "search": {
+          "requests": 128,
+          "successes": 91,
+          "errors": {
+            "PGRST003": 37
+          },
+          "status": {
+            "200": 91,
+            "504": 37
+          },
+          "success_rps": 1.01,
+          "error_percent": 28.91,
+          "success_ms": {
+            "p50": 2379.6,
+            "p95": 9750.93,
+            "p99": 10422.11,
+            "max": 10773.18
+          },
+          "all_ms_p95": 10078.45
+        },
+        "sold": {
+          "requests": 129,
+          "successes": 86,
+          "errors": {
+            "PGRST003": 43
+          },
+          "status": {
+            "200": 86,
+            "504": 43
+          },
+          "success_rps": 0.96,
+          "error_percent": 33.33,
+          "success_ms": {
+            "p50": 4383.57,
+            "p95": 12001.66,
+            "p99": 13083.3,
+            "max": 13223.22
+          },
+          "all_ms_p95": 11232.62
+        },
+        "due": {
+          "requests": 131,
+          "successes": 95,
+          "errors": {
+            "PGRST003": 36
+          },
+          "status": {
+            "200": 95,
+            "504": 36
+          },
+          "success_rps": 1.06,
+          "error_percent": 27.48,
+          "success_ms": {
+            "p50": 5402.32,
+            "p95": 11878.26,
+            "p99": 13427.87,
+            "max": 13923.96
+          },
+          "all_ms_p95": 11630.77
+        },
+        "last_sale": {
+          "requests": 78,
+          "successes": 53,
+          "errors": {
+            "PGRST003": 25
+          },
+          "status": {
+            "200": 53,
+            "504": 25
+          },
+          "success_rps": 0.59,
+          "error_percent": 32.05,
+          "success_ms": {
+            "p50": 5513.46,
+            "p95": 12087.06,
+            "p99": 13609.43,
+            "max": 13907.44
+          },
+          "all_ms_p95": 11533.02
+        },
+        "combined": {
+          "requests": 139,
+          "successes": 85,
+          "errors": {
+            "PGRST003": 54
+          },
+          "status": {
+            "200": 85,
+            "504": 54
+          },
+          "success_rps": 0.94,
+          "error_percent": 38.85,
+          "success_ms": {
+            "p50": 3602.22,
+            "p95": 10771.15,
+            "p99": 11717.19,
+            "max": 11726.6
+          },
+          "all_ms_p95": 10127.29
+        }
+      },
+      "burst": {
+        "requests": 80,
+        "successes": 80,
+        "errors": {},
+        "status": {
+          "200": 80
+        },
+        "success_rps": 13.06,
+        "error_percent": 0,
+        "success_ms": {
+          "p50": 3389.35,
+          "p95": 6031.41,
+          "p99": 6115.68,
+          "max": 6119.14
+        },
+        "all_ms_p95": 6031.41
+      },
+      "resources": {
+        "sample_count": 15,
+        "db_cpu_percent_median": 141.6038856733536,
+        "db_cpu_percent_p95": 148.2753677098367,
+        "host_busy_percent_median": 100,
+        "host_iowait_percent_median": 0,
+        "db_memory_peak_bytes": 1073635328,
+        "rest_memory_peak_bytes": 117714944,
+        "host_memory_available_min_bytes": 1771347968,
+        "active_queries_max": 10,
+        "connections_max": 12,
+        "postgres_blocks_read_delta": 187391,
+        "temp_bytes_delta": 0,
+        "temp_files_delta": 0,
+        "wait_samples": {
+          "CPU": 128,
+          "IO:DataFileRead": 16,
+          "LWLock:BufferMapping": 3
+        },
+        "db_oom_kills": "0",
+        "deadlocks": 0
+      },
+      "correctness_errors": 0,
+      "response_bytes_max": 12330
+    },
+    {
+      "businesses": 160,
+      "sales_per_business": 20000,
+      "started_unix": 1792696474.1157467,
+      "finished_unix": 1792696619.467905,
+      "ssh_tunnels": 8,
+      "warmup_seconds": 20,
+      "scheduled_measure_seconds": 90,
+      "actual_elapsed_seconds_including_warmup_and_drain": 121.87,
+      "think_seconds": 2,
+      "generator_event_loop_lag_ms_p99": 15.16,
+      "steady": {
+        "requests": 1973,
+        "successes": 1453,
+        "errors": {
+          "PGRST003": 520
+        },
+        "status": {
+          "200": 1453,
+          "504": 520
+        },
+        "success_rps": 16.14,
+        "error_percent": 26.36,
+        "success_ms": {
+          "p50": 2855.01,
+          "p95": 9722.12,
+          "p99": 11951.26,
+          "max": 13563.69
+        },
+        "all_ms_p95": 10095.24,
+        "success_rps_completed_within_window": 15.5
+      },
+      "scenarios": {
+        "name": {
+          "requests": 603,
+          "successes": 438,
+          "errors": {
+            "PGRST003": 165
+          },
+          "status": {
+            "200": 438,
+            "504": 165
+          },
+          "success_rps": 4.87,
+          "error_percent": 27.36,
+          "success_ms": {
+            "p50": 2442.17,
+            "p95": 9212.77,
+            "p99": 10221.16,
+            "max": 10807.35
+          },
+          "all_ms_p95": 10077.97
+        },
+        "search": {
+          "requests": 276,
+          "successes": 214,
+          "errors": {
+            "PGRST003": 62
+          },
+          "status": {
+            "200": 214,
+            "504": 62
+          },
+          "success_rps": 2.38,
+          "error_percent": 22.46,
+          "success_ms": {
+            "p50": 2172.38,
+            "p95": 9679.09,
+            "p99": 10186.77,
+            "max": 10323.89
+          },
+          "all_ms_p95": 10096.89
+        },
+        "sold": {
+          "requests": 318,
+          "successes": 230,
+          "errors": {
+            "PGRST003": 88
+          },
+          "status": {
+            "200": 230,
+            "504": 88
+          },
+          "success_rps": 2.56,
+          "error_percent": 27.67,
+          "success_ms": {
+            "p50": 2817.16,
+            "p95": 9069.88,
+            "p99": 10230.54,
+            "max": 12672.03
+          },
+          "all_ms_p95": 10092.28
+        },
+        "due": {
+          "requests": 301,
+          "successes": 224,
+          "errors": {
+            "PGRST003": 77
+          },
+          "status": {
+            "200": 224,
+            "504": 77
+          },
+          "success_rps": 2.49,
+          "error_percent": 25.58,
+          "success_ms": {
+            "p50": 3081.56,
+            "p95": 10061.63,
+            "p99": 12589.62,
+            "max": 13563.69
+          },
+          "all_ms_p95": 10122.76
+        },
+        "last_sale": {
+          "requests": 180,
+          "successes": 118,
+          "errors": {
+            "PGRST003": 62
+          },
+          "status": {
+            "200": 118,
+            "504": 62
+          },
+          "success_rps": 1.31,
+          "error_percent": 34.44,
+          "success_ms": {
+            "p50": 3696.21,
+            "p95": 10864.87,
+            "p99": 12754.6,
+            "max": 13523.33
+          },
+          "all_ms_p95": 10354.91
+        },
+        "combined": {
+          "requests": 295,
+          "successes": 229,
+          "errors": {
+            "PGRST003": 66
+          },
+          "status": {
+            "200": 229,
+            "504": 66
+          },
+          "success_rps": 2.54,
+          "error_percent": 22.37,
+          "success_ms": {
+            "p50": 3641.45,
+            "p95": 10335.2,
+            "p99": 12090.48,
+            "max": 12700.87
+          },
+          "all_ms_p95": 10108.04
+        }
+      },
+      "burst": {
+        "requests": 160,
+        "successes": 35,
+        "errors": {
+          "PGRST003": 125
+        },
+        "status": {
+          "200": 35,
+          "504": 125
+        },
+        "success_rps": 3.01,
+        "error_percent": 78.12,
+        "success_ms": {
+          "p50": 6476.63,
+          "p95": 11528.65,
+          "p99": 11577.55,
+          "max": 11592.26
+        },
+        "all_ms_p95": 10414.71
+      },
+      "resources": {
+        "sample_count": 16,
+        "db_cpu_percent_median": 146.24812341013862,
+        "db_cpu_percent_p95": 154.4618688734329,
+        "host_busy_percent_median": 87.1939736346516,
+        "host_iowait_percent_median": 12.8060263653484,
+        "db_memory_peak_bytes": 1073721344,
+        "rest_memory_peak_bytes": 120655872,
+        "host_memory_available_min_bytes": 1793974272,
+        "active_queries_max": 10,
+        "connections_max": 12,
+        "postgres_blocks_read_delta": 682708,
+        "temp_bytes_delta": 0,
+        "temp_files_delta": 0,
+        "wait_samples": {
+          "CPU": 106,
+          "IO:DataFileRead": 53
+        },
+        "db_oom_kills": "0",
+        "deadlocks": 0
+      },
+      "correctness_errors": 0,
+      "response_bytes_max": 12380
+    },
+    {
+      "businesses": 320,
+      "sales_per_business": 20000,
+      "started_unix": 1792696634.880463,
+      "finished_unix": 1792696783.2743213,
+      "ssh_tunnels": 8,
+      "warmup_seconds": 20,
+      "scheduled_measure_seconds": 90,
+      "actual_elapsed_seconds_including_warmup_and_drain": 123.55,
+      "think_seconds": 2,
+      "generator_event_loop_lag_ms_p99": 14.47,
+      "steady": {
+        "requests": 2547,
+        "successes": 413,
+        "errors": {
+          "PGRST003": 2134
+        },
+        "status": {
+          "200": 413,
+          "504": 2134
+        },
+        "success_rps": 4.59,
+        "error_percent": 83.78,
+        "success_ms": {
+          "p50": 5369.27,
+          "p95": 12907.5,
+          "p99": 13897.81,
+          "max": 14830.18
+        },
+        "all_ms_p95": 10147.85,
+        "success_rps_completed_within_window": 3.97
+      },
+      "scenarios": {
+        "name": {
+          "requests": 771,
+          "successes": 116,
+          "errors": {
+            "PGRST003": 655
+          },
+          "status": {
+            "200": 116,
+            "504": 655
+          },
+          "success_rps": 1.29,
+          "error_percent": 84.95,
+          "success_ms": {
+            "p50": 3464.46,
+            "p95": 9782.23,
+            "p99": 10183.64,
+            "max": 10709.16
+          },
+          "all_ms_p95": 10136.48
+        },
+        "search": {
+          "requests": 370,
+          "successes": 58,
+          "errors": {
+            "PGRST003": 312
+          },
+          "status": {
+            "200": 58,
+            "504": 312
+          },
+          "success_rps": 0.64,
+          "error_percent": 84.32,
+          "success_ms": {
+            "p50": 3571.98,
+            "p95": 10158.49,
+            "p99": 10807.57,
+            "max": 10904.71
+          },
+          "all_ms_p95": 10128.41
+        },
+        "sold": {
+          "requests": 380,
+          "successes": 60,
+          "errors": {
+            "PGRST003": 320
+          },
+          "status": {
+            "200": 60,
+            "504": 320
+          },
+          "success_rps": 0.67,
+          "error_percent": 84.21,
+          "success_ms": {
+            "p50": 6864.36,
+            "p95": 12599.37,
+            "p99": 13238.66,
+            "max": 13600.1
+          },
+          "all_ms_p95": 10151.53
+        },
+        "due": {
+          "requests": 381,
+          "successes": 72,
+          "errors": {
+            "PGRST003": 309
+          },
+          "status": {
+            "200": 72,
+            "504": 309
+          },
+          "success_rps": 0.8,
+          "error_percent": 81.1,
+          "success_ms": {
+            "p50": 7207.2,
+            "p95": 13145.85,
+            "p99": 14278.07,
+            "max": 14593.82
+          },
+          "all_ms_p95": 10754.49
+        },
+        "last_sale": {
+          "requests": 260,
+          "successes": 42,
+          "errors": {
+            "PGRST003": 218
+          },
+          "status": {
+            "200": 42,
+            "504": 218
+          },
+          "success_rps": 0.47,
+          "error_percent": 83.85,
+          "success_ms": {
+            "p50": 6600.33,
+            "p95": 13818.81,
+            "p99": 14450.89,
+            "max": 14830.18
+          },
+          "all_ms_p95": 11011.33
+        },
+        "combined": {
+          "requests": 385,
+          "successes": 65,
+          "errors": {
+            "PGRST003": 320
+          },
+          "status": {
+            "200": 65,
+            "504": 320
+          },
+          "success_rps": 0.72,
+          "error_percent": 83.12,
+          "success_ms": {
+            "p50": 7421.03,
+            "p95": 12761.28,
+            "p99": 13836.11,
+            "max": 13913.79
+          },
+          "all_ms_p95": 10156.33
+        }
+      },
+      "burst": {
+        "requests": 320,
+        "successes": 33,
+        "errors": {
+          "PGRST003": 287
+        },
+        "status": {
+          "200": 33,
+          "504": 287
+        },
+        "success_rps": 2.72,
+        "error_percent": 89.69,
+        "success_ms": {
+          "p50": 7756.1,
+          "p95": 12018.27,
+          "p99": 12093.73,
+          "max": 12115.73
+        },
+        "all_ms_p95": 10652.31
+      },
+      "resources": {
+        "sample_count": 13,
+        "db_cpu_percent_median": 132.32687856036944,
+        "db_cpu_percent_p95": 135.06433719979208,
+        "host_busy_percent_median": 99.81132075471699,
+        "host_iowait_percent_median": 0,
+        "db_memory_peak_bytes": 1073717248,
+        "rest_memory_peak_bytes": 120410112,
+        "host_memory_available_min_bytes": 1798639616,
+        "active_queries_max": 10,
+        "connections_max": 12,
+        "postgres_blocks_read_delta": 177557,
+        "temp_bytes_delta": 0,
+        "temp_files_delta": 0,
+        "wait_samples": {
+          "CPU": 99,
+          "IO:DataFileRead": 30
+        },
+        "db_oom_kills": "0",
+        "deadlocks": 0
+      },
+      "correctness_errors": 0,
+      "response_bytes_max": 12380
+    },
+    {
+      "businesses": 640,
+      "sales_per_business": 20000,
+      "started_unix": 1792696798.7135634,
+      "finished_unix": 1792696947.6522238,
+      "ssh_tunnels": 8,
+      "warmup_seconds": 20,
+      "scheduled_measure_seconds": 90,
+      "actual_elapsed_seconds_including_warmup_and_drain": 123.5,
+      "think_seconds": 2,
+      "generator_event_loop_lag_ms_p99": 14.15,
+      "steady": {
+        "requests": 4921,
+        "successes": 391,
+        "errors": {
+          "PGRST003": 4530
+        },
+        "status": {
+          "200": 391,
+          "504": 4530
+        },
+        "success_rps": 4.34,
+        "error_percent": 92.05,
+        "success_ms": {
+          "p50": 5407.68,
+          "p95": 13661.85,
+          "p99": 14779.27,
+          "max": 16096.59
+        },
+        "all_ms_p95": 10151.67,
+        "success_rps_completed_within_window": 3.62
+      },
+      "scenarios": {
+        "name": {
+          "requests": 1474,
+          "successes": 129,
+          "errors": {
+            "PGRST003": 1345
+          },
+          "status": {
+            "200": 129,
+            "504": 1345
+          },
+          "success_rps": 1.43,
+          "error_percent": 91.25,
+          "success_ms": {
+            "p50": 3571.92,
+            "p95": 10546.06,
+            "p99": 11148.87,
+            "max": 12572.64
+          },
+          "all_ms_p95": 10150.77
+        },
+        "search": {
+          "requests": 724,
+          "successes": 52,
+          "errors": {
+            "PGRST003": 672
+          },
+          "status": {
+            "200": 52,
+            "504": 672
+          },
+          "success_rps": 0.58,
+          "error_percent": 92.82,
+          "success_ms": {
+            "p50": 2755.63,
+            "p95": 10239.75,
+            "p99": 10467.87,
+            "max": 10472.67
+          },
+          "all_ms_p95": 10149.95
+        },
+        "sold": {
+          "requests": 756,
+          "successes": 70,
+          "errors": {
+            "PGRST003": 686
+          },
+          "status": {
+            "200": 70,
+            "504": 686
+          },
+          "success_rps": 0.78,
+          "error_percent": 90.74,
+          "success_ms": {
+            "p50": 5832.31,
+            "p95": 14485.48,
+            "p99": 15272.15,
+            "max": 15831.66
+          },
+          "all_ms_p95": 10157.59
+        },
+        "due": {
+          "requests": 749,
+          "successes": 48,
+          "errors": {
+            "PGRST003": 701
+          },
+          "status": {
+            "200": 48,
+            "504": 701
+          },
+          "success_rps": 0.53,
+          "error_percent": 93.59,
+          "success_ms": {
+            "p50": 8085,
+            "p95": 13979.77,
+            "p99": 14766.58,
+            "max": 15345.18
+          },
+          "all_ms_p95": 10154.35
+        },
+        "last_sale": {
+          "requests": 473,
+          "successes": 34,
+          "errors": {
+            "PGRST003": 439
+          },
+          "status": {
+            "200": 34,
+            "504": 439
+          },
+          "success_rps": 0.38,
+          "error_percent": 92.81,
+          "success_ms": {
+            "p50": 6961.95,
+            "p95": 12817.4,
+            "p99": 13744.84,
+            "max": 14186.03
+          },
+          "all_ms_p95": 10146.88
+        },
+        "combined": {
+          "requests": 745,
+          "successes": 58,
+          "errors": {
+            "PGRST003": 687
+          },
+          "status": {
+            "200": 58,
+            "504": 687
+          },
+          "success_rps": 0.64,
+          "error_percent": 92.21,
+          "success_ms": {
+            "p50": 7219.36,
+            "p95": 14487.73,
+            "p99": 15330.42,
+            "max": 16096.59
+          },
+          "all_ms_p95": 10151.62
+        }
+      },
+      "burst": {
+        "requests": 640,
+        "successes": 35,
+        "errors": {
+          "PGRST003": 605
+        },
+        "status": {
+          "200": 35,
+          "504": 605
+        },
+        "success_rps": 2.67,
+        "error_percent": 94.53,
+        "success_ms": {
+          "p50": 7959.12,
+          "p95": 12995.13,
+          "p99": 13014.48,
+          "max": 13020.67
+        },
+        "all_ms_p95": 11099.87
+      },
+      "resources": {
+        "sample_count": 13,
+        "db_cpu_percent_median": 126.22172031209205,
+        "db_cpu_percent_p95": 130.75061696269705,
+        "host_busy_percent_median": 99.78213507625271,
+        "host_iowait_percent_median": 0.17123287671232876,
+        "db_memory_peak_bytes": 1073725440,
+        "rest_memory_peak_bytes": 128741376,
+        "host_memory_available_min_bytes": 1743192064,
+        "active_queries_max": 10,
+        "connections_max": 12,
+        "postgres_blocks_read_delta": 167728,
+        "temp_bytes_delta": 0,
+        "temp_files_delta": 0,
+        "wait_samples": {
+          "CPU": 103,
+          "IO:DataFileRead": 26,
+          "LWLock:BufferMapping": 1
+        },
+        "db_oom_kills": "0",
+        "deadlocks": 0
+      },
+      "correctness_errors": 0,
+      "response_bytes_max": 12380
+    }
+  ]
+}

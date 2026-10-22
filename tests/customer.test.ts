@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { customerDisplayName, customerPeriod, customerActivityFilterCount, defaultCustomerFilters } from '../src/lib/customer.ts';
+import { customerDisplayName, customerPeriod, customerActivityFilterCount, customerSortBy, customerSortOptions, customerSortWith, defaultCustomerFilters, reverseCustomerSort } from '../src/lib/customer.ts';
 import { readAllRows } from '../src/lib/queryPages.ts';
 
 test('Customer display identity uses a wholesale shop and retains a retail personal name', () => {
@@ -17,6 +17,17 @@ test('Customer periods use Dhaka days, Saturday weeks and calendar-month starts'
 test('Activity filter count groups min/max and counts an explicit empty product selection', () => {
   assert.equal(customerActivityFilterCount(defaultCustomerFilters), 0);
   assert.equal(customerActivityFilterCount({ ...defaultCustomerFilters, from: '2026-10-01', to: '2026-10-19', transactions_min: '0', transactions_max: '5', item_ids: [] }), 3);
+});
+
+test('Customer sorting separates the metric from its direction without losing either', () => {
+  for (const { value } of customerSortOptions) {
+    for (const direction of ['asc', 'desc'] as const) {
+      const sort = `${value}_${direction}` as const;
+      assert.equal(customerSortBy(sort), value);
+      assert.equal(reverseCustomerSort(reverseCustomerSort(sort)), sort);
+      for (const option of customerSortOptions) assert.equal(customerSortWith(sort, option.value), `${option.value}_${direction}`);
+    }
+  }
 });
 test('Batched catalog/customer reads do not silently lose records past the server limit', async () => {
   const all = Array.from({ length: 1234 }, (_, n) => n);
