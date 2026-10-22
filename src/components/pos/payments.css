@@ -1,0 +1,26 @@
+.payment-editor { display: grid; gap: .65rem; font-size: var(--font-sm); }
+.payment-entry { display: grid; grid-template-columns: minmax(0,1fr) minmax(5rem,8rem) auto; gap: .4rem; align-items: end; }
+.payment-entry label { display: grid; gap: .25rem; min-width: 0; }
+.payment-entry label > span { color: var(--text-muted); font-size: var(--font-xs); }
+.payment-entry .input-field { width: 100%; min-width: 0; }
+.payment-amount input { text-align: right; font-variant-numeric: tabular-nums; }
+.payment-reference { grid-column: 1 / 3; }
+.payment-remove { align-self: end; height: 2.3rem; padding: .4rem; }
+.payment-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+.payment-totals { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .4rem; margin: 0; border-top: 1px solid var(--border-color); padding-top: .6rem; }
+.payment-totals div { display: grid; gap: .2rem; min-width: 0; }
+.payment-totals dt { font-size: var(--font-xs); color: var(--text-muted); }
+.payment-totals dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.payment-due dd { color: var(--warning); }
+.payment-error { color: var(--danger); margin: 0; }
+.payment-hint { color: var(--text-muted); margin: 0; }
+.advanced-payments { border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: .8rem; padding: .65rem; }
+.advanced-payments > button { width: 100%; justify-content: space-between; }
+.advanced-payments .payment-editor { margin-top: .7rem; }
+.settlement-panel { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: .8rem; display: grid; gap: .7rem; }
+.settlement-heading { display: flex; justify-content: space-between; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.settlement-heading h3 { margin: 0; font-size: var(--font-md); }
+.settlement-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .5rem; padding: .45rem 0; border-bottom: 1px solid var(--border-subtle); }
+.settlement-row small { display: block; color: var(--text-muted); overflow-wrap: anywhere; }
+.settlement-row strong { font-variant-numeric: tabular-nums; }
+@media(max-width:400px) { .payment-entry { grid-template-columns: minmax(0,1fr) 6rem auto; } .payment-totals { font-size: .75rem; } }

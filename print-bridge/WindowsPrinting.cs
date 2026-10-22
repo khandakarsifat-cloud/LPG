@@ -59,12 +59,12 @@ namespace LPG {
 
     // Windows font fallback and shaping preserve Bengali content without printer code-page assumptions.
     // Receipt layout is pixel based; every line wraps within the configured print head width.
-    public static byte[] Render(string[] left, string[] right, bool[] bold, bool[] center, int width, bool cut) {
+    public static byte[] Render(string[] left, string[] right, bool[] bold, bool[] center, int width, bool cut, int paperWidth) {
       if (width < 240 || width > 640 || width % 8 != 0) throw new ArgumentException("Invalid printable width.");
       using (var stream = new MemoryStream())
       using (var writer = new BinaryWriter(stream))
-      using (var regular = new Font("Segoe UI", 23, FontStyle.Regular, GraphicsUnit.Pixel))
-      using (var strong = new Font("Segoe UI", 25, FontStyle.Bold, GraphicsUnit.Pixel))
+      using (var regular = new Font("Segoe UI", paperWidth == 58 ? 21 : 23, FontStyle.Regular, GraphicsUnit.Pixel))
+      using (var strong = new Font("Segoe UI", paperWidth == 58 ? 23 : 25, FontStyle.Bold, GraphicsUnit.Pixel))
       using (var measuring = new Bitmap(width, 1))
       using (var measure = Graphics.FromImage(measuring)) {
         writer.Write(new byte[] { 0x1b, 0x40, 0x1d, 0x4c, 0, 0, 0x1d, 0x57, (byte)(width % 256), (byte)(width / 256) });

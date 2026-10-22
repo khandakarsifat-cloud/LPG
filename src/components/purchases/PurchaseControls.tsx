@@ -28,14 +28,15 @@ export function PurchaseDialog({ title, subtitle, children, onClose, busy = fals
   </dialog>, document.body);
 }
 
-export function PurchaseConfirmation({ title, children, action, busy, onCancel, onConfirm }: {
+export function PurchaseConfirmation({ title, children, action, busy, onCancel, onConfirm, confirmDisabled = false }: {
   title: string; children: ReactNode; action: string; busy: boolean; onCancel: () => void; onConfirm: () => void;
+  confirmDisabled?: boolean;
 }) {
   return <PurchaseDialog title={title} onClose={onCancel} busy={busy} compact>
     <div className="modal-body purchase-confirmation">{children}</div>
     <div className="modal-footer">
       <button className="btn btn-secondary" disabled={busy} onClick={onCancel}>Go back</button>
-      <button className="btn btn-primary" disabled={busy} onClick={onConfirm}>{busy ? 'Saving…' : action}</button>
+      <button className="btn btn-primary" disabled={busy || confirmDisabled} onClick={onConfirm}>{busy ? 'Saving…' : action}</button>
     </div>
   </PurchaseDialog>;
 }
@@ -78,11 +79,11 @@ export function PurchaseNumber({ label, value, onChange, money = false, hint, in
   </div>;
 }
 
-export function PurchaseStatuses({ purchase }: { purchase: Pick<Purchase, 'status' | 'payment_status'> }) {
+export function PurchaseStatuses({ purchase }: { purchase: Pick<Purchase, 'status' | 'payment_status' | 'refund_due' | 'financial_closed_at'> }) {
   return <div className="purchase-statuses">
     <span className="purchase-badge" style={{ background: PURCHASE_STATUS_BG[purchase.status], color: PURCHASE_STATUS_COLORS[purchase.status] }}>
       {PURCHASE_STATUS_LABELS[purchase.status]}</span>
-    <span className={`purchase-badge payment-${purchase.payment_status}`}>{purchase.payment_status === 'paid' ? 'Paid' : 'Unpaid'}</span>
+    <span className={`purchase-badge payment-${purchase.payment_status}`}>{purchase.status === 'cancelled' ? (Number(purchase.refund_due ?? 0) > 0 ? 'Pending refund' : 'Financially closed') : purchase.payment_status === 'paid' ? 'Paid' : purchase.payment_status === 'partial' ? 'Part paid' : 'Unpaid'}</span>
   </div>;
 }
 

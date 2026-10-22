@@ -25,6 +25,14 @@ insert into auth.users(id, email, is_anonymous) values
  ('a2222222-2222-4222-8222-222222222224','rls-salesman@example.invalid',false),
  ('a2222222-2222-4222-8222-222222222225','rls-unassigned@example.invalid',false);
 
+create function pg_temp.pay_current_purchase(id uuid) returns jsonb language plpgsql as $$
+declare w uuid; amount numeric;
+begin
+ select wallet_id into w from public.wallets where type='dealership';
+ amount:=(public.get_purchase_settlement(id)->>'due')::numeric;
+ return public.record_purchase_payment(id,jsonb_build_array(jsonb_build_object('wallet_id',w,'amount',amount)),gen_random_uuid());
+end $$;
+grant execute on function pg_temp.pay_current_purchase(uuid) to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a2222222-2222-4222-8222-222222222222',true);
 -- Bootstrap must work before membership/permissions exist.
@@ -82,12 +90,10 @@ from authorization_context c cross join lateral (values(c.tenant_a,1),(c.tenant_
 insert into public.transits(tenant_id,transit_id,truck_id,purchase_id,status)
 select t,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','active'
 from authorization_context c cross join lateral (values(c.tenant_a),(c.tenant_b)) x(t);
-insert into public.wallets(tenant_id,wallet_id,type,balance)
-select t,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','logistics',10000
-from authorization_context c cross join lateral (values(c.tenant_a),(c.tenant_b)) x(t);
-insert into public.wallets(tenant_id,wallet_id,type,balance)
-select t,'dddddddd-dddd-4ddd-8ddd-dddddddddddd','dealership',10000
-from authorization_context c cross join lateral (values(c.tenant_a),(c.tenant_b)) x(t);
+update public.wallets w set wallet_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc',balance=10000
+from authorization_context c where w.tenant_id in (c.tenant_a,c.tenant_b) and w.type='logistics';
+update public.wallets w set wallet_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd',balance=10000
+from authorization_context c where w.tenant_id in (c.tenant_a,c.tenant_b) and w.type='dealership';
 insert into public.price_books(tenant_id,item_id,customer_tier,price)
 select t,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','retail',1200
 from authorization_context c cross join lateral (values(c.tenant_a),(c.tenant_b)) x(t);
@@ -169,14 +175,14 @@ end $$;
 select public.save_transit_costs('cccccccc-cccc-4ccc-8ccc-cccccccccccc','{"driver_cost":10,"helper_cost":20,"oil_cost":30,"others_cost":0}',1);
 select public.update_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc','{"transport_cost":20,"labour_cost":30}',1);
 select public.receive_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc',2);
-select public.pay_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc',3);
+select pg_temp.pay_current_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
 update authorization_context set purchase_id=(public.create_purchase(
  '{"plant_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","request_id":"a1111111-1111-4111-8111-111111111111","transport_cost":10,"labour_cost":5,"items":[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"empty_dispatched":1,"unit_price":100}]}'
  )->>'purchase_id')::uuid;
 select public.dispatch_purchase(purchase_id,1) from authorization_context;
 select public.receive_purchase(c.purchase_id,2)
  from authorization_context c join public.list_purchases() p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
-select public.pay_purchase(purchase_id,3) from authorization_context;
+select pg_temp.pay_current_purchase(purchase_id) from authorization_context;
 select public.create_custom_transit('{"truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","fee":25,"client_name":"Test client"}');
 select public.transition_transit(transit_id,'complete',revision) from public.transits where purchase_id is null and status='active';
 select public.create_lpg_brand('New brand','Test');
@@ -229,7 +235,7 @@ update authorization_context set purchase_id=(public.create_purchase(
 select public.dispatch_purchase(purchase_id,1) from authorization_context;
 select public.receive_purchase(c.purchase_id,2)
  from authorization_context c join public.list_purchases() p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
-select public.pay_purchase(purchase_id,3) from authorization_context;
+select pg_temp.pay_current_purchase(purchase_id) from authorization_context;
 
 -- SALESMAN supporting reads, customer creation, real checkout and receipt readback.
 select set_config('request.jwt.claim.sub','a2222222-2222-4222-8222-222222222224',true);
@@ -244,7 +250,7 @@ select pg_temp.assert_true((select count(*) from public.audit_logs)=0,'no audit'
 insert into public.customers(tenant_id,name,phone) select tenant_a,'Cashier customer','01700000002' from authorization_context;
 update authorization_context set sale_id=(public.create_pos_sale('01700000002','ignored',null,null,'retail',100,50,'POS test',
  '[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"unit_price":1200},{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"empty_return","quantity":1,"unit_price":0}]',
- (select customer_id from public.customers where phone='01700000002'))->>'sale_id')::uuid;
+ (select customer_id from public.customers where phone='01700000002'),p_request_id=>gen_random_uuid())->>'sale_id')::uuid;
 select pg_temp.assert_true((select total_amount from public.sales where sale_id=(select sale_id from authorization_context))=1150,'checkout totals');
 select pg_temp.assert_true((select created_by from public.sales where sale_id=(select sale_id from authorization_context))
  = 'a2222222-2222-4222-8222-222222222224'::uuid,'server-set sale actor');

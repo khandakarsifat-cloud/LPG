@@ -22,6 +22,7 @@ insert into public.user_roles(tenant_id, user_id, role_id) values
 insert into public.items(tenant_id, item_id, brand, size_kg, filled_quantity, empty_quantity)
   values ('a1111111-1111-4111-8111-111111111111', 'a3333333-3333-4333-8333-333333333333', 'Print test item', 12, 10, 10);
 
+insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from) values ('a1111111-1111-4111-8111-111111111111','a3333333-3333-4333-8333-333333333333','retail','refill',1200,now()-interval '1 day');
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'a2222222-2222-4222-8222-222222222222', true);
 
@@ -52,7 +53,7 @@ begin
   end if;
 
   result := public.create_pos_sale('01700000000', 'Print integration customer', null, null, 'retail', 100, 50,
-    'Integration test - rollback', '[{"item_id":"a3333333-3333-4333-8333-333333333333","type":"refill","quantity":1,"unit_price":1200},{"item_id":"a3333333-3333-4333-8333-333333333333","type":"empty_return","quantity":1,"unit_price":0}]'::jsonb);
+    'Integration test - rollback', '[{"item_id":"a3333333-3333-4333-8333-333333333333","type":"refill","quantity":1,"unit_price":1200},{"item_id":"a3333333-3333-4333-8333-333333333333","type":"empty_return","quantity":1,"unit_price":0}]'::jsonb,p_request_id=>gen_random_uuid());
   if (select count(*) from public.sales) <> 1 then raise exception 'Expected one saved sale'; end if;
   if (select status::text from public.sales limit 1) <> 'completed' then raise exception 'Sale not completed'; end if;
   if (result->>'total_amount')::numeric <> 1150 then raise exception 'Incorrect saved totals'; end if;

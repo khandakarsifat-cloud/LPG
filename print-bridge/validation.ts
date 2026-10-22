@@ -46,6 +46,18 @@ export function validatePrintRequest(value: unknown): { request_id: string; conf
   if (receipt.customer_phone !== '') text(receipt.customer_phone);
   if (receipt.notes) text(receipt.notes, 4000);
   for (const key of ['subtotal', 'discount_amount', 'exchange_fee', 'total_amount']) number(receipt[key], -1e12);
+  if (receipt.paid_amount !== undefined || receipt.due_amount !== undefined || receipt.payments !== undefined) {
+    const paid = number(receipt.paid_amount); const due = number(receipt.due_amount);
+    if (Math.abs(paid + due - Number(receipt.total_amount)) > 0.005) throw new PrintError('INVALID_REQUEST', 'Receipt payment totals do not match.');
+    if (!Array.isArray(receipt.payments) || receipt.payments.length > 200) throw new PrintError('INVALID_REQUEST', 'Invalid receipt payments.');
+    let sum = 0;
+    for (const entry of receipt.payments) {
+      const payment = object(entry); text(payment.wallet_name, 80); text(payment.method, 30);
+      sum += number(payment.amount);
+      if (payment.phase !== undefined && !['checkout', 'collection'].includes(String(payment.phase))) throw new PrintError('INVALID_REQUEST', 'Invalid payment phase.');
+    }
+    if (receipt.payment_tracking !== false && Math.abs(sum - paid) > 0.005) throw new PrintError('INVALID_REQUEST', 'Receipt payment entries do not match total paid.');
+  }
   if (!Array.isArray(receipt.items) || !receipt.items.length || receipt.items.length > 200) throw new PrintError('INVALID_REQUEST', 'Receipt must contain between 1 and 200 items.');
   for (const entry of receipt.items) {
     const item = object(entry);

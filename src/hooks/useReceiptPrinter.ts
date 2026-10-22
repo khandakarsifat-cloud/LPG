@@ -4,12 +4,29 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { discoverPrinters, sendReceipt } from '../lib/printBridge';
 import type { ReceiptPrinterConfig, ReceiptPrintMethod } from '../types/printing';
-import { readReceiptPrintMethod, writeReceiptPrintMethod } from '../lib/receiptPrintPreference';
+import { readReceiptPrintMethod, writeReceiptPrintMethod, readBrowserPaperWidth, writeBrowserPaperWidth } from '../lib/receiptPrintPreference';
 import { printBrowserReceipt } from '../lib/browserPrint';
-import type { ReceiptData } from '../types/receipt';
+import { buildSaleReceipt } from '../lib/receipt';
+import { loadSaleSettlement } from './useFinance';
 import type { SaleTransaction } from './useDashboard';
 
 const configKey = (tenantId?: string) => ['receipt_printer', tenantId] as const;
+
+export function useBrowserPaperWidth() {
+  const { profile } = useAuth(); const tenant = profile?.tenant_id; const qc = useQueryClient();
+  const queryKey = ['browser_paper_width', tenant];
+  const query = useQuery<58 | 80>({ queryKey, enabled: Boolean(tenant), queryFn: () => tenant ? readBrowserPaperWidth(tenant) : 80 });
+  return { width: query.data ?? 80, setWidth: (width: 58 | 80) => {
+    if (!tenant) throw new Error('Business profile unavailable.');
+    writeBrowserPaperWidth(tenant, width); qc.setQueryData(queryKey, width);
+  } };
+}
+
+export function useReceiptPaperWidth() {
+  const { method } = useReceiptPrintMethod(); const { can } = useAuth();
+  const saved = useReceiptPrinter(can('receipts:print')); const browser = useBrowserPaperWidth();
+  return method === 'browser' || !saved.data ? browser.width : saved.data.paper_width_mm;
+}
 
 export function useReceiptPrintMethod() {
   const { profile } = useAuth();
@@ -38,12 +55,12 @@ async function loadConfig(tenantId: string): Promise<ReceiptPrinterConfig | null
   return data;
 }
 
-export function useReceiptPrinter() {
+export function useReceiptPrinter(enabled = true) {
   const { profile } = useAuth();
   const tenantId = profile?.tenant_id;
   return useQuery({
     queryKey: configKey(profile?.tenant_id),
-    enabled: Boolean(profile?.tenant_id),
+    enabled: Boolean(profile?.tenant_id) && enabled,
     queryFn: () => {
       if (!tenantId) throw new Error('Business profile unavailable.');
       return loadConfig(tenantId);
@@ -81,7 +98,8 @@ export function usePrintSale() {
       if (!profile) throw new Error('Business profile unavailable.');
       const method = readReceiptPrintMethod(profile.tenant_id);
       // Browser printing also works before any USB printer is configured.
-      const config = method === 'browser' ? null : await loadConfig(profile.tenant_id);
+      const config = await loadConfig(profile.tenant_id);
+      const settlement = await loadSaleSettlement(saleId);
       const { data, error } = await supabase.from('sales').select(`
         sale_id, sale_tier, created_at, subtotal, discount_amount, exchange_fee, total_amount, notes,
         customers(name, phone, tier),
@@ -90,26 +108,8 @@ export function usePrintSale() {
         .overrideTypes<SaleTransaction, { merge: false }>();
       if (error) throw error;
       if (!data.sale_items?.length) throw new Error('The completed sale has no receipt items.');
-      const customer = data.customers;
-      const receipt: ReceiptData = {
-        sale_id: data.sale_id, created_at: data.created_at, shop_name: profile.business_name,
-        customer_name: customer?.name || 'Unknown', customer_phone: customer?.phone || '',
-        customer_tier: data.sale_tier,
-        subtotal: Number(data.subtotal), discount_amount: Number(data.discount_amount),
-        exchange_fee: Number(data.exchange_fee), total_amount: Number(data.total_amount),
-        notes: data.notes || undefined,
-        items: data.sale_items.map(line => {
-          if (line.type !== 'refill' && line.type !== 'package' && line.type !== 'empty_return') throw new Error('Unsupported receipt item type.');
-          const item = line.items;
-          const brand = item?.lpg_brands;
-          return {
-            name: `${brand?.brand_name || item?.brand || 'Unknown'} ${item?.size_kg ?? ''}kg`.trim(),
-            type: line.type,
-            quantity: Number(line.quantity), unit_price: Number(line.unit_price), line_total: Number(line.line_total),
-          };
-        }),
-      };
-      if (method === 'browser' || !config) return printBrowserReceipt(receipt);
+      const receipt = buildSaleReceipt(data, settlement, profile.business_name);
+      if (method === 'browser' || !config) return printBrowserReceipt(receipt, readBrowserPaperWidth(profile.tenant_id));
       return sendReceipt(config, receipt);
     },
     onSuccess: result => { toast.success(result.message); },

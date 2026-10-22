@@ -77,7 +77,7 @@ export function createPrintServer(discover = discoverWindowsPrinters) {
       const payload = validatePrintRequest(await readBody(request));
       const result = await jobs.submit(payload.request_id, payload, async () => {
         const printer = resolvePrinter(payload.config.printer, await discover());
-        const bytes = await renderEscPos(formatReceipt(payload.receipt), payload.config);
+        const bytes = await renderEscPos(formatReceipt(payload.receipt, payload.config.paper_width_mm), payload.config);
         return windowsUSBTransport.send(printer, bytes, `LPG Receipt ${payload.receipt.sale_id.slice(0, 8)}`);
       });
       reply(200, { ...result, message: `Receipt sent to printer (Windows job ${result.job_id}).` });

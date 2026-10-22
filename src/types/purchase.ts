@@ -1,5 +1,7 @@
+import type { PaymentWallet } from './finance';
+
 export type PurchaseStatus = 'created' | 'in_transit' | 'received' | 'cancelled';
-export type PurchasePaymentStatus = 'unpaid' | 'paid';
+export type PurchasePaymentStatus = 'unpaid' | 'partial' | 'paid';
 export type PurchaseType = 'refill' | 'package';
 
 export interface PurchaseItem {
@@ -42,9 +44,33 @@ export interface Purchase {
   revision: number;
   legacy_record: boolean;
   transport_funded?: number;
+  paid_amount?: number;
+  refund_due?: number;
+  refunded_amount?: number;
+  financial_closed_at?: string | null;
   cancelled_at?: string | null;
   operating_cost?: number;
   items: PurchaseItem[];
+}
+
+export interface PurchaseRefundObligation {
+  obligation_id: string;
+  component: string;
+  amount: number;
+  refunded: number;
+  remaining: number;
+  logistics_amount: number;
+  credit_business: boolean;
+  sources: { transaction_id: string; wallet_name: string; amount: number; description: string; payment_id?: string }[];
+}
+
+export interface PurchaseSettlement {
+  total: number; paid: number; due: number; refund_due: number; refunded: number;
+  financial_closed_at: string | null; can_cancel: boolean; legacy: boolean; financial_locked: boolean;
+  obligations: PurchaseRefundObligation[];
+  internal_wallet?: PaymentWallet;
+  payment_count: number;
+  payments: { transaction_id: string; wallet_name: string; method: string; amount: number; type: string; created_at: string; operation_id: string | null; description: string; reference: string | null; component: string | null; actor: string | null; obligation_id: string | null }[];
 }
 
 export interface PurchaseLinePayload {

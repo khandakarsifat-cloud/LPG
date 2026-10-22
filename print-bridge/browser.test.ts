@@ -25,7 +25,7 @@ test('browser receipts escape untrusted content and retain Unicode, saved amount
   assert.ok(!html.includes('999'));
   assert.ok(html.includes('1 refills | 1 empties returned'));
   assert.ok(html.includes('max-width: 72mm'));
-  assert.ok(browserReceiptHTML(receipt, 58).includes('max-width: 50mm'));
+  assert.ok(browserReceiptHTML(receipt, 58).includes('max-width: 48mm'));
 });
 
 test('browser output preferences are business-scoped, preserve the USB default, and survive reload reads', () => {

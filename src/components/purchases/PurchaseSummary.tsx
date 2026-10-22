@@ -2,15 +2,11 @@ import { useListPage } from '../../hooks/useListPage';
 import { Pagination } from '../ui/Pagination';
 import { useState } from 'react';
 import { usePurchaseActivity } from '../../hooks/usePurchases';
-import { purchaseDraft } from '../../lib/purchase';
+import { purchaseDraft, purchaseDate } from '../../lib/purchase';
 import { describePurchaseActivity } from '../../lib/purchaseActivity';
 import { formatBDT } from '../../lib/formatBDT';
 import { PurchaseFinancials, PurchaseStatuses } from './PurchaseControls';
 import type { Purchase } from '../../types/purchase';
-
-const purchaseDate = (date: string | null) => date ? new Date(date).toLocaleString('en-BD', {
-  day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
-}) : 'Pending';
 
 export function PurchaseIdentity({ purchase }: { purchase: Purchase }) {
   return <section className="purchase-section"><PurchaseStatuses purchase={purchase} />

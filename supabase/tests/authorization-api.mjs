@@ -67,6 +67,8 @@ try {
     p_item_id: item.item_id, p_movement_type: 'adjust_gain',
     p_filled_quantity_change: 10, p_empty_quantity_change: 10, p_notes: 'API fixture',
   }));
+  sql(`insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from)
+    values(${safeUuid(owner.tenant)},${safeUuid(item.item_id)},'retail','refill',1200,now()-interval '1 day');`);
   // Exercise exactly the browser's PostgREST configuration upsert.
   const config = {
     tenant_id: owner.tenant,
@@ -94,6 +96,7 @@ try {
     tenant_id: owner.tenant, name: 'API customer', phone: '01700000000', tier: 'retail',
   }).select().single());
   const sale = await checked(salesman.client.rpc('create_pos_sale', {
+    p_request_id: randomUUID(),
     p_customer_phone: customer.phone, p_customer_name: null, p_customer_shop_name: null,
     p_customer_address: null, p_customer_tier: 'retail', p_discount_amount: 100,
     p_exchange_fee: 50, p_notes: 'API fixture', p_customer_id: customer.customer_id,
@@ -137,11 +140,16 @@ try {
   // No production rows or printer jobs are touched.
   if (tenants.length) {
     const tenantList = tenants.map(safeUuid).join(',');
-    const tables = ['wallet_transactions','customer_transactions','sale_items','sales',
+    const tables = ['finance_requests','wallet_transactions','customer_transactions','sale_payments','sale_items','sales',
       'transits','purchase_items','purchases','inventory_movements','price_books','items',
       'area_officers','gas_plants','lpg_brands','customers','receipt_printers','wallets',
       'user_roles','role_permissions','roles','audit_logs','user_profiles','tenants'];
-    sql('begin;\n' + tables.map(table => `delete from public.${table} where tenant_id in (${tenantList});`).join('\n') + '\ncommit;');
+    // Invoke fixture teardown through a temporary trigger. Append-only financial
+    // rows permit trusted cascading deletion; browser DELETE remains revoked.
+    sql('begin;\ncreate temporary table fixture_cleanup(id integer);\n' +
+      'create function pg_temp.cleanup_fixtures() returns trigger language plpgsql as $$begin\n' +
+      tables.map(table => `delete from public.${table} where tenant_id in (${tenantList});`).join('\n') +
+      '\nreturn new;end$$;\ncreate trigger cleanup after insert on fixture_cleanup for each row execute function pg_temp.cleanup_fixtures();\ninsert into fixture_cleanup values(1);\ncommit;');
   }
   if (users.length) sql(`delete from auth.users where id in (${users.map(safeUuid).join(',')});`);
 }

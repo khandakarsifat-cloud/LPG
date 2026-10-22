@@ -69,6 +69,7 @@ function TransitDetails({ onClose, transit }: { onClose: () => void; transit: Tr
               <div><dt>Transport fee</dt><dd>{formatBDT(Number(transit.transport_fee))}</dd></div>
             </dl>
             {transit.description && <p className="purchase-hint">{transit.description}</p>}
+            {transit.purchase_id && transit.status === 'cancelled' && <p className="purchase-alert">Purchase {transit.purchase_financial_closed_at ? 'financially closed' : `refunds pending: ${formatBDT(Number(transit.purchase_refund_due ?? 0))}`}. Operating expenses remain payable and close independently below.</p>}
           </section>
           {error && <p role="alert" className="purchase-error">{error}</p>}
           {dirty && draftRevision !== transit.revision && <p className="purchase-alert">Transit costs changed while you were editing. <button type="button" className="btn btn-secondary" onClick={loadSaved}>Reload saved costs</button></p>}

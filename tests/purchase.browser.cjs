@@ -247,7 +247,11 @@ async page => {
   await completed.getByRole('button',{name:'Cancel purchase',exact:true}).click();
   await page.getByRole('dialog',{name:'Cancel this purchase?',exact:true}).getByRole('button',{name:'Go back',exact:true}).click();
   await completed.getByRole('button',{name:'Close',exact:true}).click();
-  const settlePurchases=async()=>{if(!await page.locator('#purchase-search').count())return;await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await page.waitForFunction(()=>document.querySelector('.purchases-grid')?.getAttribute('aria-busy')==='false');};
+  const settlePurchases=async()=>{if(!await page.locator('#purchase-search').count())return;await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await page.waitForFunction(()=>{
+    const grid=document.querySelector('.purchases-grid');
+    const range=document.querySelector('[aria-label="purchases pages"] > span')?.textContent?.match(/(\d+)–(\d+)/);
+    return grid?.getAttribute('aria-busy')==='false' && (!range || grid.querySelectorAll('.purchase-card').length===Number(range[2])-Number(range[1])+1);
+  });};
   // Exercise the list with enough orders to overflow a short desktop viewport.
   for(let i=0;i<10;i++) purchases.push({...purchases[0],purchase_id:crypto.randomUUID(),plant_name:`Delivery plant ${i+1}`,
     created_at:`2026-10-${String(i+1).padStart(2,'0')}T12:00:00Z`,payment_status:'paid',subtotal:1000+i*100,company_payable:1000+i*100,total_cost:1000+i*100,

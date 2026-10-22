@@ -44,10 +44,10 @@ const SIDEBAR_COLLAPSED_STORAGE_KEY = 'lpg-sidebar-collapsed';
 
 function DealershipWallet() {
   const { data, isLoading, isError } = useWallets();
-  const wallet = data?.find(wallet => wallet.type === 'dealership');
-  return <div className={`topbar-wallet${Number(wallet?.balance) < 0 ? ' negative' : ''}`}>
+  const balance = data?.reduce((sum, wallet) => sum + Number(wallet.balance), 0);
+  return <div className={`topbar-wallet${Number(balance) < 0 ? ' negative' : ''}`}>
     <Wallet size={19} aria-hidden="true" />
-    <div><span>Dealership wallet</span><strong>{isLoading ? '…' : isError || !wallet ? '—' : formatBDT(Number(wallet.balance))}</strong></div>
+    <div><span>All wallets</span><strong>{isLoading ? '…' : isError || balance === undefined ? '—' : formatBDT(balance)}</strong></div>
   </div>;
 }
 

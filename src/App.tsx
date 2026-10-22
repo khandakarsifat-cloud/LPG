@@ -17,6 +17,7 @@ const RegisterPage = lazy(() => import('./pages/auth/RegisterPage').then(module 
 const POSPage = lazy(() => import('./pages/POS').then(module => ({ default: module.POSPage })));
 const CustomersPage = lazy(() => import('./pages/Customers').then(module => ({ default: module.CustomersPage })));
 const EmployeesPage = lazy(() => import('./pages/Employees').then(module => ({ default: module.EmployeesPage })));
+const FinancePage = lazy(() => import('./pages/Finance').then(module => ({ default: module.FinancePage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,13 +27,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-const Placeholder = ({ title }: { title: string }) => (
-  <div className="empty-state workspace-placeholder">
-    <h2 style={{ margin: 0 }}>{title}</h2>
-    <p style={{ margin: 0 }}>This workspace is available in navigation and will be completed in a later release.</p>
-  </div>
-);
 
 function App() {
   return (
@@ -59,7 +53,7 @@ function App() {
                 <Route path="inventory" element={<InventoryPage />} />
                 <Route path="customers" element={<CustomersPage />} />
                 <Route path="employees" element={<EmployeesPage />} />
-                <Route path="finance" element={<Placeholder title="Financial Ledger" />} />
+                <Route path="finance" element={<FinancePage />} />
                 <Route path="purchases" element={<PurchasesPage />} />
                 <Route path="logistics" element={<LogisticsPage />} />
                 <Route path="gas-plants" element={<GasPlantsPage />} />

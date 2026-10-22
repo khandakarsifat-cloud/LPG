@@ -1344,6 +1344,18 @@ textarea.input-field {
   gap: var(--space-sm);
 }
 
+.pos-recovery-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: var(--warning-weak);
+  color: var(--text-main);
+  font-size: var(--font-sm);
+}
+
 .pos-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;

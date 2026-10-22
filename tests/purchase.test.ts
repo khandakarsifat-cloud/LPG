@@ -67,10 +67,20 @@ test('all refill shortages are grouped by product and new cylinders do not consu
   assert.deepEqual(purchaseEmptyShortages(lines.filter(l => l.type === 'package'), inventory), []);
 });
 
-test('cancellation remains available after receipt and payment, subject to manage permission', () => {
-  assert.equal(purchaseAccess({ ...purchase, status: 'received', payment_status: 'paid' }).cancel, true);
-  assert.equal(purchaseAccess({ ...purchase, status: 'cancelled' }).cancel, false);
-  assert.equal(purchaseAccess(purchase, false).cancel, false);
+test('only owners can cancel Created or In Transit purchases; receipt is permanent', () => {
+  assert.equal(purchaseAccess({ ...purchase, status: 'received', payment_status: 'paid' }, true, true).cancel, false);
+  assert.equal(purchaseAccess({ ...purchase, status: 'received' }, true, true).cancel, false);
+  assert.equal(purchaseAccess({ ...purchase, status: 'cancelled' }, true, true).cancel, false);
+  assert.equal(purchaseAccess(purchase, false, true).cancel, false);
+  assert.equal(purchaseAccess(purchase, true, false).cancel, false);
+  assert.equal(purchaseAccess(purchase, true, true).cancel, true);
+  assert.equal(purchaseAccess({ ...purchase, status: 'in_transit', payment_status: 'partial' }, true, true).cancel, true);
+});
+
+test('partial payments lock financials while receiving and additional payments stay independent', () => {
+  const access = purchaseAccess({ ...purchase, status: 'in_transit', payment_status: 'partial', paid_amount: 100 });
+  assert.equal(access.financials, false); assert.equal(access.pay, true); assert.equal(access.receive, true);
+  assert.equal(purchaseAccess({ ...purchase, status: 'in_transit', payment_status: 'partial' }, true, true, false).financials, true);
 });
 
 test('Created allows a plant-only draft and separate refill/new lines for one SKU', () => {

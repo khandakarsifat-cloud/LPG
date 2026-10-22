@@ -82,6 +82,8 @@ declare id uuid; id2 uuid; tr uuid; p public.purchases; lines jsonb; err_detail 
 begin
   id:=(public.create_purchase('{"plant_id":"dd000000-0000-4000-8000-000000000001","request_id":"ab000000-0000-4000-8000-000000000001"}')->>'purchase_id')::uuid;
   perform pg_temp.check_purchase((pg_temp.purchase_header(id)).status='created','plant-only draft');
+  perform pg_temp.check_purchase((public.create_purchase('{"plant_id":"dd000000-0000-4000-8000-000000000001","request_id":"ab000000-0000-4000-8000-000000000001"}')->>'purchase_id')::uuid=id,'creation retry returns original purchase');
+  perform pg_temp.purchase_fails('select public.create_purchase(''{"plant_id":"dd000000-0000-4000-8000-000000000001","request_id":"ab000000-0000-4000-8000-000000000001","transport_cost":1}'')','different purchase details');
   perform pg_temp.purchase_fails(format('select public.receive_purchase(%L,1)',id),'In Transit');
   perform pg_temp.purchase_fails(format('select public.pay_purchase(%L,1)',id),'after dispatch');
   begin

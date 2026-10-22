@@ -32,8 +32,9 @@ export const useTrucks = () =>
 export const useWallets = () =>
   useQuery<Wallet[]>({
     queryKey: logisticsKeys.wallets,
+    refetchInterval: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase.from('wallets').select('*');
+      const { data, error } = await supabase.from('wallets').select('*').order('created_at').order('wallet_id');
       if (error) throw error;
       return (data ?? []) as Wallet[];
     },
@@ -133,6 +134,7 @@ export const useCreateCustomTransit = () => {
       qc.invalidateQueries({ queryKey: logisticsKeys.transits });
       qc.invalidateQueries({ queryKey: logisticsKeys.trucks });
       qc.invalidateQueries({ queryKey: logisticsKeys.wallets });
+      qc.invalidateQueries({ queryKey: ['finance'] });
     },
   });
 };
@@ -175,7 +177,7 @@ export const useTransitionTransit = () => {
       return data;
     },
     onSettled: async () => {
-      await Promise.all([qc.invalidateQueries({ queryKey: logisticsKeys.all }), qc.invalidateQueries({ queryKey: ['purchases'] })]);
+      await Promise.all([qc.invalidateQueries({ queryKey: logisticsKeys.all }), qc.invalidateQueries({ queryKey: ['purchases'] }), qc.invalidateQueries({ queryKey: ['finance'] })]);
     },
   });
 };

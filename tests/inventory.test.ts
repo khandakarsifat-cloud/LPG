@@ -65,12 +65,13 @@ test('inventory uses configured brand order, ascending weights and stable mouth-
   assert.equal(groups[0].items.length, 1, 'inactive brands with stock remain visible');
 });
 
-test('receipts label the saved selling price as Price and keep discounts separate', () => {
+test('receipts retain the saved selling price and keep discounts separate', () => {
   const lines = formatReceipt({ sale_id: 'fixture-sale', created_at: '2026-10-18', shop_name: 'Shop',
     customer_name: 'Customer', customer_phone: '01700000000', customer_tier: 'retail',
     items: [{ name: '12kg', type: 'refill', quantity: 2, unit_price: 1200, line_total: 2400 }],
     subtotal: 2400, discount_amount: 100, exchange_fee: 50, total_amount: 2350 });
-  assert(lines.some(line => line.text === 'Price: Tk 1,200.00' && line.right === 'Tk 2,400.00'));
+  assert(lines.some(line => line.text.includes('@ Tk 1,200.00')));
+  assert(lines.some(line => line.right === 'Tk 2,400.00'));
   assert(lines.some(line => line.text === 'Discount' && line.right === '-Tk 100.00'));
   assert(lines.some(line => line.text === 'TOTAL' && line.right === 'Tk 2,350.00'));
   assert(!JSON.stringify(lines).includes('MRP'));

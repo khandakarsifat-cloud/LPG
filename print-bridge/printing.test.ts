@@ -111,7 +111,7 @@ test('printing failure is retained without replay; an explicit new reprint reque
 
 test('real Windows renderer emits width-aware raster ESC/POS and optional cut for 80/58 mm', { skip: process.platform !== 'win32' }, async () => {
   for (const [paper, dots] of [[80, 576], [58, 384]] as const) {
-    const bytes = await renderEscPos(formatReceipt(receipt), { paper_width_mm: paper, printable_width_dots: dots, auto_cut: true });
+    const bytes = await renderEscPos(formatReceipt(receipt, paper), { paper_width_mm: paper, printable_width_dots: dots, auto_cut: true });
     assert.deepEqual([...bytes.slice(0, 2)], [0x1b, 0x40]);
     assert.deepEqual([...bytes.slice(8, 10)], [dots % 256, Math.floor(dots / 256)]);
     assert.deepEqual([...bytes.slice(-3)], [0x1d, 0x56, 1]);

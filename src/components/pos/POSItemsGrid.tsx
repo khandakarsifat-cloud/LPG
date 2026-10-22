@@ -4,7 +4,7 @@ import { usePriceBooks } from '../../hooks/usePOS';
 import type { POSSalePayload } from '../../hooks/usePOS';
 import type { MouthSize } from '../../types/inventory';
 import { formatBDNumber } from '../../lib/formatBDT';
-import { getSellingPrice } from '../../lib/productPricing';
+import { findSellingPrice } from '../../lib/productPricing';
 
 interface ProductOptionRowProps {
   icon: React.ReactNode;
@@ -16,6 +16,7 @@ interface ProductOptionRowProps {
   onDecrease: () => void;
   itemBrand?: string;
   itemSize?: number;
+  disabled?: boolean;
 }
 
 const ProductOptionRow = ({
@@ -28,16 +29,18 @@ const ProductOptionRow = ({
   onDecrease,
   itemBrand,
   itemSize,
+  disabled = false,
 }: ProductOptionRowProps) => {
   return (
     <div
       role="button"
-      tabIndex={0}
-      onClick={onIncrease}
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled}
+      onClick={() => { if (!disabled) onIncrease(); }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onIncrease();
+          if (!disabled) onIncrease();
         }
       }}
       className={`btn ${isGhost ? 'btn-ghost' : 'btn-secondary'} pos-item-row ${qty > 0 ? 'is-active' : ''}`}
@@ -90,6 +93,7 @@ const ProductOptionRow = ({
             }}
             aria-label={`Increase ${label} quantity`}
             title={`Increase ${label}`}
+            disabled={disabled}
           >
             <Plus size={13} />
           </button>
@@ -124,7 +128,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
   }
 
   const getPrice = (itemId: string, type: 'refill' | 'package') => {
-    return getSellingPrice(priceBooks ?? [], itemId, type, tier);
+    return findSellingPrice(priceBooks ?? [], itemId, type, tier);
   };
 
   if (!items || items.length === 0) {
@@ -193,9 +197,10 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
               <ProductOptionRow
                 icon={<RefreshCw size={14} />}
                 label="Refill"
-                priceText={`Tk ${formatBDNumber(refillPrice).replace(/\.00$/, '')}`}
+                priceText={refillPrice === null ? 'No price' : `Tk ${formatBDNumber(refillPrice).replace(/\.00$/, '')}`}
+                disabled={refillPrice === null}
                 qty={refillQty}
-                onIncrease={() => onAddItem({ item_id: item.item_id, type: 'refill', quantity: 1, unit_price: refillPrice })}
+                onIncrease={() => { if (refillPrice !== null) onAddItem({ item_id: item.item_id, type: 'refill', quantity: 1, unit_price: refillPrice }); }}
                 onDecrease={() => onDecreaseItem?.(item.item_id, 'refill')}
                 itemBrand={item.lpg_brands?.brand_name}
                 itemSize={item.size_kg}
@@ -204,9 +209,10 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
               <ProductOptionRow
                 icon={<Box size={14} />}
                 label="New Package"
-                priceText={`Tk ${formatBDNumber(packagePrice).replace(/\.00$/, '')}`}
+                priceText={packagePrice === null ? 'No price' : `Tk ${formatBDNumber(packagePrice).replace(/\.00$/, '')}`}
+                disabled={packagePrice === null}
                 qty={packageQty}
-                onIncrease={() => onAddItem({ item_id: item.item_id, type: 'package', quantity: 1, unit_price: packagePrice })}
+                onIncrease={() => { if (packagePrice !== null) onAddItem({ item_id: item.item_id, type: 'package', quantity: 1, unit_price: packagePrice }); }}
                 onDecrease={() => onDecreaseItem?.(item.item_id, 'package')}
                 itemBrand={item.lpg_brands?.brand_name}
                 itemSize={item.size_kg}

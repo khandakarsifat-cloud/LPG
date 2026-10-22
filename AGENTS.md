@@ -37,6 +37,14 @@
 
 ## Verification
 
+### Authenticated live feature testing
+
+- Dedicated burner account: `sifatsiam244@gmail.com`. Use it for authenticated browser/API acceptance; it is not a customer or production operator account.
+- Read credentials from ignored root `.env.live-test` (`LPG_TEST_EMAIL`, `LPG_TEST_PASSWORD`) or injected environment variables. Never print credentials/session tokens, capture password fields, or place secrets in tracked docs, fixtures, scripts or configuration.
+- Verify the API/Worker target from the existing private deployment configuration before login. Inspect the burner's trusted tenant/membership first; use a clearly named disposable test business and uniquely labeled fixture records. Never repurpose a genuine business, change its membership, or alter its stock, wallets or transactions for acceptance tests.
+- Exercise real Auth/PostgREST and browser flows with the burner's normal permissions. Test other roles/tenants with isolated fixture accounts. Keep retries on their original request IDs. Use rolled-back SQL fixtures or a disposable database for fault injection, concurrency and destructive cases.
+- Track fixture IDs, verify ledger/stock reconciliation and before/after preservation, then clean up only the explicitly created test records/businesses through the established fixture cleanup. Retain the burner login for future testing. Report live checks separately from intercepted-browser fixtures and physical/provider settlement.
+
 After implementation:
 
 - Run the relevant build, type, lint, or test checks available for the affected area.

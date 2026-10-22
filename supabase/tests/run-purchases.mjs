@@ -17,7 +17,7 @@ if (replayIndex === -1) {
   // uses a transaction and rolls back all fixtures. No credentials are read.
   const output = execFileSync('docker',[
     'compose','exec','-T','db','psql','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1','-q','-t',
-  ],{ input:read('purchases.sql'),encoding:'utf8',cwd:root });
+  ],{ input:read('purchase-wallets.sql'),encoding:'utf8',cwd:root });
   const result=output.split('\n').find(line=>line.includes('PASS:'));
   if(!result) throw new Error('No purchase success assertion');
   console.log(result.trim());
@@ -30,7 +30,8 @@ if (replayIndex === -1) {
   const moduleDir = resolve(process.argv[replayIndex+1]);
   const { PGlite } = await import(pathToFileURL(resolve(moduleDir,'dist/index.js')).href);
   const { uuid_ossp } = await import(pathToFileURL(resolve(moduleDir,'dist/contrib/uuid_ossp.js')).href);
-  const db = new PGlite({ extensions:{uuid_ossp} });
+  const { pg_trgm } = await import(pathToFileURL(resolve(moduleDir,'dist/contrib/pg_trgm.js')).href);
+  const db = new PGlite({ extensions:{uuid_ossp,pg_trgm} });
   try {
     await db.exec(`create role anon; create role authenticated; create role service_role bypassrls; create role supabase_admin superuser;
       create schema auth; create schema extensions;
@@ -48,9 +49,9 @@ if (replayIndex === -1) {
         report('exchange compatibility',await db.exec(read('purchases-exchange.after.sql')));
         await db.exec(`create temp table workflow_preservation as select
           (select md5(coalesce(jsonb_agg(to_jsonb(i) order by tenant_id,item_id)::text,'')) from public.items i) stock,
-          (select md5(coalesce(jsonb_agg(to_jsonb(w) order by tenant_id,wallet_id)::text,'')) from public.wallets w) wallets,
+          (select md5(coalesce(jsonb_agg(jsonb_build_array(tenant_id,wallet_id,type,balance,created_at,updated_at) order by tenant_id,wallet_id)::text,'')) from public.wallets w) wallets,
           (select md5(coalesce(jsonb_agg(to_jsonb(m) order by tenant_id,movement_id)::text,'')) from public.inventory_movements m) movements,
-          (select md5(coalesce(jsonb_agg(to_jsonb(w) order by tenant_id,transaction_id)::text,'')) from public.wallet_transactions w) transactions;`);
+          (select md5(coalesce(jsonb_agg(jsonb_build_array(tenant_id,transaction_id,wallet_id,amount,type,reference_id,description,created_at) order by tenant_id,transaction_id)::text,'')) from public.wallet_transactions w) transactions;`);
         workflowCompatibility = true;
       }
       if(name.endsWith('_purchase_refill_exchange.sql')) {
@@ -70,8 +71,10 @@ if (replayIndex === -1) {
       // at migration time as well as by calling them in workflow tests.
       if(name.endsWith('_purchase_created_status.sql')) await db.exec('set check_function_bodies=on;');
       if(name.endsWith('_sale_pricing_tier.sql')) await db.exec(read('sale-tier-legacy.before.sql'));
+      if(name.endsWith('_multi_wallet_finance.sql')) await db.exec(read('finance-legacy.before.sql'));
       await db.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
       if(name.endsWith('_sale_pricing_tier.sql')) report('sale tier backfill',await db.exec(read('sale-tier-legacy.after.sql')));
+      if(name.endsWith('_multi_wallet_finance.sql')) report('wallet migration',await db.exec(read('finance-legacy.after.sql')));
     }
     if(process.argv.includes('--deployment-batch')) await db.exec('commit;');
     console.log('Migration replay:', (await db.query('select version()')).rows[0].version);
@@ -79,15 +82,15 @@ if (replayIndex === -1) {
     if(workflowCompatibility) {
       await db.exec(`do $$ begin if exists(select 1 from workflow_preservation s where
         s.stock is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(i) order by tenant_id,item_id)::text,'')) from public.items i)
-        or s.wallets is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(w) order by tenant_id,wallet_id)::text,'')) from public.wallets w)
+        or s.wallets is distinct from (select md5(coalesce(jsonb_agg(jsonb_build_array(tenant_id,wallet_id,type,balance,created_at,updated_at) order by tenant_id,wallet_id)::text,'')) from public.wallets w where type in ('dealership','logistics'))
         or s.movements is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(m) order by tenant_id,movement_id)::text,'')) from public.inventory_movements m)
-        or s.transactions is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(w) order by tenant_id,transaction_id)::text,'')) from public.wallet_transactions w))
+        or s.transactions is distinct from (select md5(coalesce(jsonb_agg(jsonb_build_array(tenant_id,transaction_id,wallet_id,amount,type,reference_id,description,created_at) order by tenant_id,transaction_id)::text,'')) from public.wallet_transactions w))
         then raise exception 'Workflow migration changed stock or money'; end if; end $$;`);
       console.log('Workflow migration preserves stock, wallet balances and all ledger history.');
     }
     else if(exchangeCompatibility) report('exchange compatibility',await db.exec(read('purchases-exchange.after.sql')));
     else report('historical compatibility',await db.exec(read('purchases-legacy.after.sql')));
-    for(const name of ['purchases.sql','authorization.sql','receipt_printers.sql','inventory.sql','sale-tier.sql','customers.sql','reporting.sql']) {
+    for(const name of ['purchase-wallets.sql','authorization.sql','receipt_printers.sql','inventory.sql','sale-tier.sql','pos-integrity.sql','customers.sql','reporting.sql','finance.sql']) {
       await db.exec('set row_security=on;');
       report(name,await db.exec(read(name)));
     }

@@ -240,3 +240,8 @@
   .transit-settlement dd { font-size: 1rem; }
   .transits-view > .purchase-section-heading { flex-wrap: wrap; }
 }
+.payment-partial { color: var(--primary); background: var(--primary-weak); }
+.purchase-section .settlement-row { gap: .75rem; align-items: flex-start; }
+.purchase-section .settlement-row > span { min-width: 0; overflow-wrap: anywhere; }
+.purchase-section .settlement-row > strong { flex-shrink: 0; }
+.purchase-section .settlement-row small { overflow-wrap: anywhere; }

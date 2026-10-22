@@ -11,3 +11,11 @@ export function writeReceiptPrintMethod(tenantId: string, method: ReceiptPrintMe
   // Throw if storage is unavailable so the UI never claims an unsaved preference.
   localStorage.setItem(key(tenantId), method);
 }
+
+export function readBrowserPaperWidth(tenantId: string): 58 | 80 {
+  try { return localStorage.getItem(`lpg:browser-paper:${tenantId}`) === '58' ? 58 : 80; }
+  catch { return 80; }
+}
+export function writeBrowserPaperWidth(tenantId: string, width: 58 | 80) {
+  localStorage.setItem(`lpg:browser-paper:${tenantId}`, String(width));
+}

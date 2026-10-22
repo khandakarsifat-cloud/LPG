@@ -16,15 +16,14 @@ function CreatePurchase({ onClose }: { onClose: () => void }) {
   const create = useCreatePurchase();
   const [plantId, setPlantId] = useState('');
   const [draft, setDraft] = useState(emptyPurchaseDraft);
-  const [requestId] = useState(() => crypto.randomUUID());
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const plants = (plantsQuery.data ?? []).filter(plant => plant.brand_id);
   const plant = plants.find(plant => plant.plant_id === plantId);
   const totals = purchaseTotals(draft.items, draft.commission, draft.transport_cost, draft.labour_cost);
-  async function submit() {
+  async function submit(recover = false) {
     try {
-      await create.mutateAsync({ ...draft, plant_id: plantId, request_id: requestId });
+      await create.mutateAsync(recover ? undefined : { ...draft, plant_id: plantId });
       toast.success('Purchase created'); onClose();
     } catch (cause) {
       setConfirm(false); setError(cause instanceof Error ? cause.message : 'Purchase could not be created. Try again.');
@@ -38,6 +37,10 @@ function CreatePurchase({ onClose }: { onClose: () => void }) {
         setError(message); if (!message) setConfirm(true);
       }}>
         <div className="modal-body">
+          {create.hasPending && !create.isPending && <p role="alert" className="purchase-error">
+            A previous purchase has an unconfirmed result. Recover it before creating another.
+            <button type="button" className="btn btn-secondary" onClick={() => void submit(true)}>Recover purchase</button>
+          </p>}
           {error && <p role="alert" className="purchase-error">{error}</p>}
           <section className="purchase-section"><h3>Destination & vehicle</h3>
             <div className="purchase-destination-grid">

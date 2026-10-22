@@ -7,6 +7,10 @@ export interface ReceiptItem {
 }
 
 export interface ReceiptData {
+  payments?: Array<{ wallet_name: string; method: string; amount: number; phase?: 'checkout' | 'collection' }>;
+  paid_amount?: number;
+  due_amount?: number;
+  payment_tracking?: boolean;
   sale_id: string;
   created_at: string;
   shop_name?: string;

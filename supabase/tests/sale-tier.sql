@@ -26,12 +26,13 @@ insert into public.customers(tenant_id,customer_id,name,phone,tier) values
  ('c1111111-1111-4111-8111-111111111111','c5555555-5555-4555-8555-555555555555','Saved retail','01700000000','retail'),
  ('c1111111-1111-4111-8111-111111111111','c6666666-6666-4666-8666-666666666666','Saved wholesale','01700000001','wholesale'),
  ('d1111111-1111-4111-8111-111111111111','c5555555-5555-4555-8555-555555555555','Other tenant','01700000000','retail');
+insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from) values ('c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333333','retail','package',2300,now()-interval '1 day');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c2222222-2222-4222-8222-222222222222',true);
 do $$
 declare result jsonb; payload jsonb := '[{"item_id":"c3333333-3333-4333-8333-333333333333","type":"package","quantity":1,"unit_price":2300}]';
 begin
- result := public.create_pos_sale('01700000000',null,null,null,'wholesale',100,50,null,payload,'c5555555-5555-4555-8555-555555555555');
+ result := public.create_pos_sale('01700000000',null,null,null,'wholesale',100,50,null,payload,'c5555555-5555-4555-8555-555555555555',p_request_id=>gen_random_uuid());
  if result->>'sale_tier' <> 'wholesale' or (result->>'total_amount')::numeric <> 2250
  or not exists(select 1 from public.sales where sale_id=(result->>'sale_id')::uuid and sale_tier='wholesale') then
    raise exception 'Wholesale classification or sale totals were lost';
@@ -39,14 +40,14 @@ begin
  if (select tier from public.customers where customer_id='c5555555-5555-4555-8555-555555555555') <> 'retail' then
    raise exception 'Sale tier changed the customer profile';
  end if;
- result := public.create_pos_sale('01700000001',null,null,null,'retail',0,0,null,payload,'c6666666-6666-4666-8666-666666666666');
+ result := public.create_pos_sale('01700000001',null,null,null,'retail',0,0,null,payload,'c6666666-6666-4666-8666-666666666666',p_request_id=>gen_random_uuid());
  if result->>'sale_tier' <> 'retail' then raise exception 'Retail override was not stored'; end if;
- result := public.create_pos_sale('01700000002','New wholesale','Shop',null,'wholesale',0,0,null,payload);
+ result := public.create_pos_sale('01700000002','New wholesale','Shop',null,'wholesale',0,0,null,payload,p_request_id=>gen_random_uuid());
  if result->>'sale_tier' <> 'wholesale' then raise exception 'New customer wholesale sale failed'; end if;
- result := public.create_pos_sale('01700000003',null,null,null,null,0,0,null,payload);
+ result := public.create_pos_sale('01700000003',null,null,null,null,0,0,null,payload,p_request_id=>gen_random_uuid());
  if result->>'sale_tier' <> 'retail' then raise exception 'Null/legacy tier must default to retail'; end if;
  begin
-   perform public.create_pos_sale('01700000004',null,null,null,'invalid',0,0,null,payload);
+   perform public.create_pos_sale('01700000004',null,null,null,'invalid',0,0,null,payload,p_request_id=>gen_random_uuid());
    raise exception 'Invalid tier accepted';
  exception when raise_exception then
    if sqlerrm <> 'Invalid sale tier' then raise; end if;

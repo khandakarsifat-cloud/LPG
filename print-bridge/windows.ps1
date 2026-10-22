@@ -82,7 +82,7 @@ try {
       $right = [string[]]@($lines | ForEach-Object { [string]$_.right })
       $bold = [bool[]]@($lines | ForEach-Object { [bool]$_.bold })
       $center = [bool[]]@($lines | ForEach-Object { [bool]$_.center })
-      $bytes = [LPG.WindowsPrinting]::Render($left, $right, $bold, $center, [int]$payload.settings.printable_width_dots, [bool]$payload.settings.auto_cut)
+      $bytes = [LPG.WindowsPrinting]::Render($left, $right, $bold, $center, [int]$payload.settings.printable_width_dots, [bool]$payload.settings.auto_cut, [int]$payload.settings.paper_width_mm)
       @{ bytes = [Convert]::ToBase64String($bytes) } | ConvertTo-Json -Compress
     } else {
       $queue = Get-Printer -Name $payload.queue_name -ErrorAction Stop

@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { assertBDMobilePhone } from '../lib/bdPhone';
 import type { CustomerTier } from '../types/inventory';
+import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest } from '../lib/pendingRequest';
+import type { PaymentInput } from '../types/finance';
 
 export interface PriceBook {
   tenant_id: string;
@@ -32,6 +36,7 @@ export const usePriceBooks = () =>
   });
 
 export interface POSSalePayload {
+  payments?: PaymentInput[];
   customerId?: string;
   customerPhone: string;           // Required — mandatory customer
   customerName?: string;
@@ -50,6 +55,8 @@ export interface POSSalePayload {
 }
 
 export interface POSSaleResult {
+  paid_amount: number;
+  due: number;
   sale_id: string;
   sale_tier: CustomerTier;
   customer_id: string;
@@ -61,11 +68,14 @@ export interface POSSaleResult {
 
 export const useCreatePOSSale = () => {
   const qc = useQueryClient();
-  return useMutation<POSSaleResult, Error, POSSalePayload>({
+  const { profile, user } = useAuth();
+  const storageKey = `lpg-pos-pending:${profile?.tenant_id}:${user?.id}`;
+  const [hasPending, setHasPending] = useState(() => hasPendingRequest(storageKey));
+  const mutation = useMutation<POSSaleResult, Error, POSSalePayload | undefined>({
     mutationFn: async (payload) => {
-      const customerPhone = assertBDMobilePhone(payload.customerPhone);
-
-      const { data, error } = await supabase.rpc('create_pos_sale', {
+      if (!profile || !user) throw new Error('Sign in before checkout.');
+      const customerPhone = payload ? assertBDMobilePhone(payload.customerPhone) : '';
+      const pending = prepareRequest(storageKey, payload ? {
         p_customer_phone:      customerPhone,
         p_customer_name:       payload.customerName ?? null,
         p_customer_shop_name:  payload.customerShopName ?? null,
@@ -76,8 +86,14 @@ export const useCreatePOSSale = () => {
         p_notes:               payload.notes ?? null,
         p_items:               payload.items,
         p_customer_id:         payload.customerId ?? null,
-      });
-      if (error) throw error;
+        p_payments:            payload.payments ?? null,
+      } : undefined);
+      setHasPending(true);
+      const { data, error } = await supabase.rpc('create_pos_sale', { ...pending.body, p_request_id: pending.id });
+      if (!error || isDefiniteRejection(error.code)) {
+        finishRequest(storageKey, pending.id); setHasPending(false);
+      }
+      if (error) throw new Error(error.message);
       return data as POSSaleResult;
     },
     onSuccess: () => {
@@ -87,6 +103,8 @@ export const useCreatePOSSale = () => {
       qc.invalidateQueries({ queryKey: ['movements'] });
       qc.invalidateQueries({ queryKey: ['sales'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['finance'] });
     },
   });
+  return { ...mutation, hasPending };
 };

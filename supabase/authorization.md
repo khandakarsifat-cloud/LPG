@@ -72,12 +72,12 @@ the caller's own profile/business identity needed to load the workspace.
 | Printer settings | `printers:manage` gates configuration INSERT/UPDATE; configuration SELECT also allows `receipts:print`. PostgREST upserts can assign the tenant column, but old and new ownership must both match the trusted tenant. |
 | Inventory | View/manage capabilities permit registry/history reads and same-tenant creator attribution. `inventory:manage` allows registering zero-stock items and calling inventory adjustments. Price and explicit commission writes additionally require an OWNER role assignment from tenant-qualified RBAC tables. Commission history has RLS, no browser grants and immutable rows; the product RPC exposes only the current refill/package rates and version. |
 | Customers | Customer view/manage allows reads; management or POS allows form creation. No direct update/delete path is exposed. |
-| Purchases | Purchase view/manage gates lists, activity and supporting product/truck/plant selectors. Create/edit/dispatch/receive/full payment requires `purchases:manage`; internal stock and wallet writes need no separate inventory/finance management grant. See [lifecycle and settlement](../docs/modules/purchases-and-logistics.md). |
+| Purchases | Purchase view/manage gates lists, activity and supporting product/truck/plant selectors. Create/edit/dispatch/receive/payments/refunds require `purchases:manage`; internal stock and wallet writes need no separate inventory/finance management grant. See [lifecycle and settlement](../docs/modules/purchases-and-logistics.md). |
 | Logistics | Logistics view/manage gates truck/transit/wallet reads; truck/custom-transit/cost mutations require `logistics:manage`. |
 | Brands / plants | `settings:manage` gates brand mutations. Plant/officer mutations require `gas_plants:manage`; plant view and purchase selectors retain their supporting reads. |
 | Employees | Employee view/manage gates profile/phone/payment-count lists; employee mutations require `employees:manage`. |
 | Payroll | Payroll view/pay gates payment/category lists; `payroll:pay` gates payment recording. Payments retain their existing immutability and monthly salary uniqueness. |
-| Finance / audit | Finance view/manage allows same-tenant ledger/wallet reads; `audit:view` allows audit reads. Browser ledger/audit writes remain denied. |
+| Finance / audit | Finance view/manage allows same-tenant wallet/ledger/dues reads. `finance:manage` gates custom wallet management, transfers, adjustments and sale collections; browser ledger/payment/request writes remain denied. POS reads payment destinations without balances through a gated RPC. Saved-sale permissions allow payment attribution reads; customer view/manage permits aggregate outstanding balance. `audit:view` retains audit reads. |
 
 Only item/customer registration and printer configuration have direct browser
 writes. Item INSERT grants exclude initial balances and timestamps. All other
@@ -162,3 +162,5 @@ Frontend build, focused changed-file lint, authorization tests, bridge typecheck
 and all twelve existing bridge/checkout tests pass. Browser UI interaction and
 physical printing are not part of these authorization tests; no physical print
 job was sent.
+
+Purchase cancellation additionally checks trusted OWNER membership and exact `CANCEL` in `initiate_purchase_cancellation`; received purchases always reject. Normal payments/refunds require `purchases:manage`. New purchase financial tables are RLS-enabled with no direct browser privileges; the bounded settlement RPC requires purchase view/manage access. `get_payment_wallets` also permits purchase managers, exposing only active destination identities.

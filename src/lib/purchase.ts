@@ -1,5 +1,9 @@
 import type { Purchase, PurchaseDraft, PurchaseLinePayload } from '../types/purchase.ts';
 
+export const purchaseDate = (date: string | null) => date ? new Date(date).toLocaleString('en-BD', {
+  timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
+}) : 'Pending';
+
 export const emptyPurchaseDraft = (): PurchaseDraft => ({
   truck_id: null, transport_cost: 0, labour_cost: 0, commission: 0, notes: '', items: [],
 });
@@ -31,15 +35,15 @@ export function purchaseTotals(lines: PurchaseLinePayload[], commission: number,
   };
 }
 
-export function purchaseAccess(purchase: Purchase, canManage = true) {
+export function purchaseAccess(purchase: Purchase, canManage = true, isOwner = false, financialLocked = purchase.payment_status !== 'unpaid') {
   const complete = purchase.status === 'received' && purchase.payment_status === 'paid';
   const editable = canManage && !complete && purchase.status !== 'cancelled';
   return {
     complete, editable, products: editable && purchase.status === 'created',
-    cancel: canManage && purchase.status !== 'cancelled',
-    financials: editable && purchase.payment_status === 'unpaid',
+    cancel: canManage && isOwner && (purchase.status === 'created' || purchase.status === 'in_transit'),
+    financials: editable && !financialLocked,
     dispatch: editable && purchase.status === 'created', receive: editable && purchase.status === 'in_transit',
-    pay: editable && purchase.status !== 'created' && purchase.payment_status === 'unpaid',
+    pay: editable && purchase.status !== 'created' && purchase.payment_status !== 'paid' && Number(purchase.paid_amount ?? 0) < Number(purchase.total_cost),
   };
 }
 
@@ -100,7 +104,10 @@ export function purchaseDay(date: string): string {
 export function filterPurchases(purchases: Purchase[], filters: PurchaseFilters): Purchase[] {
   const groups = filters.search.toLowerCase().split(',').map(group => group.trim().split(/\s+/).filter(Boolean)).filter(group => group.length);
   return purchases.filter(purchase => {
-    if ((filters.status !== 'all' && purchase.status !== filters.status) || (filters.payment !== 'all' && purchase.payment_status !== filters.payment)) return false;
+    const statusMatches = filters.status === 'all' || purchase.status === filters.status
+      || filters.status === 'pending_refund' && purchase.status === 'cancelled' && !purchase.financial_closed_at
+      || filters.status === 'closed' && purchase.status === 'cancelled' && Boolean(purchase.financial_closed_at);
+    if (!statusMatches || (filters.payment !== 'all' && purchase.payment_status !== filters.payment)) return false;
     const day = purchaseDay(purchase.created_at);
     if ((filters.from && day < filters.from) || (filters.to && day > filters.to)) return false;
     if (!groups.length) return true;

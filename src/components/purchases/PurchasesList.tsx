@@ -36,8 +36,8 @@ export function PurchasesList({ totalPurchases }: { totalPurchases?: number }) {
       <div className="input-group purchase-search-group"><label className="input-label" htmlFor="purchase-search">Search purchases <span aria-hidden="true" id="purchase-search-help">Spaces = AND · Commas = OR</span></label><div className="purchase-search">
         <Search size={16} className="topbar-search-icon" /><input id="purchase-search" className="input-field topbar-search-input" aria-label="Search purchases" aria-describedby="purchase-search-help" placeholder="Company, plant, product, 22mm, 12kg, vehicle…" maxLength={500} value={search} onChange={event => setSearch(event.target.value)} />
       </div></div>
-      <PurchaseSelect label="Purchase status" value={status} onChange={setStatus} options={[{ value: 'all', label: 'All statuses' }, ...Object.entries(PURCHASE_STATUS_LABELS).map(([value,label]) => ({ value,label }))]} />
-      <PurchaseSelect label="Payment status" value={payment} onChange={setPayment} options={[{ value: 'all', label: 'All payments' }, { value: 'unpaid', label: 'Unpaid' }, { value: 'paid', label: 'Paid' }]} />
+      <PurchaseSelect label="Purchase status" value={status} onChange={setStatus} options={[{ value: 'all', label: 'All statuses' }, ...Object.entries(PURCHASE_STATUS_LABELS).map(([value,label]) => ({ value,label })), { value: 'pending_refund', label: 'Pending refund' }, { value: 'closed', label: 'Cancelled · financially closed' }]} />
+      <PurchaseSelect label="Payment status" value={payment} onChange={setPayment} options={[{ value: 'all', label: 'All payments' }, { value: 'unpaid', label: 'Unpaid' }, { value: 'partial', label: 'Part paid' }, { value: 'paid', label: 'Paid' }]} />
       <div className="purchase-filter-extras">
         <div className="purchase-date-range" role="group" aria-label="Purchase date range">
           <label htmlFor="purchase-from">From</label><DatePicker id="purchase-from" label="From" value={from} max={to || undefined} onChange={setFrom} />

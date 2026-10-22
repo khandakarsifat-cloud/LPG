@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { AlertCircle, CheckCircle2, ReceiptText, ShoppingCart, User } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ReceiptText, RefreshCw, ShoppingCart, User } from 'lucide-react';
 import { POSItemsGrid } from '../components/pos/POSItemsGrid';
 import { POSCart } from '../components/pos/POSCart';
 import { CustomerSelection } from '../components/pos/CustomerSelection';
@@ -16,7 +16,8 @@ import { usePrintSale } from '../hooks/useReceiptPrinter';
 import { useAuth } from '../contexts/AuthContext';
 import { completeSale } from '../lib/completeSale';
 import { BD_MOBILE_PHONE_ERROR, validateBDMobilePhone } from '../lib/bdPhone';
-import { repriceSaleItems } from '../lib/productPricing';
+import { findSellingPrice, repriceSaleItems } from '../lib/productPricing';
+import type { PaymentInput } from '../types/finance';
 
 const resetForm = (
   setItems: React.Dispatch<React.SetStateAction<POSSalePayload['items']>>,
@@ -43,10 +44,11 @@ export const POSPage = () => {
   const [modalOpen, setModalOpen]       = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [saleResult, setSaleResult]     = useState<POSSaleResult | null>(null);
+  const [payments, setPayments] = useState<PaymentInput[] | undefined>(undefined);
 
   const { data: inventoryItems } = useInventoryBalances();
-  const { data: priceBooks } = usePriceBooks();
-  const { mutateAsync: createSale } = useCreatePOSSale();
+  const { data: priceBooks, refetch: refreshPrices } = usePriceBooks();
+  const { mutateAsync: createSale, hasPending } = useCreatePOSSale();
   const printSale = usePrintSale();
   const checkoutLock = useRef(false);
   const productsPanel = useRef<HTMLDivElement>(null);
@@ -66,13 +68,20 @@ export const POSPage = () => {
   const refillCount     = items.filter(i => i.type === 'refill').reduce((a, i) => a + i.quantity, 0);
   const emptyCount      = items.filter(i => i.type === 'empty_return').reduce((a, i) => a + i.quantity, 0);
   const parityOk        = refillCount === emptyCount;
-  const canCheckout     = items.length > 0 && hasValidPhone && parityOk;
+  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  const missingPrice = items.some(item => item.type !== 'empty_return'
+    && findSellingPrice(priceBooks ?? [], item.item_id, item.type, customer?.tier || 'retail') === null);
+  const moneyValid = Number.isFinite(discount) && Number.isFinite(exchangeFee)
+    && discount >= 0 && discount <= subtotal && exchangeFee >= 0;
+  const canCheckout = items.length > 0 && hasValidPhone && parityOk && moneyValid && !missingPrice;
 
   const getCheckoutBlockReason = () => {
     if (items.length === 0)  return 'Cart is empty';
     if (!hasPhone)           return 'Customer phone number is required';
     if (!hasValidPhone)      return BD_MOBILE_PHONE_ERROR;
     if (!parityOk)           return `Refills (${refillCount}) must equal empty returns (${emptyCount})`;
+    if (missingPrice)        return 'Set an active selling price for every product before checkout';
+    if (!moneyValid)         return 'Discount must not exceed subtotal; amounts must be finite and nonnegative';
     return null;
   };
 
@@ -83,6 +92,7 @@ export const POSPage = () => {
       toast.error(reason);
       return;
     }
+    setPayments(undefined);
     setModalOpen(true);
   };
 
@@ -103,22 +113,24 @@ export const POSPage = () => {
       exchangeFee:       exchangeFee,
       notes:             notes || undefined,
       items,
+      payments,
     };
     const result = await createSale(payload);
     return result;
-  }, [customer, customerPhone, discount, exchangeFee, notes, items, createSale]);
+  }, [customer, customerPhone, discount, exchangeFee, notes, items, payments, createSale]);
 
-  const completeCheckout = async (withPrint: boolean) => {
+  const completeCheckout = async (withPrint: boolean, recover = false) => {
     if (checkoutLock.current) return;
     checkoutLock.current = true;
     setIsProcessing(true);
     try {
       try {
-        await completeSale(executeSale, result => {
+        await completeSale(recover ? () => createSale(undefined) : executeSale, result => {
           // Commit UI state before any printer work. A print retry never calls checkout.
           setSaleResult(result);
           setModalOpen(false);
           resetForm(setItems, setCustomer, setDiscount, setExchangeFee, setNotes);
+          setPayments(undefined);
           toast.success('Sale completed successfully.');
         }, withPrint ? printSale.mutateAsync : undefined);
       } catch (err: unknown) {
@@ -173,6 +185,10 @@ export const POSPage = () => {
     <div className="pos-page">
 
       {/* 2-column layout */}
+      {hasPending && !isProcessing && <div className="pos-recovery-notice" role="alert">
+        A previous checkout has an unconfirmed result. Recover it before starting another sale. Recovery clears the current draft.
+        <button className="btn btn-secondary" onClick={() => void completeCheckout(false, true)}>Recover checkout</button>
+      </div>}
       <div className="pos-workspace">
 
         {/* LEFT: Products Grid */}
@@ -183,6 +199,11 @@ export const POSPage = () => {
             <button className="btn btn-secondary pos-checkout-link" onClick={() => checkoutPanel.current?.scrollIntoView({ block: 'start' })}>
               <ShoppingCart size={14} /> Checkout{items.length > 0 ? ` (${items.length})` : ''}
             </button>
+            <button className="btn btn-ghost" disabled={isProcessing || hasPending} title="Refresh selling prices and reprice the cart" onClick={async () => {
+              const fresh = await refreshPrices();
+              if (fresh.isError) toast.error('Selling prices could not be refreshed. Try again.');
+              else setItems(current => repriceSaleItems(current, fresh.data ?? [], customer?.tier || 'retail'));
+            }}><RefreshCw size={14} /> Refresh prices</button>
 
             {/* Mouth Size Pill Toggle */}
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -323,7 +344,7 @@ export const POSPage = () => {
         </div>
       )}
       {/* Checkout Confirmation Modal */}
-      <CheckoutConfirmModal
+      {modalOpen && <CheckoutConfirmModal
         isOpen={modalOpen}
         onClose={() => { if (!isProcessing) setModalOpen(false); }}
         onConfirm={handleConfirm}
@@ -335,7 +356,8 @@ export const POSPage = () => {
         exchangeFee={exchangeFee}
         notes={notes}
         saleResult={saleResult}
-      />
+        onPaymentsChange={setPayments}
+      />}
     </div>
   );
 };

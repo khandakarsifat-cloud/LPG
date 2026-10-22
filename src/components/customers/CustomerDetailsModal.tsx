@@ -10,6 +10,7 @@ import { TransactionDetailsModal } from '../transactions/TransactionDetailsModal
 import { CustomerFormModal } from './CustomerFormModal';
 import { CustomerFiltersModal } from './CustomerFiltersModal';
 import type { CustomerSummary } from '../../types/customer';
+import { useCustomerBalance } from '../../hooks/useFinance';
 
 export function CustomerDetailsModal({ customerId, preview, onClose }: { customerId: string; preview?: CustomerSummary; onClose: () => void }) {
   const profile = useCustomerProfile(customerId, preview); const customer = profile.data ?? preview;
@@ -18,6 +19,7 @@ export function CustomerDetailsModal({ customerId, preview, onClose }: { custome
   const [filters, setFilters] = useState(defaultCustomerFilters); const deferred = useDeferredValue(filters);
   const [page, setPage] = useState(0); const [edit, setEdit] = useState(false); const [filterOpen, setFilterOpen] = useState(false);
   const [saleId, setSaleId] = useState<string | null>(null);
+  const balance = useCustomerBalance(customerId, can('customers:view') || can('customers:manage') || can('finance:view') || can('finance:manage'));
   const transactions = useCustomerTransactions(customerId, deferred, page, readable);
   const reset = () => { setPage(0); setFilters(defaultCustomerFilters); };
   return <><PurchaseDialog title="Customer details" subtitle="Contact information and completed sales." className="customer-detail-dialog" onClose={onClose}>
@@ -29,6 +31,8 @@ export function CustomerDetailsModal({ customerId, preview, onClose }: { custome
         <div className="customer-profile-contact"><span><Phone size={14} />{customer.phone}</span><span><MapPin size={14} />{customer.address || 'No address saved'}</span></div>
         <div className="customer-profile-dates"><span>Customer since {customerDay(customer.created_at)}</span><span>Last transaction: {!profileReady ? '…' : customer.last_transaction_at ? customerDay(customer.last_transaction_at) : 'None'}</span></div>
         <div className="customer-profile-stats">{[['Transactions', customer.transactions], ['Total sold', customer.total_sold], ['Refills', customer.refill], ['Packages', customer.package]].map(([label, value]) => <div key={label}><span>{label}</span><strong>{profileReady ? formatBDQty(Number(value)) : '…'}</strong></div>)}</div>
+        {balance.data !== undefined && <p className="customer-notice">{balance.data < 0 ? 'Customer credit' : 'Customer outstanding'}: <strong>{formatBDT(Math.abs(balance.data))}</strong></p>}
+        {balance.error && <p role="alert" className="purchase-error">Customer balance could not be loaded. <button className="btn btn-secondary" onClick={() => void balance.refetch()}>Retry</button></p>}
         <div className="customer-history-heading"><h3>Transaction history</h3><small>{filters.from || filters.to ? `${filters.from || 'Start'} – ${filters.to || 'Today'}` : 'All time'}{filters.item_ids !== null ? ` · ${filters.item_ids.length} products` : ''}</small></div>
         {readable ? <>
           <div className="customer-history-toolbar"><input className="input-field" placeholder="Search transaction or product" aria-label="Search customer transactions" value={filters.search} onChange={event => { setPage(0); setFilters(previous => ({ ...previous, search: event.target.value })); }} /><button className="btn btn-secondary" onClick={() => setFilterOpen(true)}><SlidersHorizontal size={14} />Filters{customerActivityFilterCount(filters) > 0 ? ` (${customerActivityFilterCount(filters)})` : ''}</button>{(filters.search || customerActivityFilterCount(filters) > 0) && <button className="btn btn-ghost" onClick={reset}>Clear</button>}</div>

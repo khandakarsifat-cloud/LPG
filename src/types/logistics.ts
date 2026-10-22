@@ -69,16 +69,7 @@ export const TRUCK_STATUS_BG: Record<TruckStatus, string> = {
 };
 
 // ── Wallets & Transits ────────────────────────────────────────────────────────
-export type WalletType = 'dealership' | 'logistics';
-
-export interface Wallet {
-  tenant_id: string;
-  wallet_id: string;
-  type: WalletType;
-  balance: number;
-  created_at: string;
-  updated_at: string;
-}
+export type { FinanceWallet as Wallet } from './finance';
 
 export interface WalletTransaction {
   transaction_id: string;
@@ -98,6 +89,8 @@ export interface AdditionalCost {
 }
 
 export interface Transit {
+  purchase_refund_due?: number;
+  purchase_financial_closed_at?: string | null;
   tenant_id: string;
   transit_id: string;
   truck_id: string;

@@ -1,9 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBatchedDirectory } from './useBatchedDirectory';
 import { supabase } from '../lib/supabase';
-import type { Purchase, PurchaseActivity, CreatePurchasePayload, PurchaseDraft } from '../types/purchase';
+import type { Purchase, PurchaseActivity, CreatePurchasePayload, PurchaseDraft, PurchaseSettlement } from '../types/purchase';
+import type { PaymentInput } from '../types/finance';
 import { PurchaseStockError, type EmptyShortage } from '../lib/purchase';
 import type { PurchaseFilters } from '../lib/purchase';
+import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest } from '../lib/pendingRequest';
 
 export const purchaseKeys = {
   all: ['purchases'] as const,
@@ -42,12 +46,12 @@ export const usePurchaseDirectory = (filters: PurchaseFilters, page: number, pag
     return data as { entries: Purchase[]; total: number };
   });
 
-export const usePurchaseOverview = () => useQuery<{ total: number; created: number; in_transit: number; unpaid: number; company_payable: number }>({
+export const usePurchaseOverview = () => useQuery<{ total: number; created: number; in_transit: number; unpaid: number; company_payable: number; outstanding?: number }>({
   queryKey: [...purchaseKeys.all, 'overview'],
   queryFn: async ({ signal }) => {
     const { data, error } = await supabase.rpc('get_purchase_overview').abortSignal(signal);
     if (error) throw error;
-    return data as { total: number; created: number; in_transit: number; unpaid: number; company_payable: number };
+    return data as { total: number; created: number; in_transit: number; unpaid: number; company_payable: number; outstanding?: number };
   }, refetchInterval: 30_000,
 });
 
@@ -75,13 +79,13 @@ function usePurchaseMutation<T>(mutationFn: (payload: T) => Promise<unknown>) {
       await Promise.all([
         qc.invalidateQueries({ queryKey: purchaseKeys.all }),
         qc.invalidateQueries({ queryKey: ['inventory'] }),
-        qc.invalidateQueries({ queryKey: ['logistics'] }),
+        qc.invalidateQueries({ queryKey: ['logistics'] }), qc.invalidateQueries({ queryKey: ['finance'] }),
       ]);
     },
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: purchaseKeys.all }), qc.invalidateQueries({ queryKey: ['inventory'] }),
-        qc.invalidateQueries({ queryKey: ['logistics'] }), qc.invalidateQueries({ queryKey: ['dashboard'] }),
+        qc.invalidateQueries({ queryKey: ['logistics'] }), qc.invalidateQueries({ queryKey: ['finance'] }), qc.invalidateQueries({ queryKey: ['dashboard'] }),
       ]);
     },
   });
@@ -105,8 +109,23 @@ async function purchaseRpc(name: string, parameters: Record<string, unknown>) {
   return data;
 }
 
-export const useCreatePurchase = () => usePurchaseMutation((payload: CreatePurchasePayload) =>
-  purchaseRpc('create_purchase', { p_payload: payload }));
+export const useCreatePurchase = () => {
+  const { profile, user } = useAuth();
+  const storageKey = `lpg-purchase-pending:${profile?.tenant_id}:${user?.id}`;
+  const [hasPending, setHasPending] = useState(() => hasPendingRequest(storageKey));
+  const mutation = usePurchaseMutation(async (payload: Omit<CreatePurchasePayload, 'request_id'> | undefined) => {
+    if (!profile || !user) throw new Error('Sign in before creating a purchase.');
+    const pending = prepareRequest(storageKey, payload);
+    setHasPending(true);
+    const { data, error } = await supabase.rpc('create_purchase', { p_payload: { ...pending.body, request_id: pending.id } });
+    if (!error || isDefiniteRejection(error.code)) {
+      finishRequest(storageKey, pending.id); setHasPending(false);
+    }
+    if (error) throw new Error(error.message);
+    return data;
+  });
+  return { ...mutation, hasPending };
+};
 export const useUpdatePurchase = () => usePurchaseMutation((payload: {
   purchase_id: string; revision: number; draft: PurchaseDraft | Pick<PurchaseDraft, 'notes'>;
 }) => purchaseRpc('update_purchase', {
@@ -116,9 +135,39 @@ export const useUpdatePurchase = () => usePurchaseMutation((payload: {
 type Transition = { purchase_id: string; revision: number };
 export const useDispatchPurchase = () => usePurchaseMutation((payload: Transition) =>
   purchaseRpc('dispatch_purchase', { p_purchase_id: payload.purchase_id, p_revision: payload.revision }));
-export const usePayPurchase = () => usePurchaseMutation((payload: Transition) =>
-  purchaseRpc('pay_purchase', { p_purchase_id: payload.purchase_id, p_revision: payload.revision }));
-export const useCancelPurchase = () => usePurchaseMutation((payload: Transition) =>
-  purchaseRpc('cancel_purchase', { p_purchase_id: payload.purchase_id, p_revision: payload.revision }));
 export const useReceivePurchase = () => usePurchaseMutation((payload: Transition) =>
   purchaseRpc('receive_purchase', { p_purchase_id: payload.purchase_id, p_revision: payload.revision }));
+
+export const usePurchaseSettlement = (id: string, page = 0) => useQuery<PurchaseSettlement>({
+  queryKey: [...purchaseKeys.detail(id), 'settlement', page], refetchInterval: 30_000,
+  queryFn: async ({ signal }) => {
+    const { data, error } = await supabase.rpc('get_purchase_settlement', { p_purchase_id: id, p_offset: page * 10, p_limit: 10 }).abortSignal(signal);
+    if (error) throw error;
+    return data;
+  },
+});
+
+type PurchaseOperation = { action: 'payment'; purchase_id: string; payments: PaymentInput[] }
+  | { action: 'refund'; purchase_id: string; obligation_id: string; payments: PaymentInput[] }
+  | { action: 'cancel'; purchase_id: string; revision: number; confirmation: string };
+
+/** Retain the original request across response loss, dialog closure and reload. */
+export function usePurchaseOperation() {
+  const { profile, user } = useAuth();
+  const key = `lpg-purchase-finance-pending:${profile?.tenant_id}:${user?.id}`;
+  const [hasPending, setHasPending] = useState(() => hasPendingRequest(key));
+  const mutation = usePurchaseMutation(async (operation: PurchaseOperation | undefined) => {
+    if (!profile || !user) throw new Error('Sign in before recording a purchase transaction.');
+    const request = prepareRequest(key, operation); setHasPending(true);
+    const body = request.body;
+    const name = body.action === 'payment' ? 'record_purchase_payment' : body.action === 'refund' ? 'refund_purchase' : 'initiate_purchase_cancellation';
+    const parameters = body.action === 'cancel'
+      ? { p_purchase_id: body.purchase_id, p_revision: body.revision, p_confirmation: body.confirmation, p_request_id: request.id }
+      : { p_purchase_id: body.purchase_id, p_payments: body.payments, p_request_id: request.id, ...(body.action === 'refund' ? { p_obligation_id: body.obligation_id } : {}) };
+    const { data, error } = await supabase.rpc(name, parameters);
+    if (!error || isDefiniteRejection(error.code) || error.code === '40001') { finishRequest(key, request.id); setHasPending(false); }
+    if (error) throw new Error(error.message);
+    return data;
+  });
+  return { ...mutation, hasPending };
+}

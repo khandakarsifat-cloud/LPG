@@ -20,7 +20,7 @@ export const PurchasesPage = () => {
           <div><dt>Created</dt><dd>{summaryValue(purchasesQuery.data?.created ?? 0)}</dd></div>
           <div><dt>In Transit</dt><dd>{summaryValue(purchasesQuery.data?.in_transit ?? 0)}</dd></div>
           <div><dt>Awaiting Payment</dt><dd>{summaryValue(purchasesQuery.data?.unpaid ?? 0)}</dd></div>
-          <div className="purchase-overview-payable"><dt>Company Payable</dt><dd>{summaryValue(formatBDT(purchasesQuery.data?.company_payable ?? 0))}</dd></div>
+          <div className="purchase-overview-payable"><dt>Outstanding</dt><dd>{summaryValue(formatBDT(purchasesQuery.data?.outstanding ?? purchasesQuery.data?.company_payable ?? 0))}</dd></div>
         </dl>
         
         <div className="purchases-header-actions">

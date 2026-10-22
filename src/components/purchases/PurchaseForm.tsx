@@ -26,7 +26,9 @@ export function PurchaseForm({ draft, onChange, companyId, purchase, showShipmen
   const paging = useListPage(draft.items, 6, companyId ?? "");
   const items = (itemsQuery.data ?? []).filter(item => item.brand_id === companyId);
   const productsEditable = !purchase || purchase.status === 'created';
-  const financialsEditable = !purchase || purchase.payment_status === 'unpaid';
+  // The detail controller renders this editor only while financial edits are allowed.
+  // Partial status may represent dispatch funding before any normal payment.
+  const financialsEditable = !purchase || purchase.payment_status !== 'paid';
   const totals = purchaseTotals(draft.items, draft.commission, draft.transport_cost, draft.labour_cost, purchase);
   function updateLine(index: number, patch: Partial<PurchaseLinePayload>) {
     onChange({ ...draft, items: draft.items.map((line, i) => {
