@@ -1,4 +1,5 @@
 import { useListPage } from '../../hooks/useListPage';
+import { useState } from 'react';
 import { ArrowLeft, Box } from 'lucide-react';
 import { useSaleDetails } from '../../hooks/useDashboard';
 import { PurchaseDialog } from '../purchases/PurchaseControls';
@@ -7,16 +8,21 @@ import { customerDay } from '../../lib/customer';
 import { formatBDQty, formatBDT } from '../../lib/formatBDT';
 import './transactions.css';
 import { SalePayments } from '../finance/SalePayments';
+import { SaleBottles } from './SaleBottles';
+import { useSaleBottles } from '../../hooks/useSales';
+import { useAuth } from '../../contexts/AuthContext';
+import { ReceiptPrintModal } from '../pos/ReceiptPrintModal';
 
 /** Saved transaction inspection, independent of POS receipt and printer controls. */
 export function TransactionDetailsModal({ saleId, onClose, returnLabel = 'Back' }: { saleId: string; onClose: () => void; returnLabel?: string }) {
   const query = useSaleDetails(saleId); const sale = query.data;
+  const bottles = useSaleBottles(saleId); const { can } = useAuth();
+  const [printOpen, setPrintOpen] = useState(false);
   const lines = sale?.sale_items ?? [];
   const paging = useListPage(lines, 6, saleId);
   const refill = lines.filter(line => line.type === 'refill').reduce((sum, line) => sum + line.quantity, 0);
   const packages = lines.filter(line => line.type === 'package').reduce((sum, line) => sum + line.quantity, 0);
-  const empties = lines.filter(line => line.type === 'empty_return').reduce((sum, line) => sum + line.quantity, 0) - packages;
-  return <PurchaseDialog title={`Transaction #${saleId.slice(0, 8).toUpperCase()}`} subtitle={sale ? `${customerDay(sale.created_at)} · ${new Date(sale.created_at).toLocaleTimeString('en-BD', { timeZone: 'Asia/Dhaka', hour: 'numeric', minute: '2-digit' })}` : 'Saved transaction details'} className="transaction-detail-dialog" onClose={onClose}>
+  return <><PurchaseDialog title={`Transaction #${saleId.slice(0, 8).toUpperCase()}`} subtitle={sale ? `${customerDay(sale.created_at)} · ${new Date(sale.created_at).toLocaleTimeString('en-BD', { timeZone: 'Asia/Dhaka', hour: 'numeric', minute: '2-digit' })}` : 'Saved transaction details'} className="transaction-detail-dialog" onClose={onClose}>
     <div className="modal-body">
       {query.isPending && <p role="status" className="transaction-empty">Loading transaction…</p>}
       {query.isError && <p role="alert" className="purchase-error">This transaction could not be loaded. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></p>}
@@ -27,15 +33,16 @@ export function TransactionDetailsModal({ saleId, onClose, returnLabel = 'Back' 
         <div className="transaction-section-heading"><h3>Products</h3><span>{formatBDQty(refill)} refills + {formatBDQty(packages)} packages</span></div>
         <div className="transaction-line-head"><span>Product</span><span>Qty</span><span className="transaction-unit-price">Unit price</span><span>Amount</span></div>
         {paging.entries.map((line, index) => <div className="transaction-line" key={paging.page * paging.pageSize + index}>
-          <div><strong>{line.items?.lpg_brands?.brand_name || line.items?.brand || 'Product unavailable'} {line.items?.size_kg && `${line.items.size_kg} kg`}</strong><p>{line.items?.mouth_size}<span className={`transaction-badge ${line.type === 'empty_return' ? 'neutral' : ''}`}>{line.type === 'refill' ? 'Refill' : line.type === 'package' ? 'Package' : 'Empty return'}</span></p><small className="transaction-mobile-price">{line.type === 'empty_return' ? 'No charge' : `${formatBDT(Number(line.unit_price))} each`}</small></div>
+          <div><strong>{line.items?.lpg_brands?.brand_name ?? 'Product unavailable'} {line.items?.size_kg && `${line.items.size_kg} kg`}</strong><p>{line.items?.mouth_size}<span className={`transaction-badge ${line.type === 'empty_return' ? 'neutral' : ''}`}>{line.type === 'refill' ? 'Refill' : line.type === 'package' ? 'Package' : 'Expected empty'}</span></p><small className="transaction-mobile-price">{line.type === 'empty_return' ? 'No charge' : `${formatBDT(Number(line.unit_price))} each`}</small></div>
           <span>×{formatBDQty(line.quantity)}</span><span className="transaction-unit-price">{line.type === 'empty_return' ? '—' : formatBDT(Number(line.unit_price))}</span><strong>{line.type === 'empty_return' ? '—' : formatBDT(Number(line.line_total))}</strong>
         </div>)}
         <Pagination {...paging} onChange={paging.setPage} label="product lines" />
         <div className="transaction-totals-area">{sale.notes ? <div className="transaction-note"><strong>Note</strong><p>{sale.notes}</p></div> : <div />}
-          <dl className="transaction-totals"><div><dt>Subtotal</dt><dd>{formatBDT(Number(sale.subtotal))}</dd></div><div><dt>Discount</dt><dd>− {formatBDT(Number(sale.discount_amount))}</dd></div><div><dt>Exchange fee</dt><dd>{formatBDT(Number(sale.exchange_fee))}</dd></div><div className="transaction-grand-total"><dt>Sale total</dt><dd>{formatBDT(Number(sale.total_amount))}</dd></div></dl></div>
-        <SalePayments saleId={sale.sale_id} />
-        <p className="transaction-stock-note"><Box size={15} />Stock movement: {formatBDQty(refill + packages)} filled out · {formatBDQty(Math.abs(empties))} net empties {empties >= 0 ? 'in' : 'out'}</p>
+          <dl className="transaction-totals"><div><dt>Subtotal</dt><dd>{formatBDT(Number(sale.subtotal))}</dd></div><div><dt>Discount</dt><dd>− {formatBDT(Number(sale.discount_amount))}</dd></div><div><dt>Exchange Cost</dt><dd>{formatBDT(Number(sale.exchange_fee))}</dd></div><div className="transaction-grand-total"><dt>Sale total</dt><dd>{formatBDT(Number(sale.total_amount))}</dd></div></dl></div>
+        <SalePayments saleId={sale.sale_id} showHistory={false} />
+        <SaleBottles saleId={sale.sale_id} />
+        <p className="transaction-stock-note"><Box size={15} />Stock movement: {formatBDQty(refill + packages)} filled out · {bottles.isPending ? 'Loading physical empties…' : bottles.isError || !bottles.data ? 'Physical empty count unavailable' : `${formatBDQty(bottles.data.received)} empty bottles physically received · ${formatBDQty(packages)} empties out for packages`}</p>
       </>}
-    </div><div className="modal-footer"><small>Amounts saved at checkout</small><button className="btn btn-secondary" onClick={onClose}><ArrowLeft size={14} />{returnLabel}</button></div>
-  </PurchaseDialog>;
+    </div><div className="modal-footer"><small>Original invoice and immutable settlements</small>{can('receipts:print') && <button className="btn btn-secondary" disabled={!sale} onClick={() => setPrintOpen(true)}>Print receipt</button>}<button className="btn btn-secondary" onClick={onClose}><ArrowLeft size={14} />{returnLabel}</button></div>
+  </PurchaseDialog>{printOpen && can('receipts:print') && <ReceiptPrintModal saleId={saleId} onClose={() => setPrintOpen(false)} />}</>;
 }

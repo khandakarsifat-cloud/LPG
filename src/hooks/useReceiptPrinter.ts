@@ -7,8 +7,33 @@ import type { ReceiptPrinterConfig, ReceiptPrintMethod } from '../types/printing
 import { readReceiptPrintMethod, writeReceiptPrintMethod, readBrowserPaperWidth, writeBrowserPaperWidth } from '../lib/receiptPrintPreference';
 import { printBrowserReceipt } from '../lib/browserPrint';
 import { buildSaleReceipt } from '../lib/receipt';
-import { loadSaleSettlement } from './useFinance';
 import type { SaleTransaction } from './useDashboard';
+import type { SaleSettlement } from '../types/finance';
+import type { SaleBottles } from '../types/bottles';
+import type { LPGBrand } from '../types/inventory';
+
+interface SavedReceiptSource {
+  sale: SaleTransaction; settlement: SaleSettlement; bottles: SaleBottles;
+  shop_name: string; brands: Pick<LPGBrand, 'brand_id' | 'brand_name'>[];
+}
+
+/** One database statement reads identity, immutable sale facts and current settlement. */
+async function loadSaleReceipt(saleId: string, signal?: AbortSignal) {
+  const request = supabase.rpc('get_sale_receipt', { p_sale_id: saleId });
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
+  if (error) throw error;
+  const source: SavedReceiptSource | null = data;
+  if (!source?.sale.sale_items?.length) throw new Error('The completed sale has no receipt items.');
+  return buildSaleReceipt(source.sale, source.settlement, source.shop_name, source.bottles, source.brands);
+}
+
+export function useSaleReceipt(saleId: string) {
+  const { profile, can } = useAuth();
+  return useQuery({
+    queryKey: ['sales', 'receipt', profile?.tenant_id, saleId], enabled: Boolean(profile) && can('receipts:print'),
+    queryFn: ({ signal }) => loadSaleReceipt(saleId, signal), staleTime: 0, refetchOnMount: 'always', refetchInterval: 30_000,
+  });
+}
 
 const configKey = (tenantId?: string) => ['receipt_printer', tenantId] as const;
 
@@ -98,17 +123,7 @@ export function usePrintSale() {
       if (!profile) throw new Error('Business profile unavailable.');
       const method = readReceiptPrintMethod(profile.tenant_id);
       // Browser printing also works before any USB printer is configured.
-      const config = await loadConfig(profile.tenant_id);
-      const settlement = await loadSaleSettlement(saleId);
-      const { data, error } = await supabase.from('sales').select(`
-        sale_id, sale_tier, created_at, subtotal, discount_amount, exchange_fee, total_amount, notes,
-        customers(name, phone, tier),
-        sale_items(quantity, unit_price, line_total, type, items(brand, size_kg, lpg_brands(brand_name)))
-      `).eq('tenant_id', profile.tenant_id).eq('sale_id', saleId).eq('status', 'completed').single()
-        .overrideTypes<SaleTransaction, { merge: false }>();
-      if (error) throw error;
-      if (!data.sale_items?.length) throw new Error('The completed sale has no receipt items.');
-      const receipt = buildSaleReceipt(data, settlement, profile.business_name);
+      const [config, receipt] = await Promise.all([loadConfig(profile.tenant_id), loadSaleReceipt(saleId)]);
       if (method === 'browser' || !config) return printBrowserReceipt(receipt, readBrowserPaperWidth(profile.tenant_id));
       return sendReceipt(config, receipt);
     },

@@ -24,8 +24,7 @@ select 'a7100000-0000-4000-8000-000000000001',('a7400000-0000-4000-8000-'||lpad(
 insert into public.customers(tenant_id,customer_id,name,phone,tier) values
  ('a7100000-0000-4000-8000-000000000002','a7400000-0000-4000-8000-000000000001','Other tenant','01700000001','wholesale'),
  ('a7100000-0000-4000-8000-000000000002','a7400000-0000-4000-8000-000000000099','Foreign only','01700000099','retail');
-insert into public.items(tenant_id,item_id,brand,size_kg,filled_quantity,empty_quantity)
-select t,('a7500000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'Test brand',12,100,100
+insert into public.items(tenant_id,item_id,brand_id,size_kg,filled_quantity,empty_quantity) select t,('a7500000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,pg_temp.fixture_brand(t,'Test brand'),12,100,100
 from (values('a7100000-0000-4000-8000-000000000001'::uuid),('a7100000-0000-4000-8000-000000000002'::uuid)) x(t) cross join generate_series(1,2) n;
 insert into public.sales(tenant_id,sale_id,customer_id,status,sale_tier,subtotal,total_amount,created_by,created_at)
 select t,('a7600000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'a7400000-0000-4000-8000-000000000001','completed','wholesale',1000,1000,
@@ -54,7 +53,7 @@ select set_config('request.jwt.claim.sub','a7200000-0000-4000-8000-000000000001'
 do $$ declare r jsonb; expected jsonb; begin
  r:=public.get_purchase_directory('{}',20,6);
  if (r->>'total')::int<>25 or jsonb_array_length(r->'entries')<>5 then raise exception 'Purchase page/count failed: %',r; end if;
- select jsonb_agg(legacy.row order by legacy.row->>'purchase_id') into expected from public.list_purchases() legacy(row) where legacy.row->>'purchase_id' in (select value->>'purchase_id' from jsonb_array_elements(public.get_purchase_directory('{}',0,6)->'entries'));
+ select jsonb_agg(detail.row order by detail.row->>'purchase_id') into expected from public.get_purchases_by_ids(array(select (value->>'purchase_id')::uuid from jsonb_array_elements(public.get_purchase_directory('{}',0,6)->'entries'))) detail(row);
  select jsonb_agg(value order by value->>'purchase_id') into r from jsonb_array_elements(public.get_purchase_directory('{}',0,6)->'entries');
  if r is distinct from expected then raise exception 'Paged purchase details differ from legacy contract'; end if;
  r:=public.get_purchase_directory('{"search":"mirpur 12kg refill, nonexistent","status":"in_transit","from":"2026-10-02","to":"2026-10-02"}',0,6);

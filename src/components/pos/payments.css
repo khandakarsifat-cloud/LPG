@@ -3,7 +3,7 @@
 .payment-entry label { display: grid; gap: .25rem; min-width: 0; }
 .payment-entry label > span { color: var(--text-muted); font-size: var(--font-xs); }
 .payment-entry .input-field { width: 100%; min-width: 0; }
-.payment-amount input { text-align: right; font-variant-numeric: tabular-nums; }
+.payment-amount input { text-align: left; font-variant-numeric: tabular-nums; }
 .payment-reference { grid-column: 1 / 3; }
 .payment-remove { align-self: end; height: 2.3rem; padding: .4rem; }
 .payment-actions { display: flex; gap: .4rem; flex-wrap: wrap; }

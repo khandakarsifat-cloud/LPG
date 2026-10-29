@@ -17,7 +17,7 @@ if (replayIndex === -1) {
   // uses a transaction and rolls back all fixtures. No credentials are read.
   const output = execFileSync('docker',[
     'compose','exec','-T','db','psql','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1','-q','-t',
-  ],{ input:read('purchase-wallets.sql'),encoding:'utf8',cwd:root });
+  ],{ input:read('fixture-helpers.sql')+'\n'+read('purchase-wallets.sql'),encoding:'utf8',cwd:root });
   const result=output.split('\n').find(line=>line.includes('PASS:'));
   if(!result) throw new Error('No purchase success assertion');
   console.log(result.trim());
@@ -45,10 +45,13 @@ if (replayIndex === -1) {
     let exchangeCompatibility = false;
     let workflowCompatibility = false;
     for(const name of names) {
+      // Match the deployment runner's fresh psql session for each batch; the
+      // baseline dump clears search_path in this persistent replay connection.
+      await db.exec('set search_path=public;');
       if(name.endsWith('_purchase_transit_workflow.sql')) {
         report('exchange compatibility',await db.exec(read('purchases-exchange.after.sql')));
         await db.exec(`create temp table workflow_preservation as select
-          (select md5(coalesce(jsonb_agg(to_jsonb(i) order by tenant_id,item_id)::text,'')) from public.items i) stock,
+          (select md5(coalesce(jsonb_agg(to_jsonb(i)-'brand'-'cylinder_weight' order by tenant_id,item_id)::text,'')) from public.items i) stock,
           (select md5(coalesce(jsonb_agg(jsonb_build_array(tenant_id,wallet_id,type,balance,created_at,updated_at) order by tenant_id,wallet_id)::text,'')) from public.wallets w) wallets,
           (select md5(coalesce(jsonb_agg(to_jsonb(m) order by tenant_id,movement_id)::text,'')) from public.inventory_movements m) movements,
           (select md5(coalesce(jsonb_agg(jsonb_build_array(tenant_id,transaction_id,wallet_id,amount,type,reference_id,description,created_at) order by tenant_id,transaction_id)::text,'')) from public.wallet_transactions w) transactions;`);
@@ -72,25 +75,42 @@ if (replayIndex === -1) {
       if(name.endsWith('_purchase_created_status.sql')) await db.exec('set check_function_bodies=on;');
       if(name.endsWith('_sale_pricing_tier.sql')) await db.exec(read('sale-tier-legacy.before.sql'));
       if(name.endsWith('_multi_wallet_finance.sql')) await db.exec(read('finance-legacy.before.sql'));
-      await db.exec(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
+      if(name.endsWith('_sales_bottle_receivables.sql')) await db.exec(read('bottles-legacy.before.sql'));
+      if(name.endsWith('_aggregate_bottle_settlement.sql')) await db.exec(read('bottles-aggregate.before.sql'));
+      if(name.endsWith('_dynamic_settlement_receipts.sql')) await db.exec(read('settlement-legacy.before.sql'));
+      if(name.endsWith('_canonical_development_model.sql')) {
+        // Historic replay assertions already consumed these snapshots. Their
+        // enum-typed columns otherwise keep the retired domain type alive.
+        await db.exec('drop table if exists pg_temp.legacy_stock_snapshot,pg_temp.exchange_stock_snapshot;');
+        await db.exec(read('canonical.before.sql'));
+      }
+      if(name.endsWith('_employee_monthly_payroll.sql')) await db.exec(read('payroll-legacy.before.sql'));
+      const definition = readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8');
+      try {
+        await db.exec(name.includes('canonical_development_model') && !process.argv.includes('--deployment-batch') ? 'begin;\n'+definition+'\ncommit;' : definition);
+      } catch(error) { console.error('Migration:',name,'position:',error.position,'context:',definition.slice(Math.max(0,Number(error.position)-160),Number(error.position)+80)); throw error; }
+      if(name.endsWith('_purchase_transit_workflow.sql')) {
+      await db.exec(`do $$ begin if exists(select 1 from workflow_preservation s where
+        s.stock is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(i)-'brand'-'cylinder_weight' order by tenant_id,item_id)::text,'')) from public.items i)
+        or s.wallets is distinct from (select md5(coalesce(jsonb_agg(jsonb_build_array(tenant_id,wallet_id,type,balance,created_at,updated_at) order by tenant_id,wallet_id)::text,'')) from public.wallets w where type in ('dealership','logistics'))
+        or s.movements is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(m) order by tenant_id,movement_id)::text,'')) from public.inventory_movements m)
+        or s.transactions is distinct from (select md5(coalesce(jsonb_agg(jsonb_build_array(tenant_id,transaction_id,wallet_id,amount,type,reference_id,description,created_at) order by tenant_id,transaction_id)::text,'')) from public.wallet_transactions w))
+        then raise exception 'Workflow migration changed stock or money'; end if; end $$;`);
+      console.log('Workflow migration preserves stock, wallet balances and all ledger history.');
+      }
+      if(name.endsWith('_canonical_development_model.sql')) report('canonical normalization',await db.exec(read('canonical.after.sql')));
+      if(name.endsWith('_dynamic_settlement_receipts.sql')) report('settlement history preservation',await db.exec(read('settlement-legacy.after.sql')));
+      if(name.endsWith('_aggregate_bottle_settlement.sql')) report('tracked bottle preservation',await db.exec(read('bottles-aggregate.after.sql')));
+      if(name.endsWith('_sales_bottle_receivables.sql')) report('bottle legacy preservation',await db.exec(read('bottles-legacy.after.sql')));
+      if(name.endsWith('_employee_monthly_payroll.sql')) { report('payroll historical preservation',await db.exec(read('payroll-legacy.after.sql'))); if (!process.argv.includes('--deployment-batch')) report('historical payroll contract',await db.exec(read('payroll.sql'))); }
       if(name.endsWith('_sale_pricing_tier.sql')) report('sale tier backfill',await db.exec(read('sale-tier-legacy.after.sql')));
       if(name.endsWith('_multi_wallet_finance.sql')) report('wallet migration',await db.exec(read('finance-legacy.after.sql')));
     }
     if(process.argv.includes('--deployment-batch')) await db.exec('commit;');
     console.log('Migration replay:', (await db.query('select version()')).rows[0].version);
     await db.exec('set row_security=on; set check_function_bodies=on;');
-    if(workflowCompatibility) {
-      await db.exec(`do $$ begin if exists(select 1 from workflow_preservation s where
-        s.stock is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(i) order by tenant_id,item_id)::text,'')) from public.items i)
-        or s.wallets is distinct from (select md5(coalesce(jsonb_agg(jsonb_build_array(tenant_id,wallet_id,type,balance,created_at,updated_at) order by tenant_id,wallet_id)::text,'')) from public.wallets w where type in ('dealership','logistics'))
-        or s.movements is distinct from (select md5(coalesce(jsonb_agg(to_jsonb(m) order by tenant_id,movement_id)::text,'')) from public.inventory_movements m)
-        or s.transactions is distinct from (select md5(coalesce(jsonb_agg(jsonb_build_array(tenant_id,transaction_id,wallet_id,amount,type,reference_id,description,created_at) order by tenant_id,transaction_id)::text,'')) from public.wallet_transactions w))
-        then raise exception 'Workflow migration changed stock or money'; end if; end $$;`);
-      console.log('Workflow migration preserves stock, wallet balances and all ledger history.');
-    }
-    else if(exchangeCompatibility) report('exchange compatibility',await db.exec(read('purchases-exchange.after.sql')));
-    else report('historical compatibility',await db.exec(read('purchases-legacy.after.sql')));
-    for(const name of ['purchase-wallets.sql','authorization.sql','receipt_printers.sql','inventory.sql','sale-tier.sql','pos-integrity.sql','customers.sql','reporting.sql','finance.sql']) {
+    await db.exec(read('fixture-helpers.sql'));
+    for(const name of ['purchase-wallets.sql','authorization.sql','receipt_printers.sql','inventory.sql','sale-tier.sql','pos-integrity.sql','customers.sql','reporting.sql','finance.sql','bottles.sql','employees.sql']) {
       await db.exec('set row_security=on;');
       report(name,await db.exec(read(name)));
     }

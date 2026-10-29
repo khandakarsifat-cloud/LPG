@@ -1,4 +1,4 @@
-import { useListPage, usePageSize } from '../../hooks/useListPage';
+import { useListPage, useGridPageSize } from '../../hooks/useListPage';
 import { Pagination } from '../ui/Pagination';
 import { useState } from 'react';
 import { Plus, Route } from 'lucide-react';
@@ -18,9 +18,10 @@ export function TransitsView() {
   const transits = query.data ?? [];
   const selected = transits.find(t => t.transit_id === selectedId);
   const filtered = transits.filter(t => [t.truck_name, t.transit_id, t.client_name, t.destination, t.description].join(' ').toLowerCase().includes(search.toLowerCase()));
-  const pageSize = usePageSize(12, 4);
-  const activePages = useListPage(filtered.filter(t => t.status === 'active'), pageSize, search);
-  const finishedPages = useListPage(filtered.filter(t => t.status !== 'active'), pageSize, search);
+  const activeGrid = useGridPageSize();
+  const finishedGrid = useGridPageSize();
+  const activePages = useListPage(filtered.filter(t => t.status === 'active'), activeGrid.pageSize, search);
+  const finishedPages = useListPage(filtered.filter(t => t.status !== 'active'), finishedGrid.pageSize, search);
   if (query.isLoading) return <p className="purchase-hint">Loading transits…</p>;
   if (query.isError) return <p role="alert" className="purchase-error">Transits could not be loaded. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></p>;
   return <div className="transits-view">
@@ -30,8 +31,8 @@ export function TransitsView() {
       const paging = group === 'active' ? activePages : finishedPages;
       const rows = paging.entries;
       return <section key={group}><h3 className="transit-group-title">{group === 'active' ? 'Active transits' : 'Completed & cancelled'} <span>{paging.total}</span></h3>
-        {!rows.length ? <p className="purchase-hint">No {group === 'active' ? 'active' : 'completed or cancelled'} transits.</p> : <div className="transit-grid">{rows.map(t => <button key={t.transit_id} className="glass-panel transit-card" onClick={() => setSelectedId(t.transit_id)}>
-          <div className="purchase-section-heading"><strong><Route size={18} /> {t.truck_name}</strong><span className="purchase-badge transit-cost-state">{t.purchase_id ? 'Purchase' : 'Custom'}</span></div>
+        {!rows.length ? <p className="purchase-hint">No {group === 'active' ? 'active' : 'completed or cancelled'} transits.</p> : <div className="transit-grid adaptive-grid adaptive-grid--transits" ref={group === 'active' ? activeGrid.grid : finishedGrid.grid}>{rows.map(t => <button key={t.transit_id} className="glass-panel transit-card" onClick={() => setSelectedId(t.transit_id)}>
+          <div className="purchase-section-heading"><strong><Route size={18} /><span title={t.truck_name}>{t.truck_name}</span></strong><span className="purchase-badge transit-cost-state">{t.purchase_id ? 'Purchase' : 'Custom'}</span></div>
           <div className="purchase-statuses"><span className={`purchase-badge ${t.status === 'cancelled' ? 'transit-cancelled' : t.status === 'active' ? 'payment-unpaid' : 'payment-paid'}`}>{t.status === 'active' ? 'In transit' : t.status === 'cancelled' ? 'Cancelled' : 'Completed'}</span><span className="purchase-badge transit-cost-state">{t.closed_at ? 'Costs closed' : 'Costs open'}</span></div>
           <p>{t.client_name || 'Client not recorded'}{t.destination ? ` · ${t.destination}` : ''}</p>
           <div className="transit-card-total"><span>Operating costs</span><strong>{formatBDT(Number(t.total_cost))}</strong></div>

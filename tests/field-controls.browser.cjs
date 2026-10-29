@@ -7,7 +7,7 @@ async page => {
   const user={id:id(2),aud:'authenticated',role:'authenticated',email:'pages@example.invalid',app_metadata:{},user_metadata:{},created_at:now};
   const payload=btoa(JSON.stringify({sub:user.id,exp:Math.floor(Date.now()/1000)+86400,aud:'authenticated',role:'authenticated'})).replaceAll('=','').replaceAll('+','-').replaceAll('/','_');
   const token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.'+payload+'.Zml4dHVyZQ';
-  await page.context().addInitScript(({user,token})=>{const session=JSON.stringify({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user});for(const host of ['127','api','localhost'])localStorage.setItem(`sb-${host}-auth-token`,session);},{user,token});
+  await page.context().addInitScript(({user,token})=>{const session=JSON.stringify({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user});for(const host of ['api.lpg.144.79.249.4.sslip.io','127.0.0.1:54321','localhost:54321','127.0.0.1:55421'])localStorage.setItem(`sb-${host}-auth-token`,session);},{user,token});
   const brands=Array.from({length:14},(_,n)=>({tenant_id:tenant,brand_id:id(10+n),brand_name:`Brand ${n+1}`,is_active:true}));
   const items=Array.from({length:30},(_,n)=>({tenant_id:tenant,item_id:id(100+n),brand_id:brands[Math.floor(n/15)].brand_id,brand:brands[Math.floor(n/15)].brand_name,size_kg:5+n%15,mouth_size:'22mm',filled_quantity:100,empty_quantity:100,lpg_brands:brands[Math.floor(n/15)]}));
   const purchaseItems=items.slice(0,7).map((item,n)=>({...item,purchase_item_id:id(300+n),brand_name:brands[0].brand_name,type:'refill',quantity:2,empty_dispatched:2,unit_price:10,billed_quantity:2,received_quantity:null,line_total:20}));
@@ -20,6 +20,7 @@ async page => {
   await page.route('**/auth/v1/**',r=>r.fulfill({json:user}));
   const serveFixture=async route=>{
     const url=new URL(route.request().url()),name=url.pathname.split('/').pop();
+    const args=route.request().method()==='POST'?route.request().postDataJSON():{};
     let data=[];
     if(name==='user_profiles')data=[{tenant_id:tenant,full_name:'Page Operator',email:user.email,tenants:{business_name:'Responsive verification'}}];
     else if(name==='get_my_permissions')data=['customers:view','customers:manage','finance:view','dashboard:view','pos:sell','sales:view','receipts:print','printers:manage','purchases:view','purchases:manage','inventory:view','inventory:manage','employees:view','employees:manage','payroll:view','payroll:pay','logistics:view','logistics:manage','settings:manage','gas_plants:view','gas_plants:manage'];
@@ -38,9 +39,12 @@ async page => {
     else if(name==='get_purchase_directory')data=purchasePage(route.request().postDataJSON());
     else if(name==='get_purchase_overview')data=purchaseOverview();
     else if(name==='get_purchases_by_ids')data=purchases.filter(p=>route.request().postDataJSON().p_ids.includes(p.purchase_id));
-    else if(name==='list_employees')data=employees;
-    else if(name==='list_employee_payments')data=payments;
-    else if(name==='list_employee_payment_categories')data=[{category_id:id(950),code:'bonus',name:'Bonus',category_kind:'bonus',is_active:true}];
+    else if(name==='get_employee_directory')data={entries:employees.slice(args.p_offset,args.p_offset+args.p_limit),total:employees.length};
+    else if(name==='get_employee_overview')data={employees:employees.length,active:employees.length,types:['Worker'],prepared:0,earned:0,paid:0,advance_applied:0,outstanding:0};
+    else if(name==='get_employee_profile')data={employee:{...employees.find(e=>e.employee_id===args.p_employee_id),payroll_start:now.slice(0,10),revision:1},terms:[],financial:{paid:1000,outstanding:0},advances:[],prepared_through:null};
+    else if(name==='get_employee_periods')data={entries:[],total:0};
+    else if(name==='get_employee_activity')data={entries:payments.slice(args.p_offset,args.p_offset+args.p_limit).map(p=>({id:p.payment_id,employee_id:p.employee_id,employee_name:p.employee_name,kind:'payment',description:'Bonus fixture',date:p.payment_date,created_at:p.created_at,actor:'Owner',amount:p.amount,details:{source_snapshot:{wallet_evidence:'unattributed'}},wallets:[],reversible:false})),total:payments.length};
+    else if(name==='get_transit_payroll')data={driver_paid:0,helper_paid:0,paid:0,payments:[]};
     else if(name==='list_gas_plants')data=plants;
     return route.fulfill({json:data});
   };
@@ -99,7 +103,7 @@ async page => {
   check(await status.inputValue()==='received','Touch option selection did not update filter');
   await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
   await status.click();await page.keyboard.press('End');await page.keyboard.press('Enter');
-  check(await status.inputValue()==='cancelled','Keyboard selection failed');
+  check(await status.inputValue()==='closed','Keyboard selection failed');
   await status.focus();await page.keyboard.press('Tab');
   check(await page.getByRole('combobox',{name:'Payment status',exact:true}).evaluate(el=>document.activeElement===el),'Tab navigation skipped the next field');
   await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
@@ -108,11 +112,11 @@ async page => {
   await inspect(calendar.getByRole('combobox',{name:'Calendar month',exact:true}),'calendar month');
   check(await calendar.isVisible(),'Escape in month picker closed its parent calendar');
   await page.keyboard.press('Escape');
-  for(const [route,action] of [['/customers',null],['/inventory','Add Item'],['/employees','Add Employee'],['/gas-plants','Add Gas Plant'],['/purchases','New Purchase']]){
+  for(const [route,action] of [['/customers',null],['/inventory','Add Item'],['/employees','Add employee'],['/gas-plants','Add Gas Plant'],['/purchases','New Purchase']]){
     await page.goto(origin+'/#'+route);
     if(!action)await page.locator('.customers-page').waitFor();
     if(action){await page.getByRole('button',{name:action,exact:true}).click();await page.locator('dialog[open],.modal-content').first().waitFor();}
-    const selects=action?page.locator('dialog[open] select,.modal-content select'):page.locator('.page-content select');
+    const selects=action?page.locator('dialog[open] select:visible,.modal-content select:visible'):page.locator('.page-content select:visible');
     for(let i=0;i<await selects.count();i++)await inspect(selects.nth(i),`${route} field ${i}`).catch(error=>{throw Error(`${route} field ${i}: ${error.message}`);});
     if(action)await page.goto(origin+'/?field-controls-reset='+encodeURIComponent(route)+'#/pos');
   }
@@ -123,7 +127,7 @@ async page => {
   check(await printer.isVisible(),'Escape in printer picker closed its dialog');
   await printer.getByRole('button',{name:'Close',exact:true}).click();
   await page.goto(origin+'/#/pos');await page.locator('.pos-product-card').first().waitFor();
-  for(const label of ['Discount (Tk)','Exchange Fee (Tk)']){const field=page.getByLabel(label,{exact:true});await field.fill('12.50');await field.hover();await page.mouse.wheel(0,100);check(await field.inputValue()==='12.50',`${label} stepped on wheel`);}
+  for(const label of ['Discount (Tk)','Exchange Cost (Tk)']){const field=page.getByLabel(label,{exact:true});await field.fill('12.50');await field.hover();await page.mouse.wheel(0,100);check(await field.inputValue()==='12.50',`${label} stepped on wheel`);}
   check(errors.length===0,errors.join('\n'));await context.close();
   return {pickers:samples.length,viewports:5,themes:2,checks:'in-page touch pickers, compact field/option fonts, constrained menus, selection, filtering, keyboard, Tab/Escape, nested calendar, modal fields and decimal entry',errors};
 }

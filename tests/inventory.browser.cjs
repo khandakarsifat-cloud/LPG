@@ -11,7 +11,7 @@ async page => {
   const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + payload + '.Zml4dHVyZQ';
   await page.context().addInitScript(({ user, token }) => {
     const session = JSON.stringify({ access_token: token, refresh_token: 'fixture-refresh', token_type: 'bearer', expires_in: 86400, expires_at: Math.floor(Date.now() / 1000) + 86400, user });
-    for (const host of ['api', '127', 'localhost']) localStorage.setItem(`sb-${host}-auth-token`, session);
+    for (const host of ['api.lpg.144.79.249.4.sslip.io','127.0.0.1:54321','localhost:54321','127.0.0.1:55421']) localStorage.setItem(`sb-${host}-auth-token`, session);
   }, { user, token });
   const brandA = 'brand-beximco', brandB = 'brand-omera', brandC = 'brand-bashundhara';
   let brands = [

@@ -6,13 +6,13 @@ import { readFileSync, mkdirSync, existsSync } from 'node:fs';
 import { parseEnv } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
-const azure=process.argv.includes('--azure');
-assert(azure,'Use --azure to explicitly select the established deployment.');
+const vps=process.argv.includes('--vps');
+assert(vps,'Use --vps to explicitly select the established deployment.');
 const frontend=parseEnv(readFileSync('deploy/.env.frontend','utf8')), config=parseEnv(readFileSync('deploy/.env.backend','utf8'));
 const url=frontend.VITE_SUPABASE_URL,key=frontend.VITE_SUPABASE_ANON_KEY,worker='https://floral-dew-443b.khandakarsifat.workers.dev';
-assert.equal(url,'https://api.lpg.20.40.48.3.sslip.io');assert.equal(config.AZURE_PROJECT_DIR,'/opt/lpg');
-const ssh=['-i',config.AZURE_SSH_KEY,'-p',config.AZURE_PORT,'-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',`${config.AZURE_USER}@${config.AZURE_HOST}`];
-const sql=q=>execFileSync('ssh',[...ssh,'cd /opt/lpg && sudo docker compose -p lpg -f compose.yml -f compose.azure.yml exec -T db psql -X -U supabase_admin -d postgres -qAt -v ON_ERROR_STOP=1'],{input:q,encoding:'utf8'}).trim();
+assert.equal(url,'https://api.lpg.144.79.249.4.sslip.io');assert.equal(config.VPS_PROJECT_DIR,'/opt/lpg');
+const ssh=[...(config.VPS_SSH_KEY ? ['-i', config.VPS_SSH_KEY] : []),'-p',config.VPS_PORT,'-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',`${config.VPS_USER}@${config.VPS_HOST}`];
+const sql=q=>execFileSync('ssh',[...ssh,'sudo -n docker compose --project-directory /opt/lpg --env-file /opt/lpg/.env -p lpg -f /opt/lpg/compose.yml -f /opt/lpg/compose.vps.yml exec -T db psql -X -U supabase_admin -d postgres -qAt -v ON_ERROR_STOP=1'],{input:q,encoding:'utf8'}).trim();
 const uuid=x=>{assert.match(x,/^[0-9a-f-]{36}$/i);return `'${x}'::uuid`;};
 const client=()=>createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 const checked=async request=>{const {data,error}=await request;if(error)throw Error(`${error.code}: ${error.message}`);return data;};
@@ -31,7 +31,7 @@ try{
  const custom=await rpc('save_finance_wallet',{p_payload:{name:'Fixture custom bank',kind:'bank',details:'Disposable acceptance'}});
  const otherCash=(await checked(other.client.rpc('get_payment_wallets')))[0].wallet_id;
  const brand=randomUUID(),plant=randomUUID(),truck=randomUUID(),sku=randomUUID();
- sql(`insert into public.lpg_brands(tenant_id,brand_id,brand_name)values(${uuid(owner.tenant)},${uuid(brand)},'Fixture LPG');insert into public.gas_plants(tenant_id,plant_id,brand_id,plant_name)values(${uuid(owner.tenant)},${uuid(plant)},${uuid(brand)},'Fixture plant');insert into public.trucks(tenant_id,truck_id,name,serial_no,capacity,size)values(${uuid(owner.tenant)},${uuid(truck)},'Fixture truck','Fixture truck',100,'medium');insert into public.items(tenant_id,item_id,brand_id,brand,size_kg,filled_quantity,empty_quantity)values(${uuid(owner.tenant)},${uuid(sku)},${uuid(brand)},'Fixture LPG',12,20,20);`);
+ sql(`insert into public.lpg_brands(tenant_id,brand_id,brand_name)values(${uuid(owner.tenant)},${uuid(brand)},'Fixture LPG');insert into public.gas_plants(tenant_id,plant_id,brand_id,plant_name)values(${uuid(owner.tenant)},${uuid(plant)},${uuid(brand)},'Fixture plant');insert into public.trucks(tenant_id,truck_id,name,serial_no,capacity,size)values(${uuid(owner.tenant)},${uuid(truck)},'Fixture truck','Fixture truck',100,'medium');insert into public.items(tenant_id,item_id,brand_id,size_kg,filled_quantity,empty_quantity)values(${uuid(owner.tenant)},${uuid(sku)},${uuid(brand)},12,20,20);`);
  const create=async note=>(await rpc('create_purchase',{p_payload:{plant_id:plant,truck_id:truck,request_id:randomUUID(),transport_cost:100,labour_cost:50,commission:100,notes:note,items:[{item_id:sku,type:'refill',quantity:1,empty_dispatched:1,unit_price:1000}]}})).purchase_id;
  const header=async id=>(await rpc('get_purchases_by_ids',{p_ids:[id]}))[0];
  const settle=id=>rpc('get_purchase_settlement',{p_purchase_id:id});
@@ -57,6 +57,21 @@ try{
  const p2=await create('Full payment cancellation fixture');await rpc('dispatch_purchase',{p_purchase_id:p2,p_revision:1});await pay(p2,[{wallet_id:bank.wallet_id,amount:950}]);assert.equal((await settle(p2)).due,0);await cancel(p2);for(const o of (await settle(p2)).obligations)await refund(p2,o.obligation_id,[{wallet_id:custom,amount:o.remaining}]);assert((await settle(p2)).financial_closed_at);
  const p3=await create('Received payment-independent fixture');await rpc('dispatch_purchase',{p_purchase_id:p3,p_revision:1});await pay(p3,[{wallet_id:cash.wallet_id,amount:40}]);await rpc('receive_purchase',{p_purchase_id:p3,p_revision:(await header(p3)).revision});await denied(c.rpc('initiate_purchase_cancellation',{p_purchase_id:p3,p_revision:(await header(p3)).revision,p_confirmation:'CANCEL',p_request_id:randomUUID()}),/never/);await pay(p3,[{wallet_id:custom,amount:910}]);assert.equal((await settle(p3)).paid,1050);
  const draft=await create('Unfunded draft fixture');assert((await cancel(draft)).financially_closed);
+ // One chronological stream must cover every immutable ledger entry exactly once,
+ // including split payments and both sides of transport refunds.
+ for(const purchaseId of [p,p2,p3,draft]){
+  const events=await rpc('get_purchase_activity',{p_purchase_id:purchaseId});
+  const ledger=await checked(c.from('wallet_transactions').select('transaction_id,amount,wallet_name_snapshot').eq('reference_id',purchaseId));
+  const evidence=events.flatMap(event=>event.wallet_entries);
+  assert.equal(evidence.length,ledger.length);assert.equal(new Set(evidence.map(e=>e.transaction_id)).size,ledger.length);
+  assert.deepEqual(evidence.map(e=>[e.transaction_id,e.amount,e.wallet_name]).sort(),ledger.map(e=>[e.transaction_id,e.amount,e.wallet_name_snapshot]).sort());
+  assert(events.every((event,index)=>!index||new Date(event.created_at)>=new Date(events[index-1].created_at)));
+  const paged=[];
+  for(let offset=0;offset<events.length;offset+=6)paged.push(...await checked(c.rpc('get_purchase_activity',{p_purchase_id:purchaseId}).range(offset,offset+5)));
+  assert.deepEqual(paged,events);
+ }
+ assert.deepEqual(await checked(other.client.rpc('get_purchase_activity',{p_purchase_id:p})),[]);
+ console.log('PASS: unified purchase timeline, exact-once wallet evidence, chronological six-entry pagination and tenant isolation');
  await denied(other.client.rpc('get_purchase_settlement',{p_purchase_id:p}),/not found/);await denied(other.client.rpc('record_purchase_payment',{p_purchase_id:p3,p_payments:split,p_request_id:randomUUID()}),/not found/);
  await rpc('save_finance_wallet',{p_payload:{wallet_id:cash.wallet_id,revision:1,name:'Renamed fixture cash',kind:'cash',is_active:true}});assert((await settle(p)).payments.some(e=>e.wallet_name==='Cash Register'));
  assert.equal(sql(`select count(*) from public.wallets w where tenant_id=${uuid(owner.tenant)} and balance<>opening_balance+coalesce((select sum(amount) from public.wallet_transactions x where x.tenant_id=w.tenant_id and x.wallet_id=w.wallet_id),0)`),'0');
@@ -64,7 +79,7 @@ try{
  if(process.argv.includes('--browser')){
   const {chromium}=await import('playwright');browser=await chromium.launch({channel:'chrome',headless:true});mkdirSync('.temp/purchase-wallets',{recursive:true});
   const p4=await create('Authenticated browser lifecycle fixture');await rpc('dispatch_purchase',{p_purchase_id:p4,p_revision:1});
-  const context=await browser.newContext({viewport:{width:1440,height:950}});await context.addInitScript(s=>localStorage.setItem('sb-api-auth-token',JSON.stringify(s)),owner.session);const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const context=await browser.newContext({viewport:{width:1440,height:950}});await context.addInitScript(s=>localStorage.setItem('sb-api.lpg.144.79.249.4.sslip.io-auth-token',JSON.stringify(s)),owner.session);const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(worker+'/?purchase-live-fixture=1#/purchases');await page.locator(`[data-purchase-id="${p4}"]`).click();const details=page.getByRole('dialog',{name:'Purchase details',exact:true});
   await details.getByRole('button',{name:'Record payment',exact:true}).click();const payment=page.getByRole('dialog',{name:'Pay purchase',exact:true});await payment.getByRole('button',{name:'Add payment',exact:true}).click();await payment.getByLabel('Payment 1 wallet',{exact:true}).selectOption(bk.wallet_id);await payment.getByLabel('Payment 1 amount',{exact:true}).fill('150');await payment.getByLabel('Payment 1 reference',{exact:true}).fill('LIVE-BROWSER-150');
   for(const width of [390,768,1440]){await page.setViewportSize({width,height:950});assert(await payment.evaluate(e=>e.scrollWidth<=e.clientWidth));await page.screenshot({path:`.temp/purchase-wallets/live-payment-${width}.png`});}
@@ -75,7 +90,7 @@ try{
   const secrets={...(existsSync('.env.live-test')?parseEnv(readFileSync('.env.live-test','utf8')):{}),...process.env};assert(secrets.LPG_TEST_EMAIL&&secrets.LPG_TEST_PASSWORD,'Provide ignored burner credentials');
   const burner=await browser.newContext({viewport:{width:1440,height:950}});let forbidden=0;await burner.route('**/rest/v1/**',async r=>{const request=r.request(),name=new URL(request.url()).pathname.split('/').pop();if(request.method()==='POST'&&!/^(get_|list_)/.test(name)){forbidden++;await r.abort();}else await r.continue();});
   const readPage=await burner.newPage();await readPage.goto(worker+'/?burner-read-only=1#/login');await readPage.getByLabel('Email Address',{exact:true}).fill(secrets.LPG_TEST_EMAIL);await readPage.getByLabel('Password',{exact:true}).fill(secrets.LPG_TEST_PASSWORD);await readPage.getByRole('button',{name:'Sign In',exact:true}).click();await readPage.waitForURL(u=>u.hash!=='#/login');await readPage.goto(worker+'/?burner-read-only=2#/purchases');await readPage.locator('.purchase-card').first().waitFor();
-  for(const width of [390,768,1440]){await readPage.setViewportSize({width,height:950});await readPage.locator('.purchase-card').first().click();await readPage.getByText('Payments & refunds',{exact:true}).waitFor();await readPage.getByRole('dialog').getByRole('button',{name:'Close',exact:true}).click();}
+  for(const width of [390,768,1440]){await readPage.setViewportSize({width,height:950});await readPage.locator('.purchase-card').first().click();await readPage.getByText('Payment summary',{exact:true}).waitFor();await readPage.getByRole('dialog').getByRole('button',{name:'Close',exact:true}).click();}
   assert.equal(forbidden,0);await burner.close();console.log('PASS: published authenticated purchase payment/cancellation/refund flows at desktop/tablet/phone widths in a disposable business; burner form login and read-only purchase details at all three widths.');
  }
 }catch(error){

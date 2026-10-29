@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest } from '../lib/pendingRequest';
 import type { PaymentInput } from '../types/finance';
+import type { BottleInput } from '../types/bottles';
 
 export interface PriceBook {
   tenant_id: string;
@@ -36,6 +37,7 @@ export const usePriceBooks = () =>
   });
 
 export interface POSSalePayload {
+  bottles?: BottleInput;
   payments?: PaymentInput[];
   customerId?: string;
   customerPhone: string;           // Required — mandatory customer
@@ -87,6 +89,7 @@ export const useCreatePOSSale = () => {
         p_items:               payload.items,
         p_customer_id:         payload.customerId ?? null,
         p_payments:            payload.payments ?? null,
+        p_bottles:             payload.bottles ?? null,
       } : undefined);
       setHasPending(true);
       const { data, error } = await supabase.rpc('create_pos_sale', { ...pending.body, p_request_id: pending.id });

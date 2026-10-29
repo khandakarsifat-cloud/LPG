@@ -71,16 +71,6 @@ export const TRUCK_STATUS_BG: Record<TruckStatus, string> = {
 // ── Wallets & Transits ────────────────────────────────────────────────────────
 export type { FinanceWallet as Wallet } from './finance';
 
-export interface WalletTransaction {
-  transaction_id: string;
-  wallet_id: string;
-  amount: number;
-  type: string;
-  reference_id: string | null;
-  description: string | null;
-  created_at: string;
-}
-
 export type TransitStatus = 'active' | 'completed' | 'cancelled';
 
 export interface AdditionalCost {
@@ -113,5 +103,4 @@ export interface Transit {
   
   // Joined fields for convenience
   truck_name?: string;
-  legacy_completion?: boolean;
 }

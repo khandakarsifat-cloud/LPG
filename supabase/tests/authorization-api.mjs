@@ -61,7 +61,7 @@ try {
   assert.equal((await checked(salesman.client.rpc('get_my_permissions'))).length, 4);
   const brand = await checked(owner.client.rpc('create_lpg_brand', { p_brand_name: 'API brand', p_description: null }));
   const item = await checked(owner.client.from('items').insert({
-    tenant_id: owner.tenant, brand_id: brand.brand_id, brand: 'API item', size_kg: 12,
+    tenant_id: owner.tenant, brand_id: brand.brand_id, size_kg: 12,
   }).select().single());
   await checked(owner.client.rpc('create_inventory_movement', {
     p_item_id: item.item_id, p_movement_type: 'adjust_gain',
@@ -83,8 +83,8 @@ try {
   await denied(salesman.client.from('receipt_printers').upsert(config, { onConflict: 'tenant_id' }));
   await denied(owner.client.from('user_profiles').update({ tenant_id: other.tenant }).eq('user_id', owner.id));
   await denied(salesman.client.from('user_roles').insert({ tenant_id: owner.tenant, user_id: salesman.id, role_id: randomUUID() }));
-  await denied(salesman.client.rpc('list_employees'));
-  await denied(salesman.client.rpc('list_purchases'));
+  await denied(salesman.client.rpc('get_employee_directory'));
+  await denied(salesman.client.rpc('get_purchase_directory', { p_filters: {} }));
   await denied(salesman.client.rpc('list_gas_plants'));
   await denied(salesman.client.rpc('ensure_tenant_wallets', { p_tenant_id: other.tenant }));
   await denied(salesman.client.rpc('resolve_employee_type', { p_tenant_id: other.tenant, p_employee_type_name: 'Escalation' }));
@@ -108,12 +108,12 @@ try {
   const receipt = await checked(salesman.client.from('sales').select(`
     sale_id, created_at, subtotal, discount_amount, exchange_fee, total_amount, notes,
     customers(name, phone, tier),
-    sale_items(quantity, unit_price, line_total, type, items(brand, size_kg, lpg_brands(brand_name)))
+    sale_items(quantity, unit_price, line_total, type, items(size_kg, lpg_brands(brand_name)))
   `).eq('sale_id', sale.sale_id).single());
   assert.equal(receipt.sale_items.length, 2);
   assert.equal(receipt.total_amount, 1150);
   const history = await checked(owner.client.from('inventory_movements')
-    .select('*, items(brand, lpg_brands(brand_name)), user_profiles(email)'));
+    .select('*, items(lpg_brands(brand_name)), user_profiles(email)'));
   assert.equal(history.length, 3);
   assert(history.some(row => row.user_profiles.email === salesman.email));
   const balances = await checked(owner.client.from('items').select().eq('item_id', item.item_id).single());
@@ -140,7 +140,7 @@ try {
   // No production rows or printer jobs are touched.
   if (tenants.length) {
     const tenantList = tenants.map(safeUuid).join(',');
-    const tables = ['finance_requests','wallet_transactions','customer_transactions','sale_payments','sale_items','sales',
+    const tables = ['finance_requests','wallet_transactions','customer_transactions','sale_payments','sale_bottle_receipt_lines','sale_bottle_receipts','sale_items','sales',
       'transits','purchase_items','purchases','inventory_movements','price_books','items',
       'area_officers','gas_plants','lpg_brands','customers','receipt_printers','wallets',
       'user_roles','role_permissions','roles','audit_logs','user_profiles','tenants'];

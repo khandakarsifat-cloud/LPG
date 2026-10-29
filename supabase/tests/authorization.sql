@@ -69,8 +69,7 @@ select set_config('request.jwt.claim.sub','',true);
 insert into public.lpg_brands(tenant_id,brand_id,brand_name)
 select t, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', label from authorization_context c
 cross join lateral (values(c.tenant_a,'Brand A'),(c.tenant_b,'Brand B')) x(t,label);
-insert into public.items(tenant_id,item_id,brand_id,brand,size_kg,filled_quantity,empty_quantity)
-select t, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc',label,12,40,40
+insert into public.items(tenant_id,item_id,brand_id,size_kg,filled_quantity,empty_quantity) select t, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc',12,40,40
 from authorization_context c cross join lateral (values(c.tenant_a,'Item A'),(c.tenant_b,'Item B')) x(t,label);
 insert into public.customers(tenant_id,customer_id,name,phone,tier)
 select t, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',label,'01700000000','retail'
@@ -134,7 +133,7 @@ select pg_temp.expect_denied($s$insert into public.permissions values('escalated
 do $$
 declare t text;
 begin
- foreach t in array array['sales','sale_items','inventory_movements','purchases','purchase_items','transits','trucks','wallets','customer_transactions','wallet_transactions','employees','employee_payments','employee_phone_numbers','employee_types','employee_payment_categories','lpg_brands','gas_plants','area_officers','audit_logs']
+ foreach t in array array['sales','sale_items','inventory_movements','purchases','purchase_items','transits','trucks','wallets','customer_transactions','wallet_transactions','employees','employee_payments','employee_phone_numbers','employee_types','employee_terms','employee_salary_months','employee_payment_entries','employee_activity','lpg_brands','gas_plants','area_officers','audit_logs']
  loop
    perform pg_temp.expect_denied(format('insert into public.%I default values',t));
    perform pg_temp.expect_denied(format('update public.%I set tenant_id=tenant_id',t));
@@ -143,18 +142,18 @@ begin
    perform pg_temp.assert_true(not has_table_privilege('anon','public.'||t,'SELECT'),'no anon SELECT: '||t);
  end loop;
 end $$;
-select pg_temp.expect_denied($s$insert into public.items(tenant_id,brand,size_kg,filled_quantity) select tenant_a,'Spoof',5,999 from authorization_context$s$);
-select pg_temp.expect_denied($s$insert into public.items(tenant_id,brand,size_kg) select tenant_b,'Spoof',5 from authorization_context$s$);
+select pg_temp.expect_denied($s$insert into public.items(tenant_id,brand_id,size_kg,filled_quantity) select tenant_a,pg_temp.fixture_brand(tenant_a,'Spoof'),5,999 from authorization_context$s$);
+select pg_temp.expect_denied($s$insert into public.items(tenant_id,brand_id,size_kg) select tenant_b,pg_temp.fixture_brand(tenant_b,'Spoof'),5 from authorization_context$s$);
 select pg_temp.expect_denied($s$insert into public.customers(tenant_id,name,phone) select tenant_b,'Spoof','01700000001' from authorization_context$s$);
 select pg_temp.expect_denied($s$select app_private.ensure_tenant_wallets((select tenant_b from authorization_context))$s$);
-select pg_temp.expect_denied($s$select app_private.ensure_default_employee_payment_categories((select tenant_b from authorization_context))$s$);
+select pg_temp.expect_denied($s$select app_private.employee_summary((select tenant_b from authorization_context),null)$s$);
 select pg_temp.expect_denied($s$select app_private.resolve_employee_type((select tenant_b from authorization_context),'Escalated')$s$);
 select pg_temp.expect_denied($s$select app_private.record_inventory_movement('cccccccc-cccc-4ccc-8ccc-cccccccccccc','adjust_gain',999,0,null)$s$);
 select pg_temp.expect_denied($s$select app_private.require_permission('pos:sell')$s$);
 select pg_temp.expect_denied($s$select app_private.audit_trucks()$s$);
 
 -- Existing registry/customer writes and printer upsert still work.
-insert into public.items(tenant_id,brand,size_kg) select tenant_a,'New registry',5 from authorization_context;
+insert into public.items(tenant_id,brand_id,size_kg) select tenant_a,pg_temp.fixture_brand(tenant_a,'New registry'),5 from authorization_context;
 insert into public.customers(tenant_id,name,phone) select tenant_a,'Form customer','01700000001' from authorization_context;
 insert into public.receipt_printers(tenant_id,printer)
 select tenant_a,'{"transport":"windows_usb","queue_id":"test","host_id":"test","queue_name":"test","port_name":"USB001"}'::jsonb from authorization_context;
@@ -167,7 +166,7 @@ select pg_temp.expect_denied($s$update public.receipt_printers set tenant_id=(se
 do $$
 declare r jsonb;
 begin
- select value into strict r from public.list_purchases() value where value->>'purchase_id'='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+ select value into strict r from public.get_purchases_by_ids(array['cccccccc-cccc-4ccc-8ccc-cccccccccccc'::uuid]) value where value->>'purchase_id'='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
  perform pg_temp.assert_true(r->>'truck_name'='Truck A' and r->>'plant_name'='Plant A','tenant-qualified purchase parents');
  perform pg_temp.assert_true(jsonb_array_length(r->'items')=1 and r->'items'->0->>'brand_name'='Brand A'
    and (r->'items'->0->>'quantity')::int=1,'tenant-qualified purchase lines');
@@ -181,7 +180,7 @@ update authorization_context set purchase_id=(public.create_purchase(
  )->>'purchase_id')::uuid;
 select public.dispatch_purchase(purchase_id,1) from authorization_context;
 select public.receive_purchase(c.purchase_id,2)
- from authorization_context c join public.list_purchases() p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
+ from authorization_context c join public.get_purchases_by_ids(array[c.purchase_id]) p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
 select pg_temp.pay_current_purchase(purchase_id) from authorization_context;
 select public.create_custom_transit('{"truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","fee":25,"client_name":"Test client"}');
 select public.transition_transit(transit_id,'complete',revision) from public.transits where purchase_id is null and status='active';
@@ -195,14 +194,11 @@ select public.update_area_officer(officer_id,'Officer edited',null,null) from pu
 select public.create_truck('New truck','new-truck',100,'medium',null);
 select public.update_truck('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Truck A updated',null,null,null,'idle',null);
 select public.create_inventory_movement('cccccccc-cccc-4ccc-8ccc-cccccccccccc','adjust_gain',1,1,'Manual');
-update authorization_context set employee_id=(public.create_employee('Employee A',
- '[{"phone":"01700000009","is_primary":true}]',null,1000,'Driver','gas_business',null)->>'employee_id')::uuid;
-select public.update_employee(employee_id,'Employee edited','[{"phone":"01700000009","is_primary":true}]',
- null,1100,'Driver','gas_business',null,true) from authorization_context;
-select public.create_employee_payment(c.employee_id, cat.category_id,1000,current_date,'Salary',2026,10,null)
-from authorization_context c cross join public.list_employee_payment_categories() cat where cat.code='salary';
-select pg_temp.assert_true((select count(*) from public.list_employees())=1,'employee read');
-select pg_temp.assert_true((select count(*) from public.list_employee_payments((select employee_id from authorization_context)))=1,'payroll read');
+update authorization_context set employee_id=(public.save_employee(jsonb_build_object('name','Employee A','phones','[{"phone":"01700000009","is_primary":true}]'::jsonb,
+ 'employee_type_name','Driver','business_unit','gas_business','terms',jsonb_build_object('monthly_salary',1000,'is_active',true,'effective_from',date_trunc('month',current_date)::date)),gen_random_uuid())->>'employee_id')::uuid;
+select public.get_employee_salary_month(employee_id,date_trunc('month',current_date)::date) from authorization_context;
+select pg_temp.assert_true((public.get_employee_directory()->>'total')::integer=1,'employee read');
+select pg_temp.assert_true((public.get_employee_salary_history((select employee_id from authorization_context))->>'total')::integer=1,'payroll read');
 -- Same membership, no role-name branch: removing a permission immediately closes its RPC.
 reset role;
 delete from public.role_permissions rp using public.roles r, authorization_context c
@@ -219,7 +215,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','a2222222-2222-4222-8222-222222222223',true);
 select pg_temp.assert_true(cardinality(public.get_my_permissions())=(select count(*) from authorization_catalog),'MANAGER full catalog');
 select public.create_lpg_brand('Manager brand',null);
-select pg_temp.assert_true((select count(*) from public.list_employees())=1,'MANAGER employee access');
+select pg_temp.assert_true((public.get_employee_directory()->>'total')::integer=1,'MANAGER employee access');
 select public.get_dashboard_stats(date_trunc('day',now()));
 -- Remove inventory:manage from MANAGER only: other permissions keep working.
 reset role;
@@ -234,7 +230,7 @@ update authorization_context set purchase_id=(public.create_purchase(
  )->>'purchase_id')::uuid;
 select public.dispatch_purchase(purchase_id,1) from authorization_context;
 select public.receive_purchase(c.purchase_id,2)
- from authorization_context c join public.list_purchases() p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
+ from authorization_context c join public.get_purchases_by_ids(array[c.purchase_id]) p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
 select pg_temp.pay_current_purchase(purchase_id) from authorization_context;
 
 -- SALESMAN supporting reads, customer creation, real checkout and receipt readback.
@@ -263,17 +259,17 @@ do $$
 declare statement text;
 begin
  foreach statement in array array[
-  $s$select public.list_purchases()$s$, $s$select public.list_trucks(false)$s$,
-  $s$select public.list_gas_plants(false)$s$, $s$select public.list_employees()$s$,
-  $s$select public.list_employee_payment_categories()$s$,
-  $s$select public.list_employee_payments(null)$s$,
+  $s$select public.get_purchases_by_ids(array['cccccccc-cccc-4ccc-8ccc-cccccccccccc'::uuid])$s$, $s$select public.list_trucks(false)$s$,
+  $s$select public.list_gas_plants(false)$s$, $s$select public.get_employee_directory()$s$,
+  $s$select public.get_employee_overview()$s$,
+  $s$select public.get_employee_activity()$s$,
   $s$select public.create_lpg_brand('Forbidden',null)$s$,
   $s$select public.create_inventory_movement('cccccccc-cccc-4ccc-8ccc-cccccccccccc','adjust_gain',1,0,null)$s$,
-  $s$select public.create_employee('Bad','[]',null,0,null,'gas_business',null)$s$,
-  $s$select public.create_employee_payment(null,null,1,current_date,null,null,null,null)$s$,
-  $s$select public.complete_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc')$s$,
-  $s$select public.update_transit_costs('cccccccc-cccc-4ccc-8ccc-cccccccccccc',0,0,0,'[]','completed')$s$,
-  $s$insert into public.items(tenant_id,brand,size_kg) select tenant_a,'Forbidden',5 from authorization_context$s$,
+  $s$select public.save_employee('{}',gen_random_uuid())$s$,
+  $s$select public.employee_payment_operation('{}',gen_random_uuid())$s$,
+  $s$select public.record_purchase_payment('cccccccc-cccc-4ccc-8ccc-cccccccccccc','[]',gen_random_uuid())$s$,
+  $s$select public.save_transit_costs('cccccccc-cccc-4ccc-8ccc-cccccccccccc','{}',1)$s$,
+  $s$insert into public.items(tenant_id,brand_id,size_kg) select tenant_a,pg_temp.fixture_brand(tenant_a,'Forbidden'),5 from authorization_context$s$,
   $s$insert into public.receipt_printers(tenant_id,printer) select tenant_a,'{"transport":"windows_usb","queue_id":"bad","host_id":"test","queue_name":"test","port_name":"USB001"}'::jsonb from authorization_context$s$
  ] loop perform pg_temp.expect_denied(statement); end loop;
 end $$;

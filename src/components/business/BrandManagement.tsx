@@ -1,4 +1,4 @@
-import { useListPage, usePageSize } from '../../hooks/useListPage';
+import { useListPage, useGridPageSize } from '../../hooks/useListPage';
 import { Pagination } from '../ui/Pagination';
 import { useState } from 'react';
 import { useLPGBrands, useCreateBrand, useUpdateBrand, useSetBrandOrder } from '../../hooks/useBrands';
@@ -8,7 +8,8 @@ import './brands.css';
 
 export const BrandManagement = () => {
   const { data: brands = [], isLoading, error, refetch } = useLPGBrands();
-  const paging = useListPage(brands, usePageSize(12, 4));
+  const { grid, pageSize } = useGridPageSize();
+  const paging = useListPage(brands, pageSize);
   const createBrand = useCreateBrand();
   const updateBrand = useUpdateBrand();
   const setOrder = useSetBrandOrder();
@@ -257,7 +258,7 @@ export const BrandManagement = () => {
           <p>No brands added yet. Add your first brand to get started!</p>
         </div>
       ) : (
-        <div className="brand-grid">
+        <div className="brand-grid adaptive-grid adaptive-grid--brands" ref={grid}>
           {paging.entries.map(brand => { const index = brands.findIndex(row => row.brand_id === brand.brand_id); return (
             <div
               key={brand.brand_id}
@@ -276,16 +277,16 @@ export const BrandManagement = () => {
                   <button type="button" aria-label={`Move ${brand.brand_name} down`} title="Move down" disabled={index === brands.length - 1 || setOrder.isPending || createBrand.isPending || updateBrand.isPending} onClick={() => moveBrand(index, 1)}><ChevronDown size={16} /></button>
                 </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', fontWeight: 600 }}>
+              <div className="brand-card-body" style={{ flex: 1 }}>
+                <h4 title={brand.brand_name} style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', fontWeight: 600 }}>
                   {brand.brand_name}
                 </h4>
                 {brand.description && (
-                  <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                  <p title={brand.description} style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
                     {brand.description}
                   </p>
                 )}
-                <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div className="brand-card-state" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span
                     style={{
                       display: 'inline-block',

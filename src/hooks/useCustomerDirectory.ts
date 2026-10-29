@@ -9,8 +9,8 @@ import type { CustomerFilters, CustomerOverview, CustomerProductOptions, Custome
 export const CUSTOMER_PAGE_SIZE = 12;
 export const CUSTOMER_TRANSACTION_PAGE_SIZE = 4;
 
-export function useCustomerDirectory(filters: CustomerFilters, page: number, pageSize = CUSTOMER_PAGE_SIZE) {
-  return useBatchedDirectory<CustomerSummary>([...customerKeys.all, 'directory', filters], page, pageSize,
+export function useCustomerDirectory(filters: CustomerFilters, pageSize = CUSTOMER_PAGE_SIZE) {
+  return useBatchedDirectory<CustomerSummary>([...customerKeys.all, 'directory', filters], pageSize,
     async (offset, limit, signal) => {
       const { data, error } = await supabase.rpc('get_customer_directory', { p_filters: filters, p_offset: offset, p_limit: limit }).abortSignal(signal);
       if (error) throw error;

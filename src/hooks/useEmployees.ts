@@ -1,223 +1,66 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest } from '../lib/pendingRequest';
+import { useBatchedDirectory } from './useBatchedDirectory';
+import type { ActivityFilters, Employee, EmployeeFilters, EmployeeOperation, EmployeeOverview, EmployeeProfile, EmployeeResult, EmployeeActivity, EmployeeSalaryMonth } from '../types/employee';
+import type { PaymentWallet } from '../types/finance';
 
-export type BusinessUnit = 'gas_business' | 'truck_business';
-export type PaymentCategoryKind = 'salary' | 'bonus' | 'commission' | 'trips' | 'other';
-
-export interface EmployeePhone {
-  employee_phone_id?: string;
-  phone: string;
-  is_primary: boolean;
+export const employeeKeys = ['employees'] as const;
+export function useEmployeeForPayment(id: string | null) {
+ return useQuery<string>({ queryKey: [...employeeKeys, 'payment-employee', id], enabled: !!id,
+  queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_for_payment', { p_payment_id: id }).abortSignal(signal); if (error) throw error; return data; } });
 }
-
-export interface Employee {
-  employee_id: string;
-  name: string;
-  address: string | null;
-  current_salary: number;
-  business_unit: BusinessUnit;
-  notes: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  employee_type_id: string | null;
-  employee_type_name: string | null;
-  phones: EmployeePhone[];
-  primary_phone: string | null;
-  payment_count: number;
+export function useTripPaymentWallets(id?: string) {
+ return useQuery<PaymentWallet[]>({ queryKey: [...employeeKeys, 'trip-wallets', id], enabled: !!id,
+  queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_trip_payment_wallets', { p_transit_id: id }).abortSignal(signal); if (error) throw error; return data; } });
 }
-
-export interface EmployeeInput {
-  name: string;
-  phones: EmployeePhone[];
-  address: string | null;
-  current_salary: number;
-  employee_type_name: string | null;
-  business_unit: BusinessUnit;
-  notes: string | null;
-  is_active?: boolean;
+export interface TransitPayroll { driver_paid: number; helper_paid: number; paid: number; payments: { payment_id: string; name: string; role: string; amount: number; date: string }[] }
+export function useTransitPayroll(id: string) {
+ return useQuery<TransitPayroll>({ queryKey: [...employeeKeys, 'transit', id], refetchInterval: 30_000,
+  queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_transit_payroll', { p_transit_id: id }).abortSignal(signal); if (error) throw error; return data; } });
 }
-
-export interface EmployeePaymentCategory {
-  category_id: string;
-  code: string;
-  name: string;
-  category_kind: PaymentCategoryKind;
-  is_active: boolean;
+export function useEmployeeDirectory(filters: EmployeeFilters, pageSize: number) {
+ return useBatchedDirectory<Employee>([...employeeKeys, 'directory', filters], pageSize, async (offset, limit, signal) => {
+  const { data, error } = await supabase.rpc('get_employee_directory', { p_filters: filters, p_offset: offset, p_limit: limit }).abortSignal(signal);
+  if (error) throw error; return data as EmployeeResult<Employee>;
+ });
 }
-
-export interface EmployeePayment {
-  payment_id: string;
-  employee_id: string;
-  employee_name: string;
-  category_id: string;
-  category_code: string;
-  category_name: string;
-  category_kind: PaymentCategoryKind;
-  amount: number;
-  payment_date: string;
-  description: string | null;
-  salary_year: number | null;
-  salary_month: number | null;
-  trip_count: number | null;
-  created_at: string;
+export function useEmployeeOverview() {
+ return useQuery<EmployeeOverview>({ queryKey: [...employeeKeys, 'overview'], refetchInterval: 30_000,
+  queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_overview').abortSignal(signal); if (error) throw error; return data; } });
 }
-
-export interface EmployeePaymentInput {
-  employee_id: string;
-  category_id: string;
-  amount: number;
-  payment_date: string;
-  description: string | null;
-  salary_year: number | null;
-  salary_month: number | null;
-  trip_count: number | null;
+export function useEmployeeProfile(id: string) {
+ return useQuery<EmployeeProfile>({ queryKey: [...employeeKeys, 'profile', id], refetchInterval: 30_000,
+  queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_profile', { p_employee_id: id }).abortSignal(signal); if (error) throw error; return data; } });
 }
-
-export const employeeKeys = {
-  all: ['employees'] as const,
-  list: ['employees', 'list'] as const,
-  categories: ['employees', 'payment-categories'] as const,
-  payments: (employeeId?: string) => ['employees', 'payments', employeeId] as const,
-};
-
-const asEmployees = (rows: unknown[]): Employee[] =>
-  rows.map((row) => {
-    const employee = row as Omit<Employee, 'phones'> & { phones?: EmployeePhone[] | string | null };
-    const phones = Array.isArray(employee.phones)
-      ? employee.phones
-      : typeof employee.phones === 'string'
-        ? (JSON.parse(employee.phones) as EmployeePhone[])
-        : [];
-
-    return {
-      ...employee,
-      current_salary: Number(employee.current_salary ?? 0),
-      payment_count: Number(employee.payment_count ?? 0),
-      phones,
-    };
-  });
-
-export const useEmployees = () =>
-  useQuery<Employee[]>({
-    queryKey: employeeKeys.list,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('list_employees');
-      if (error) throw error;
-      return asEmployees(data ?? []);
-    },
-  });
-
-export const useEmployeePaymentCategories = () =>
-  useQuery<EmployeePaymentCategory[]>({
-    queryKey: employeeKeys.categories,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('list_employee_payment_categories');
-      if (error) throw error;
-      return (data ?? []) as EmployeePaymentCategory[];
-    },
-  });
-
-export const useEmployeePayments = (employeeId?: string) =>
-  useQuery<EmployeePayment[]>({
-    queryKey: employeeKeys.payments(employeeId),
-    enabled: Boolean(employeeId),
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('list_employee_payments', {
-        p_employee_id: employeeId,
-      });
-      if (error) throw error;
-      return ((data ?? []) as EmployeePayment[]).map((payment) => ({
-        ...payment,
-        amount: Number(payment.amount ?? 0),
-      }));
-    },
-  });
-
-export const useCreateEmployee = () => {
-  const qc = useQueryClient();
-  return useMutation<unknown, Error, EmployeeInput>({
-    mutationFn: async (payload) => {
-      const { data, error } = await supabase.rpc('create_employee', {
-        p_name: payload.name,
-        p_phones: payload.phones,
-        p_address: payload.address,
-        p_current_salary: payload.current_salary,
-        p_employee_type_name: payload.employee_type_name,
-        p_business_unit: payload.business_unit,
-        p_notes: payload.notes,
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: employeeKeys.all });
-    },
-  });
-};
-
-export const useUpdateEmployee = () => {
-  const qc = useQueryClient();
-  return useMutation<unknown, Error, { employeeId: string; payload: EmployeeInput }>({
-    mutationFn: async ({ employeeId, payload }) => {
-      const { data, error } = await supabase.rpc('update_employee', {
-        p_employee_id: employeeId,
-        p_name: payload.name,
-        p_phones: payload.phones,
-        p_address: payload.address,
-        p_current_salary: payload.current_salary,
-        p_employee_type_name: payload.employee_type_name,
-        p_business_unit: payload.business_unit,
-        p_notes: payload.notes,
-        p_is_active: payload.is_active ?? true,
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (_, variables) => {
-      qc.invalidateQueries({ queryKey: employeeKeys.all });
-      qc.invalidateQueries({ queryKey: employeeKeys.payments(variables.employeeId) });
-    },
-  });
-};
-
-export const useDeactivateEmployee = () => {
-  const qc = useQueryClient();
-  return useMutation<unknown, Error, string>({
-    mutationFn: async (employeeId) => {
-      const { data, error } = await supabase.rpc('deactivate_employee', {
-        p_employee_id: employeeId,
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (_, employeeId) => {
-      qc.invalidateQueries({ queryKey: employeeKeys.all });
-      qc.invalidateQueries({ queryKey: employeeKeys.payments(employeeId) });
-    },
-  });
-};
-
-export const useCreateEmployeePayment = () => {
-  const qc = useQueryClient();
-  return useMutation<unknown, Error, EmployeePaymentInput>({
-    mutationFn: async (payload) => {
-      const { data, error } = await supabase.rpc('create_employee_payment', {
-        p_employee_id: payload.employee_id,
-        p_category_id: payload.category_id,
-        p_amount: payload.amount,
-        p_payment_date: payload.payment_date,
-        p_description: payload.description,
-        p_salary_year: payload.salary_year,
-        p_salary_month: payload.salary_month,
-        p_trip_count: payload.trip_count,
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (_, payload) => {
-      qc.invalidateQueries({ queryKey: employeeKeys.all });
-      qc.invalidateQueries({ queryKey: employeeKeys.payments(payload.employee_id) });
-    },
-  });
-};
+export function useEmployeeSalaryMonth(id: string, period: string, enabled = true) {
+ return useQuery<EmployeeSalaryMonth>({ queryKey: [...employeeKeys, 'salary-month', id, period], enabled,
+  queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_salary_month', { p_employee_id: id, p_period: period }).abortSignal(signal); if (error) throw error; return data; } });
+}
+export function useEmployeeSalaryHistory(id: string, page: number, enabled: boolean) {
+ return useQuery<EmployeeResult<EmployeeSalaryMonth>>({ queryKey: [...employeeKeys, 'periods', id, page], enabled,
+  queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_salary_history', { p_employee_id: id, p_offset: page * 6, p_limit: 6 }).abortSignal(signal); if (error) throw error; return data; } });
+}
+export function useEmployeeActivity(filters: ActivityFilters, page: number, enabled = true) {
+ return useQuery<EmployeeResult<EmployeeActivity>>({ queryKey: [...employeeKeys, 'activity', filters, page], enabled,
+  queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_activity', { p_filters: filters, p_offset: page * 12, p_limit: 12 }).abortSignal(signal); if (error) throw error; return data; } });
+}
+/** One recoverable write across the directory and every employee dialog. */
+export function useEmployeeOperation() {
+ const { profile, user } = useAuth(); const qc = useQueryClient();
+ const key = `lpg-employee-pending:${profile?.tenant_id}:${user?.id}`;
+ const mutation = useMutation({
+  mutationFn: async (operation?: EmployeeOperation) => {
+   if (!profile || !user) throw new Error('Sign in before saving employee information.');
+   const request = prepareRequest(key, operation); const body = request.body;
+   const { data, error } = body.action === 'profile'
+    ? await supabase.rpc('save_employee', { p_payload: body.profile, p_request_id: request.id })
+    : await supabase.rpc('employee_payment_operation', { p_payload: body, p_request_id: request.id });
+   if (!error || isDefiniteRejection(error.code)) finishRequest(key, request.id);
+   if (error) throw new Error(error.message); return data;
+  },
+  onSuccess: () => Promise.all([employeeKeys, ['finance'], ['logistics'], ['purchases']].map(queryKey => qc.invalidateQueries({ queryKey }))),
+ });
+ return { ...mutation, hasPending: hasPendingRequest(key) };
+}

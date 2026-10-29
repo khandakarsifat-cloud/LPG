@@ -61,13 +61,10 @@ select tenant_a,'dd000000-0000-4000-8000-000000000002','Unassigned plant' from p
 insert into public.trucks(tenant_id,truck_id,name,serial_no,capacity,size)
 select t,'ee000000-0000-4000-8000-000000000001',name,name,100,'medium' from purchase_test_context
   cross join lateral(values(tenant_a,'Truck A'),(tenant_b,'Truck B')) v(t,name);
-insert into public.items(tenant_id,item_id,brand_id,brand,size_kg,empty_quantity,filled_quantity)
-select t,'ff000000-0000-4000-8000-000000000001','cc000000-0000-4000-8000-000000000001',name,12,10,5 from purchase_test_context
+insert into public.items(tenant_id,item_id,brand_id,size_kg,empty_quantity,filled_quantity) select t,'ff000000-0000-4000-8000-000000000001','cc000000-0000-4000-8000-000000000001',12,10,5 from purchase_test_context
   cross join lateral(values(tenant_a,'Item A'),(tenant_b,'Item B')) v(t,name);
-insert into public.items(tenant_id,item_id,brand_id,brand,size_kg,empty_quantity)
-select tenant_a,'ff000000-0000-4000-8000-000000000002','cc000000-0000-4000-8000-000000000002','Wrong company',12,10 from purchase_test_context;
-insert into public.items(tenant_id,item_id,brand_id,brand,size_kg,empty_quantity)
-select tenant_a,'ff000000-0000-4000-8000-000000000003','cc000000-0000-4000-8000-000000000001','Empty stock SKU',25,0 from purchase_test_context;
+insert into public.items(tenant_id,item_id,brand_id,size_kg,empty_quantity) select tenant_a,'ff000000-0000-4000-8000-000000000002','cc000000-0000-4000-8000-000000000002',12,10 from purchase_test_context;
+insert into public.items(tenant_id,item_id,brand_id,size_kg,empty_quantity) select tenant_a,'ff000000-0000-4000-8000-000000000003','cc000000-0000-4000-8000-000000000001',25,0 from purchase_test_context;
 insert into public.user_profiles(user_id,tenant_id,email)
 select u.id,c.tenant_a,u.email from auth.users u cross join purchase_test_context c
 where u.id in ('aa000000-0000-4000-8000-000000000002','aa000000-0000-4000-8000-000000000003');
@@ -98,7 +95,7 @@ begin
  result:=public.initiate_purchase_cancellation(draft_id,1,'CANCEL',key);
  perform pg_temp.check_purchase(result=public.initiate_purchase_cancellation(draft_id,1,'CANCEL',key),'cancellation response-loss retry');
  perform pg_temp.check_purchase((result->>'financially_closed')::boolean,'unfunded draft closes immediately');
- perform pg_temp.purchase_fails(format('select public.cancel_purchase(%L,1)',draft_id),'Refresh');
+ perform pg_temp.purchase_fails(format('select public.cancel_purchase(%L,1)',draft_id),'does not exist');
  id:=(public.create_purchase(jsonb_build_object('plant_id','dd000000-0000-4000-8000-000000000001','truck_id','ee000000-0000-4000-8000-000000000001','request_id',gen_random_uuid(),
  'commission',50,'transport_cost',20,'labour_cost',10,'items','[{"item_id":"ff000000-0000-4000-8000-000000000001","type":"refill","quantity":4,"unit_price":100},{"item_id":"ff000000-0000-4000-8000-000000000001","type":"package","quantity":2,"unit_price":200}]'::jsonb))->>'purchase_id')::uuid;
  update purchase_test_context set purchase_id=id;
@@ -174,5 +171,20 @@ reset role;
 do $$begin
  if exists(select 1 from public.wallets w where tenant_id in(select tenant_a from purchase_test_context) and balance<>opening_balance+coalesce((select sum(amount) from public.wallet_transactions x where x.tenant_id=w.tenant_id and x.wallet_id=w.wallet_id),0)) then raise exception 'Wallet ledger does not reconcile'; end if;
 end $$;
-select 'PASS: purchase split/full/additional payments, cancellation boundaries, owner confirmation, partial multi-wallet refunds, independent expense closure, snapshot history, retries, rollback and tenant gates';
+do $$
+declare p record; events jsonb; evidence jsonb; ledger_count integer;
+begin
+ perform set_config('request.jwt.claim.sub','aa000000-0000-4000-8000-000000000001',true);
+ for p in select purchase_id from public.purchases where tenant_id in(select tenant_a from purchase_test_context) loop
+  select coalesce(jsonb_agg(a),'[]') into events from public.get_purchase_activity(p.purchase_id) a;
+  select coalesce(jsonb_agg(e),'[]') into evidence from jsonb_array_elements(events) a cross join lateral jsonb_array_elements(a->'wallet_entries') e;
+  select count(*) into ledger_count from public.wallet_transactions where reference_id=p.purchase_id;
+  if jsonb_array_length(evidence)<>ledger_count or (select count(distinct e->>'transaction_id') from jsonb_array_elements(evidence) e)<>ledger_count then raise exception 'Unified history duplicates or omits ledger evidence'; end if;
+  if exists(select 1 from jsonb_array_elements(evidence) e join public.wallet_transactions w on w.transaction_id=(e->>'transaction_id')::uuid where (e->>'amount')::numeric<>w.amount or e->>'wallet_name'<>w.wallet_name_snapshot) then raise exception 'Unified history changes ledger evidence'; end if;
+  if exists(select 1 from (select (e->>'created_at')::timestamptz at,lag((e->>'created_at')::timestamptz) over() prior from jsonb_array_elements(events) e) q where at<prior) then raise exception 'Unified history is not chronological'; end if;
+ end loop;
+ perform set_config('request.jwt.claim.sub','bb000000-0000-4000-8000-000000000001',true);
+ if exists(select 1 from public.purchases header cross join lateral public.get_purchase_activity(header.purchase_id) a where header.tenant_id in(select tenant_a from purchase_test_context)) then raise exception 'Unified history leaks foreign tenant'; end if;
+end $$;
+select 'PASS: purchase split/full/additional payments, cancellation boundaries, owner confirmation, partial multi-wallet refunds, independent expense closure, snapshot history, retries, rollback, tenant gates and exact-once chronological activity';
 rollback;

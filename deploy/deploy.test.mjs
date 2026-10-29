@@ -10,9 +10,9 @@ test('deployment children do not inherit development, privileged or injected bui
   assert.deepEqual(env, { PATH: 'bin', SystemRoot: 'windows' });
 });
 
-test('public configuration accepts only existing Azure endpoint and anon role', () => {
-  assert.equal(validateAPI('https://api.lpg.20.40.48.3.sslip.io/'), 'https://api.lpg.20.40.48.3.sslip.io');
-  for (const url of ['http://localhost:54321', 'https://example.com', 'https://api.lpg.20.40.48.3.sslip.io/?key=x']) assert.throws(() => validateAPI(url));
+test('public configuration accepts only existing VPS endpoint and anon role', () => {
+  assert.equal(validateAPI('https://api.lpg.144.79.249.4.sslip.io/'), 'https://api.lpg.144.79.249.4.sslip.io');
+  for (const url of ['http://localhost:54321', 'https://example.com', 'https://api.lpg.144.79.249.4.sslip.io/?key=x']) assert.throws(() => validateAPI(url));
   validateAnon(anon('anon'));
   for (const key of [anon('service_role'), 'sb_secret_private', 'placeholder', '']) assert.throws(() => validateAnon(key));
 });
@@ -24,15 +24,26 @@ test('production dependency closure rejects indirect development services and vo
   model.services.auth.depends_on = { mailpit: {} };
   assert.throws(() => validateGraph(model), /excluded/);
   delete model.services.auth.depends_on;
+  model.services.db.ports = [{ target: 5432, published: '5432', host_ip: '0.0.0.0' }];
+  assert.throws(() => validateGraph(model), /publicly published/);
+  delete model.services.db.ports;
+  model.services.caddy.ports = [{ target: 443, published: '8443', host_ip: '0.0.0.0' }];
+  assert.throws(() => validateGraph(model), /80\/443/);
+  delete model.services.caddy.ports;
   model.volumes.lpg_db_data.external = false;
   assert.throws(() => validateGraph(model), /volume/);
 });
 
-test('backend bundle excludes environments, credentials, local data and restore utilities', () => {
+test('routine bundle excludes environments, credentials, local data and bootstrap initialization', () => {
   const files = backendFiles();
-  assert(files.includes('compose.azure.yml'));
+  assert(files.includes('compose.vps.yml'));
   assert(files.some(name => name.startsWith('supabase/migrations/')));
-  assert(!files.some(name => /\.env|\.pem|restore|storage\/|volumes\/db\//.test(name)));
+  assert(!files.some(name => /\.env|\.pem|bootstrap|storage\/|volumes\/db\//.test(name)));
+  const initial = backendFiles(true);
+  assert(initial.includes('deploy/bootstrap.py'));
+  assert(initial.includes('.env.example'));
+  assert(initial.includes('supabase/docker/volumes/db/roles.sql'));
+  assert(!initial.some(name => /(^|\/)\.env$|\.env\.(backend|frontend)$|\.pem/.test(name)));
 });
 
 test('frontend build explicitly disables Vite env-file loading', () => {
@@ -56,12 +67,12 @@ test('public API health uses the anon key and rejects gateway-only Auth denial',
       status: path.startsWith('/rest/') ? 401 : 200,
     });
   });
-  await assert.rejects(checkPublicAPI('https://api.lpg.20.40.48.3.sslip.io'), /anon JWT/);
+  await assert.rejects(checkPublicAPI('https://api.lpg.144.79.249.4.sslip.io'), /anon JWT/);
   assert.equal(paths.length, 0);
-  await checkPublicAPI('https://api.lpg.20.40.48.3.sslip.io', key);
+  await checkPublicAPI('https://api.lpg.144.79.249.4.sslip.io', key);
   assert.deepEqual(paths, ['/auth/v1/health', '/rest/v1/items', '/storage/v1/status']);
   t.mock.method(globalThis, 'fetch', async () => new Response('Unauthorized', { status: 401 }));
-  await assert.rejects(checkPublicAPI('https://api.lpg.20.40.48.3.sslip.io', key), /auth\/v1\/health/);
+  await assert.rejects(checkPublicAPI('https://api.lpg.144.79.249.4.sslip.io', key), /auth\/v1\/health/);
 });
 
 test('unsafe or ambiguous command flags fail before any deployment', async () => {

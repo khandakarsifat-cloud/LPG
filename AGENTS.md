@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Active development policy
+
+- This project is in active development and has not entered production. Local Docker and the application on the primary VPS (`144.79.249.4`) with its Cloudflare frontend are development environments, regardless of deployment variable names. The VPS has production infrastructure; this does not make the application production-ready. The former Azure backend is retired from the active workflow and must remain untouched unless explicitly requested.
+- Prefer one canonical implementation and forward migrations that normalize obsolete development records. Do not retain old fields, RPC overloads, duplicate models, or compatibility branches solely for superseded development formats.
+- Development cleanup may transform or remove obsolete representations after inspecting dependencies and reconciling stock and financial evidence. Preserve legitimate business activity when it can be cleanly migrated; this is not permission for indiscriminate resets or invented payments, stock, or historical attribution.
+- Never edit already-applied migrations. Keep their replay tests and establish the current state through new migrations.
+- This policy does not relax security, trusted tenancy, RLS, authorization, transactional integrity, or database correctness.
+- Revise this policy before production: backward compatibility, staged safe migrations, and preservation of historical business records then become mandatory. Destructive production operations always require explicit approval.
+
 ## Working Rules
 
 - Read `README.md` before making repository-wide or architectural changes.
@@ -32,7 +41,7 @@
 
 - Prefer small, coherent changes over broad rewrites.
 - Do not add dependencies unless they materially simplify the requested feature and fit the existing stack.
-- Preserve backward compatibility unless the task explicitly requires a breaking change.
+- During development, prefer canonical contracts over compatibility with obsolete development formats; coordinate frontend, database, and tests when replacing a contract.
 - Treat existing business rules as intentional until verified otherwise from code, migrations, or the live Supabase state.
 
 ## Verification
@@ -68,7 +77,7 @@ After implementation:
 
 - After every change, check for pending database migrations, apply them, and deploy through the established workflow. Deployment is part of completing the change, not an optional follow-up.
 - The user's standing instruction authorizes routine non-destructive migrations and deployments after changes. Do not ask for deployment permission again unless the user explicitly restricts the task to local work or the operation is destructive.
-- Consult `README.md` and the existing deployment configuration to identify the current frontend and backend environments.
+- Consult `README.md` and the existing deployment configuration to identify the current frontend and backend environments. The primary backend is `144.79.249.4` (`lpgadmin`, `/opt/lpg`, `compose.vps.yml`); the frontend remains the existing Cloudflare Worker. Use `VPS_*` deployment settings, never the archived Azure configuration.
 - Do not assume local Docker or Supabase availability represents the state of the deployed backend.
 - Use the established deployment workflow and verify the target environment before making changes. Review pending migrations and provide their exact versions to any migration-approval flags required by the deployment tooling.
 - Apply pending database migrations before deploying dependent frontend changes. If no migrations are pending, verify that state and continue deployment without rerunning historical migrations.

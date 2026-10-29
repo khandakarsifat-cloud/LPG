@@ -5,7 +5,7 @@ import urllib.error
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-from backend import SERVICES, digest, migration_plan, update, validate_sql, verify_health
+from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health
 
 
 class MigrationSafetyTests(unittest.TestCase):
@@ -45,19 +45,28 @@ class MigrationSafetyTests(unittest.TestCase):
             with self.subTest(sql=sql), self.assertRaises(RuntimeError):
                 validate_sql(sql)
         validate_sql("-- COMMIT;\n/* BEGIN; /* COMMIT; */ END; */\nDO $fn$ BEGIN PERFORM 1; END $fn$; SELECT 'COMMIT;';")
+        validate_sql('SELECT CASE WHEN true THEN 1 ELSE 0 END; CREATE TABLE t (n int CHECK (n <= CASE WHEN true THEN 3 ELSE 2 END));')
 
 
 class DeploymentFlowTests(unittest.TestCase):
+    def test_internal_publication_is_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            _, _, _, fake = self.fixture(folder)
+            model = json.loads(fake([], 'Candidate production Compose validation'))
+            model['services']['db']['ports'] = [{'target': 5432, 'published': '5432', 'host_ip': '0.0.0.0'}]
+            with self.assertRaisesRegex(RuntimeError, 'publicly published'):
+                validate_model(model)
+
     def fixture(self, folder):
         root, stage = Path(folder) / 'root', Path(folder) / 'stage'
         for directory in (root, stage):
             (directory / 'supabase/migrations').mkdir(parents=True)
             (directory / 'deploy').mkdir()
             (directory / 'compose.yml').write_text('existing\n')
-            (directory / 'compose.azure.yml').write_text('existing\n')
+            (directory / 'compose.vps.yml').write_text('existing\n')
             (directory / 'supabase/migrations/20261012000000_existing.sql').write_text('select 1;')
         model = {'volumes': {key: {'external': True, 'name': name} for key, name in [('lpg_db_data', 'lpg_db_data'), ('lpg_storage_data', 'lpg_storage_data'), ('db-config', 'lpg_db-config')]}, 'services': {name: {'image': name + ':1', 'environment': {}, 'volumes': []} for name in SERVICES}}
-        model['services']['api-gw']['environment'] = {'SUPABASE_PUBLIC_URL': 'https://api.lpg.20.40.48.3.sslip.io', 'ANON_KEY': 'not-used', 'DASHBOARD_USERNAME': 'test-only', 'DASHBOARD_PASSWORD': 'test-only-not-a-real-password'}
+        model['services']['api-gw']['environment'] = {'SUPABASE_PUBLIC_URL': 'https://api.lpg.144.79.249.4.sslip.io', 'ANON_KEY': 'not-used', 'DASHBOARD_USERNAME': 'test-only', 'DASHBOARD_PASSWORD': 'test-only-not-a-real-password'}
         model['services']['auth']['environment']['GOTRUE_SITE_URL'] = 'https://floral-dew-443b.khandakarsifat.workers.dev'
         model['services']['db']['environment']['POSTGRES_DB'] = 'postgres'
         containers = [{'Id': name, 'Config': {'Image': name + ':1', 'Labels': {'com.docker.compose.service': name, 'com.docker.compose.project': 'lpg', 'com.docker.compose.config-hash': 'hash'}}, 'State': {'Running': True, 'Health': {'Status': 'healthy'}}, 'Mounts': []} for name in SERVICES]
@@ -93,7 +102,7 @@ class DeploymentFlowTests(unittest.TestCase):
                 return result
 
             with patch('backend.run', without_dashboard), patch('backend.verify_health'):
-                update(root, stage, 'lpg', 'https://api.lpg.20.40.48.3.sslip.io', '')
+                update(root, stage, 'lpg', 'https://api.lpg.144.79.249.4.sslip.io', '')
             updates = [args[-1] for args, _, _ in calls if '--force-recreate' in args]
             self.assertEqual(updates, ['meta', 'studio'])
             self.assertTrue(any(label == 'Pre-deployment database backup' for _, label, _ in calls))
@@ -113,7 +122,7 @@ class DeploymentFlowTests(unittest.TestCase):
                 return result
 
             with patch('backend.run', without_auth), self.assertRaisesRegex(RuntimeError, 'identity mismatch'):
-                update(root, stage, 'lpg', 'https://api.lpg.20.40.48.3.sslip.io', '')
+                update(root, stage, 'lpg', 'https://api.lpg.144.79.249.4.sslip.io', '')
             self.assertFalse(any('up' in args or 'pull' in args for args, _, _ in calls))
 
     def test_weak_dashboard_login_stops_before_runtime_changes(self):
@@ -129,7 +138,7 @@ class DeploymentFlowTests(unittest.TestCase):
                 return result
 
             with patch('backend.run', weak_login), self.assertRaisesRegex(RuntimeError, 'strong dashboard login'):
-                update(root, stage, 'lpg', 'https://api.lpg.20.40.48.3.sslip.io', '')
+                update(root, stage, 'lpg', 'https://api.lpg.144.79.249.4.sslip.io', '')
             self.assertFalse(any('up' in args or 'pull' in args for args, _, _ in calls))
 
     def test_pending_sql_fails_before_sync_backup_or_service_changes(self):
@@ -138,7 +147,7 @@ class DeploymentFlowTests(unittest.TestCase):
             (stage / 'supabase/migrations/20261013000000_new.sql').write_text('select 2;')
             (stage / 'compose.yml').write_text('new\n')
             with patch('backend.run', fake), self.assertRaisesRegex(RuntimeError, 'explicitly approve'):
-                update(root, stage, 'lpg', 'https://api.lpg.20.40.48.3.sslip.io', '')
+                update(root, stage, 'lpg', 'https://api.lpg.144.79.249.4.sslip.io', '')
             self.assertEqual((root / 'compose.yml').read_text(), 'existing\n')
             self.assertFalse((root / 'backups').exists())
             self.assertFalse(any('up' in args or 'pull' in args for args, _, _ in calls))
@@ -148,7 +157,7 @@ class DeploymentFlowTests(unittest.TestCase):
             root, stage, calls, fake = self.fixture(folder)
             (root / 'deploy/.pending-services.json').write_text('["api-gw"]')
             with patch('backend.run', fake), patch('backend.verify_health'):
-                update(root, stage, 'lpg', 'https://api.lpg.20.40.48.3.sslip.io', '')
+                update(root, stage, 'lpg', 'https://api.lpg.144.79.249.4.sslip.io', '')
             updates = [args for args, _, _ in calls if '--force-recreate' in args]
             self.assertEqual(len(updates), 1)
             self.assertEqual(updates[0][-1], 'api-gw')
@@ -166,7 +175,7 @@ class DeploymentFlowTests(unittest.TestCase):
                     raise RuntimeError('backup failed')
                 return fake(args, label, **kwargs)
             with patch('backend.run', fail_backup), self.assertRaisesRegex(RuntimeError, 'backup failed'):
-                update(root, stage, 'lpg', 'https://api.lpg.20.40.48.3.sslip.io', '20261013000000')
+                update(root, stage, 'lpg', 'https://api.lpg.144.79.249.4.sslip.io', '20261013000000')
             self.assertEqual((root / 'compose.yml').read_text(), 'existing\n')
             self.assertFalse(any('up' in args or '--single-transaction' in args for args, _, _ in calls))
 
@@ -175,7 +184,7 @@ class DeploymentFlowTests(unittest.TestCase):
             root, stage, calls, fake = self.fixture(folder)
             (stage / 'supabase/migrations/20261013000000_new.sql').write_text('select 2;')
             with patch('backend.run', fake), patch('backend.verify_health'):
-                update(root, stage, 'lpg', 'https://api.lpg.20.40.48.3.sslip.io', '20261013000000')
+                update(root, stage, 'lpg', 'https://api.lpg.144.79.249.4.sslip.io', '20261013000000')
             migration_calls = [(args, kwargs['data'].decode()) for args, _, kwargs in calls if '--single-transaction' in args]
             self.assertEqual(len(migration_calls), 1)
             args, sql = migration_calls[0]

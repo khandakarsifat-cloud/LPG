@@ -4,15 +4,17 @@ import { browserReceiptHTML } from '../src/lib/browserPrint.ts';
 import { readReceiptPrintMethod, writeReceiptPrintMethod } from '../src/lib/receiptPrintPreference.ts';
 import type { ReceiptData } from '../src/types/receipt.ts';
 
-test('browser receipts escape untrusted content and retain Unicode, saved amounts and free empty returns', () => {
+test('browser receipts escape untrusted content and retain Unicode, saved amounts and compact empty returns', () => {
   const receipt: ReceiptData = {
     sale_id: '11111111-1111-4111-8111-111111111111', created_at: '2026-10-16T00:00:00Z',
     shop_name: 'বাংলা দোকান', customer_name: '<script>window.print()</script>',
     customer_phone: '01700000000', customer_tier: 'retail',
     subtotal: 1200, discount_amount: 100, exchange_fee: 50, total_amount: 1150,
+    paid_amount: 1150, due_amount: 0, unattributed_paid: 0, payments: [{ wallet_name: 'Cash Register', method: 'cash', amount: 1150 }],
     notes: '<img src=x onerror="alert(1)"> & thank you',
     items: [{ name: 'Gas 12kg', type: 'refill', quantity: 1, unit_price: 1200, line_total: 1200 },
-      { name: 'Empty', type: 'empty_return', quantity: 1, unit_price: 999, line_total: 999 }],
+      { item_id: 'empty', name: 'Empty', type: 'empty_return', quantity: 1, unit_price: 0, line_total: 0 }],
+    bottles: { expected: 1, received: 1, outstanding: 0, obligations: [{ name: 'Empty', expected: 1 }], actual: [{ phase: 'checkout', item_id: 'empty', name: 'Empty', quantity: 1 }] },
   };
   const html = browserReceiptHTML(receipt);
   assert.ok(html.includes('বাংলা দোকান'));
@@ -21,9 +23,10 @@ test('browser receipts escape untrusted content and retain Unicode, saved amount
   assert.ok(!html.includes('<script>'));
   assert.ok(!html.includes('<img'));
   assert.ok(html.includes('Tk 1,150.00'));
-  assert.ok(html.includes('Free'));
+  assert.ok(html.includes('Expected 1 | Received 1'));
+  assert.ok(!html.includes('Free'));
   assert.ok(!html.includes('999'));
-  assert.ok(html.includes('1 refills | 1 empties returned'));
+  assert.ok(html.includes('Bottle Settled'));
   assert.ok(html.includes('max-width: 72mm'));
   assert.ok(browserReceiptHTML(receipt, 58).includes('max-width: 48mm'));
 });

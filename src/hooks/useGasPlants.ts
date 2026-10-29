@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { readAllRows } from '../lib/queryPages';
 import type {
   GasPlant,
   CreateGasPlantPayload,
@@ -15,13 +16,9 @@ const QUERY_KEY = ['gas_plants'] as const;
 export const useGasPlants = (activeOnly = false) => {
   return useQuery({
     queryKey: [...QUERY_KEY, { activeOnly }],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('list_gas_plants', {
-        p_active_only: activeOnly,
-      });
-      if (error) throw error;
-      return (data as GasPlant[]) ?? [];
-    },
+    queryFn: ({ signal }) => readAllRows<GasPlant>((from, to) => supabase.rpc('list_gas_plants', {
+      p_active_only: activeOnly,
+    }).order('created_at', { ascending: false }).order('plant_id').range(from, to).abortSignal(signal)),
   });
 };
 

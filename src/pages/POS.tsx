@@ -18,6 +18,7 @@ import { completeSale } from '../lib/completeSale';
 import { BD_MOBILE_PHONE_ERROR, validateBDMobilePhone } from '../lib/bdPhone';
 import { findSellingPrice, repriceSaleItems } from '../lib/productPricing';
 import type { PaymentInput } from '../types/finance';
+import type { BottleInput } from '../types/bottles';
 
 const resetForm = (
   setItems: React.Dispatch<React.SetStateAction<POSSalePayload['items']>>,
@@ -45,6 +46,7 @@ export const POSPage = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [saleResult, setSaleResult]     = useState<POSSaleResult | null>(null);
   const [payments, setPayments] = useState<PaymentInput[] | undefined>(undefined);
+  const [bottles, setBottles] = useState<BottleInput | undefined>();
 
   const { data: inventoryItems } = useInventoryBalances();
   const { data: priceBooks, refetch: refreshPrices } = usePriceBooks();
@@ -93,6 +95,7 @@ export const POSPage = () => {
       return;
     }
     setPayments(undefined);
+    setBottles(undefined);
     setModalOpen(true);
   };
 
@@ -114,10 +117,11 @@ export const POSPage = () => {
       notes:             notes || undefined,
       items,
       payments,
+      bottles,
     };
     const result = await createSale(payload);
     return result;
-  }, [customer, customerPhone, discount, exchangeFee, notes, items, payments, createSale]);
+  }, [customer, customerPhone, discount, exchangeFee, notes, items, payments, bottles, createSale]);
 
   const completeCheckout = async (withPrint: boolean, recover = false) => {
     if (checkoutLock.current) return;
@@ -357,6 +361,7 @@ export const POSPage = () => {
         notes={notes}
         saleResult={saleResult}
         onPaymentsChange={setPayments}
+        onBottlesChange={setBottles}
       />}
     </div>
   );

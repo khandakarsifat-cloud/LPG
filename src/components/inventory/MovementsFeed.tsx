@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Activity, ShoppingBag, Truck, Droplets, Box, Package, RotateCcw, ChevronLeft, ChevronRight, RefreshCw, CalendarDays } from 'lucide-react';
+import { Activity, ShoppingBag, Truck, Droplets, Box, Package, RotateCcw, RefreshCw, CalendarDays } from 'lucide-react';
+import { PageNavigation } from '../ui/Pagination';
 import { useInventoryBalances, useInventoryHistory } from '../../hooks/useInventory';
 import { useLPGBrands } from '../../hooks/useBrands';
 import { usePurchases } from '../../hooks/usePurchases';
@@ -58,9 +59,8 @@ export const MovementsFeed = () => {
       <button className="btn btn-ghost inv-clear-filters" onClick={reset} disabled={!hasFilters}><RotateCcw size={14} />Clear filters</button>
       <button className="btn btn-ghost" disabled={history.isFetching} onClick={() => { void history.refetch(); if (canReadPurchases) void purchases.refetch(); }}>
         <RefreshCw size={13} className={history.isFetching ? 'spin' : ''} />Refresh</button></div></div>
-    {history.isSuccess && <nav className="inv-history-pagination" aria-label="Inventory history pages">
-      <button className="btn btn-secondary" disabled={filters.page === 0 || history.isFetching} onClick={() => setFilters(previous => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} />Previous</button>
-      <span>Page {filters.page + 1}</span><button className="btn btn-secondary" disabled={!history.data.hasMore || history.isFetching} onClick={() => setFilters(previous => ({ ...previous, page: previous.page + 1 }))}>Next<ChevronRight size={15} /></button></nav>}
+    {history.isSuccess && <PageNavigation page={filters.page} hasMore={history.data.hasMore} busy={history.isFetching} alwaysVisible
+      label="Inventory history" onChange={page => setFilters(previous => ({ ...previous, page }))} />}
     {history.isPending && <div role="status" className="inv-history-empty">Loading inventory history…</div>}
     {history.isError && <div role="alert" className="product-error">Inventory history could not be loaded.
       <button className="btn btn-secondary" onClick={() => void history.refetch()}>Retry history</button></div>}
@@ -80,7 +80,7 @@ export const MovementsFeed = () => {
       return <article className="movement-row inv-history-row" key={movement.movement_id}>
         <div className={`movement-icon inv-history-icon inv-history-icon-${ref.kind ?? 'other'}`}><Icon size={18} /></div>
         <div className="movement-info">
-          <div className="movement-item-name">{item ? `${item.lpg_brands?.brand_name ?? item.brand} ${item.size_kg} kg${item.mouth_size ? ` · ${item.mouth_size}` : ''}` : 'Product unavailable'}</div>
+          <div className="movement-item-name">{item ? `${item.lpg_brands?.brand_name ?? 'Product unavailable'} ${item.size_kg} kg${item.mouth_size ? ` · ${item.mouth_size}` : ''}` : 'Product unavailable'}</div>
           <div className="inv-history-actions">{actions.map((action, index) => <p key={index}>{action}{reference && <> {' '}{readable && ref.id && ref.kind
             ? <button className="inv-history-reference" title={`${ref.kind === 'sale' ? 'POS sale' : 'Purchase'} ${ref.id}`} onClick={event => {
               opener.current = event.currentTarget;

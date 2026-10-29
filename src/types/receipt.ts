@@ -1,4 +1,5 @@
 export interface ReceiptItem {
+  item_id?: string;
   name: string;
   type: 'refill' | 'package' | 'empty_return';
   quantity: number;
@@ -7,10 +8,14 @@ export interface ReceiptItem {
 }
 
 export interface ReceiptData {
-  payments?: Array<{ wallet_name: string; method: string; amount: number; phase?: 'checkout' | 'collection' }>;
-  paid_amount?: number;
-  due_amount?: number;
-  payment_tracking?: boolean;
+  additional_charges?: number;
+  bottles?: { expected: number; received: number; outstanding: number;
+    actual: Array<{ phase: 'checkout' | 'collection'; item_id?: string; name: string; quantity: number }>;
+    obligations: Array<{ name: string; expected: number }> };
+  payments: Array<{ wallet_name: string; method: string; amount: number; phase?: 'checkout' | 'collection' }>;
+  paid_amount: number;
+  due_amount: number;
+  unattributed_paid: number;
   sale_id: string;
   created_at: string;
   shop_name?: string;

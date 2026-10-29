@@ -7,12 +7,12 @@ import { parseEnv } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 
-const azure = process.argv.includes('--azure');
-const frontend = azure ? parseEnv(readFileSync('deploy/.env.frontend', 'utf8')) : process.env;
+const vps = process.argv.includes('--vps');
+const frontend = vps ? parseEnv(readFileSync('deploy/.env.frontend', 'utf8')) : process.env;
 const url = frontend.VITE_SUPABASE_URL, key = frontend.VITE_SUPABASE_ANON_KEY || frontend.ANON_KEY;
-assert(azure ? url === 'https://api.lpg.20.40.48.3.sslip.io' : ['http://127.0.0.1:54321', 'http://localhost:54321'].includes(url), 'Explicit established API target required');
-const config = azure ? parseEnv(readFileSync('deploy/.env.backend', 'utf8')) : null;
-const sql = query => azure ? execFileSync('ssh', ['-i', config.AZURE_SSH_KEY, '-p', config.AZURE_PORT, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', `${config.AZURE_USER}@${config.AZURE_HOST}`, 'cd /opt/lpg && sudo docker compose -p lpg -f compose.yml -f compose.azure.yml exec -T db psql -X -U supabase_admin -d postgres -qAt -v ON_ERROR_STOP=1'], { input: query, encoding: 'utf8' }).trim() : execFileSync('docker', ['compose', 'exec', '-T', 'db', 'psql', '-X', '-U', 'supabase_admin', '-d', 'postgres', '-qAt', '-v', 'ON_ERROR_STOP=1'], { input: query, encoding: 'utf8' }).trim();
+assert(vps ? url === 'https://api.lpg.144.79.249.4.sslip.io' : ['http://127.0.0.1:54321', 'http://localhost:54321'].includes(url), 'Explicit established API target required');
+const config = vps ? parseEnv(readFileSync('deploy/.env.backend', 'utf8')) : null;
+const sql = query => vps ? execFileSync('ssh', [...(config.VPS_SSH_KEY ? ['-i', config.VPS_SSH_KEY] : []), '-p', config.VPS_PORT, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', `${config.VPS_USER}@${config.VPS_HOST}`, 'sudo -n docker compose --project-directory /opt/lpg --env-file /opt/lpg/.env -p lpg -f /opt/lpg/compose.yml -f /opt/lpg/compose.vps.yml exec -T db psql -X -U supabase_admin -d postgres -qAt -v ON_ERROR_STOP=1'], { input: query, encoding: 'utf8' }).trim() : execFileSync('docker', ['compose', 'exec', '-T', 'db', 'psql', '-X', '-U', 'supabase_admin', '-d', 'postgres', '-qAt', '-v', 'ON_ERROR_STOP=1'], { input: query, encoding: 'utf8' }).trim();
 const uuid = value => { assert.match(value, /^[0-9a-f-]{36}$/i); return `'${value}'::uuid`; };
 const users = [], tenants = [];
 const checked = async request => { const { data, error } = await request; if (error) throw Error(`${error.code}: ${error.message}`); return data; };
@@ -30,7 +30,8 @@ try {
   assert.equal(wallets.length, 5); const cash = wallets.find(w => w.type === 'cash'), bank = wallets.find(w => w.type === 'dealership'), bkash = wallets.find(w => w.type === 'bkash');
   assert.equal((await checked(owner.client.rpc('get_payment_wallets'))).length, 4);
   const item = randomUUID();
-  sql(`insert into public.items(tenant_id,item_id,brand,size_kg,filled_quantity,empty_quantity) values(${uuid(owner.tenant)},${uuid(item)},'Finance test gas',12,20,20);insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from)values(${uuid(owner.tenant)},${uuid(item)},'retail','package',2300,now()-interval '1 day');`);
+  const brand = await checked(owner.client.rpc('create_lpg_brand', { p_brand_name: 'Finance test gas', p_description: null }));
+  sql(`insert into public.items(tenant_id,item_id,brand_id,size_kg,filled_quantity,empty_quantity) values(${uuid(owner.tenant)},${uuid(item)},${uuid(brand.brand_id)},12,20,20);insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from)values(${uuid(owner.tenant)},${uuid(item)},'retail','package',2300,now()-interval '1 day');`);
   const customer = await checked(owner.client.from('customers').insert({ tenant_id: owner.tenant, name: 'Finance fixture customer', phone: '01700000000', tier: 'retail' }).select().single());
   const args = { p_customer_phone: customer.phone, p_customer_name: null, p_customer_shop_name: null, p_customer_address: null, p_customer_tier: 'retail', p_discount_amount: 0, p_exchange_fee: 0, p_notes: 'Finance fixture', p_customer_id: customer.customer_id, p_items: [{ item_id: item, type: 'package', quantity: 1, unit_price: 2300 }] };
   const cashSale = await checked(owner.client.rpc('create_pos_sale', { ...args, p_request_id: randomUUID() })); assert.equal(cashSale.paid_amount, 2300);
@@ -61,7 +62,7 @@ try {
 } finally {
   if (tenants.length) {
     const ids = tenants.map(uuid).join(',');
-    const tables = ['finance_requests','wallet_transactions','customer_transactions','sale_payments','sale_items','sales','inventory_movements','price_books','items','customers','receipt_printers','wallets','user_roles','role_permissions','roles','audit_logs','user_profiles','tenants'];
+    const tables = ['finance_requests','wallet_transactions','customer_transactions','sale_payments','sale_bottle_receipt_lines','sale_bottle_receipts','sale_items','sales','inventory_movements','price_books','items','lpg_brands','customers','receipt_printers','wallets','user_roles','role_permissions','roles','audit_logs','user_profiles','tenants'];
     sql(`begin;do $$begin if exists(select 1 from public.tenants where tenant_id in (${ids}) and business_name not like 'Finance API fixture%') then raise exception 'Not a finance fixture';end if;end$$;create temporary table finance_fixture_cleanup(id integer);create function pg_temp.finance_fixture_cleanup() returns trigger language plpgsql as $$begin ${tables.map(table => `delete from public.${table} where tenant_id in (${ids});`).join('\n')} return new;end$$;create trigger cleanup after insert on finance_fixture_cleanup for each row execute function pg_temp.finance_fixture_cleanup();insert into finance_fixture_cleanup values(1);commit;`);
   }
   if (users.length) sql(`delete from auth.users where id in (${users.map(uuid).join(',')});`);

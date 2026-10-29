@@ -1,0 +1,55 @@
+.bottle-editor,.bottle-settlement{display:grid;gap:.6rem;min-width:0}
+.bottle-summary{display:flex;flex-wrap:wrap;gap:.4rem 1rem;padding:.5rem .65rem;background:var(--surface-subtle);border-radius:var(--radius-md);font-size:var(--font-sm)}
+.bottle-summary strong{margin-left:.35rem;font-variant-numeric:tabular-nums}
+.bottle-column-labels,.bottle-product-row{display:grid;grid-template-columns:minmax(0,1fr) 4.5rem 7.5rem;gap:.4rem;align-items:center}
+.bottle-column-labels{font-size:var(--font-xs);color:var(--text-muted)}
+.bottle-column-labels span:not(:first-child){text-align:center}
+.bottle-product-row{position:relative;border-bottom:1px solid var(--border-color);padding-bottom:.5rem;font-size:var(--font-sm)}
+.bottle-product-row>strong{overflow-wrap:anywhere}.bottle-product-row>.input-field{min-width:0;width:100%}
+.bottle-number{text-align:center;font-variant-numeric:tabular-nums;color:var(--text-muted)}
+.bottle-stepper{display:flex;align-items:center;min-width:0}.bottle-stepper .btn{padding:.35rem;min-width:1.7rem}.bottle-stepper input{min-width:0;width:3.6rem;padding:.35rem .1rem;text-align:center;appearance:textfield}.bottle-stepper input::-webkit-inner-spin-button{appearance:none}
+.bottle-acknowledge{grid-column:1/-1;font-size:var(--font-xs);color:var(--warning);margin:0;line-height:1.5;display:flex;align-items:start;gap:.5rem}.bottle-acknowledge input{margin-top:.2rem;flex-shrink:0}
+/* Independent lists preserve product identity without implying allocations. */
+.bottle-comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));font-size:var(--font-sm)}
+.bottle-comparison>section{min-width:0;padding-right:.8rem}
+.bottle-comparison>section+section{border-left:1px solid var(--border-color);padding:0 0 0 .8rem}
+.bottle-comparison h4{display:flex;justify-content:space-between;gap:.5rem;font-size:var(--font-sm);margin:0 0 .3rem;color:var(--text-muted)}
+.bottle-comparison h4 span,.bottle-comparison b{font-variant-numeric:tabular-nums}
+.bottle-comparison ul{list-style:none;margin:0;padding:0;max-height:20rem;overflow-y:auto;scrollbar-gutter:stable}
+.bottle-comparison li{display:flex;justify-content:space-between;align-items:start;gap:.5rem;border-top:1px solid var(--border-color);padding:.45rem 0}
+.bottle-comparison strong{font-weight:500;overflow-wrap:anywhere}
+.bottle-comparison small{display:block;font-size:var(--font-xs);color:var(--text-muted);margin-top:.15rem}
+.bottle-comparison b{flex-shrink:0}
+.bottle-history{display:grid;gap:.5rem}.bottle-event{border-left:2px solid var(--border-color);padding:.3rem 0 .3rem .65rem;overflow-wrap:anywhere;font-size:var(--font-sm)}
+.bottle-event header{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.3rem}.bottle-event small{display:block;color:var(--text-muted);margin:.2rem 0}.bottle-event p{margin:.25rem 0;white-space:pre-wrap}
+.bottle-settlement h3{font-size:var(--font-md);margin:0}.bottle-settlement{padding-top:.65rem}.bottle-settlement .settlement-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem}
+.purchase-dialog.bottle-collection-dialog{width:min(820px,calc(100vw - 1.5rem))}.bottle-expense{display:grid;gap:.5rem;border-top:1px solid var(--border-color);padding-top:.6rem}.bottle-expense .input-field{width:100%}
+
+.bottle-checkout-toggle>span{min-width:0;text-align:left}.bottle-checkout-toggle small{display:block;font-weight:400;color:var(--text-muted);font-size:var(--font-xs);margin-top:.15rem}.bottle-checkout-toggle>svg{flex-shrink:0}
+.bottle-picker{display:grid;gap:.5rem;min-width:0}
+.bottle-picker .input-field{width:100%}
+.bottle-picker-summary{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.3rem;font-size:var(--font-sm);font-variant-numeric:tabular-nums}
+.bottle-picker-summary .btn{padding:.25rem .5rem;font-size:var(--font-xs)}
+
+
+
+.bottle-picker-card{display:grid;gap:.35rem;padding:.45rem;border:1px solid var(--border-color);border-radius:var(--radius-md);min-width:0;background:var(--surface);max-width:220px}
+.bottle-picker-card.is-selected{border-color:var(--primary);background:var(--primary-weak)}
+.bottle-picker-identity{display:flex;align-items:baseline;justify-content:space-between;gap:.3rem}
+.bottle-picker-identity strong{font-size:1.05rem}.bottle-picker-identity small,.bottle-picker-identity>span{font-size:var(--font-xs);font-weight:500;color:var(--text-muted)}
+.bottle-picker-card .bottle-stepper{justify-content:space-between;gap:.2rem}.bottle-picker-card .bottle-stepper input{width:100%;max-width:4rem}
+.bottle-picker-card .bottle-stepper .btn{min-height:32px;min-width:32px;padding:.25rem}
+.bottle-selected{display:flex;flex-wrap:wrap;gap:.25rem}
+.bottle-selected-item{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .4rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);font:inherit;font-size:var(--font-xs);color:var(--text-main);background:var(--surface-subtle);cursor:pointer;text-align:left;overflow-wrap:anywhere;max-width:100%}
+.bottle-selected-item svg{flex-shrink:0}
+.bottle-selected-item:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.bottle-collection-dialog>.modal-footer{justify-content:space-between}
+@media(max-width:600px){
+ .bottle-column-labels,.bottle-product-row{grid-template-columns:minmax(0,1fr) 3.4rem 6.7rem;gap:.25rem}
+ .bottle-stepper input{width:3rem}.bottle-summary{gap:.35rem .7rem;padding:.5rem}
+ .purchase-dialog.bottle-collection-dialog{width:calc(100vw - 1rem)}
+ 
+ .bottle-comparison{grid-template-columns:minmax(0,1fr);gap:.7rem}
+ .bottle-comparison>section{padding:0}.bottle-comparison>section+section{border-left:0;border-top:1px solid var(--border-color);padding:.6rem 0 0}
+ .bottle-comparison ul{max-height:16rem}
+}

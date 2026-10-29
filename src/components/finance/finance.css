@@ -6,7 +6,7 @@
 .finance-balance-heading { font-size: var(--font-sm); }
 .finance-balance-heading strong { margin-left: .4rem; font-variant-numeric: tabular-nums; }
 .finance-balance-heading small { color: var(--text-muted); }
-.finance-wallets { display: grid; grid-template-columns: repeat(auto-fit,minmax(10.5rem,1fr)); gap: .6rem; }
+
 .finance-wallet { position: relative; background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); min-width: 0; }
 .finance-wallet.selected { border-color: var(--primary); background: var(--primary-weak); }
 .finance-wallet-main { width: 100%; background: transparent; color: inherit; border: 0; padding: .8rem .75rem; cursor: pointer; text-align: left; display: grid; gap: .5rem; font: inherit; }
@@ -51,7 +51,7 @@
 .finance-entry-details dt { color: var(--text-muted); }.finance-entry-details dd { margin: 0; overflow-wrap: anywhere; }
 .finance-due-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 1rem; padding: .85rem 0; border-bottom: 1px solid var(--border-color); font-size: var(--font-sm); }
 .finance-archived { font-size: var(--font-sm); }.finance-archived button { margin: .5rem .5rem 0 0; }
-@media(max-width:650px) { .finance-wallets { grid-template-columns: repeat(2,minmax(0,1fr)); } .finance-wallet-main > strong { font-size: 1rem; } .finance-heading { align-items: start; } .finance-heading > .finance-actions { width: 100%; } .finance-due-row { grid-template-columns: minmax(0,1fr) auto; gap: .5rem; } .finance-due-row .finance-actions { grid-column: 1 / -1; } .finance-ledger-totals { gap: .6rem; } .finance-filter-grid { gap: .5rem; } .finance-wallet-label { font-size: .75rem; } }
+@media(max-width:650px) {  .finance-wallet-main > strong { font-size: 1rem; } .finance-heading { align-items: start; } .finance-heading > .finance-actions { width: 100%; } .finance-due-row { grid-template-columns: minmax(0,1fr) auto; gap: .5rem; } .finance-due-row .finance-actions { grid-column: 1 / -1; } .finance-ledger-totals { gap: .6rem; } .finance-filter-grid { gap: .5rem; } .finance-wallet-label { font-size: .75rem; } }
 @media(max-width:650px) {
   .finance-table { min-width: 0; display: block; }.finance-table thead { display: none; }.finance-table tbody { display: block; }
   .finance-table tr { display: grid; grid-template-columns: minmax(0,1fr) auto; padding: .65rem .75rem; gap: .4rem .7rem; border-bottom: 1px solid var(--border-color); }

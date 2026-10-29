@@ -20,13 +20,16 @@ async page => {
     else if (name === 'get_dashboard_stats') data = { todayRevenue: 0, todayMovements: 0, totalCustomers: 0 };
     else if (name === 'get_customer_directory') data = { entries: [], total: 0 };
     else if (name === 'get_customer_overview') data = { wholesale: 0, retail: 0, new_wholesale: 0, new_retail: 0, inactive_wholesale: 0, inactive_retail: 0 };
+    else if (name === 'get_wallet_ledger') data = { entries: [], total: 0, received: 0, paid_out: 0 };
+    else if (name === 'get_sales_directory') data = { entries: [], total: 0 };
+    else if (name === 'get_sales_overview') data = { total: 0, amount: 0, due: 0, bottles: 0 };
     return route.fulfill({ json: data });
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(origin + '/?route-loading-anonymous=1#/pos');
   await page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor();
   check(scripts.some(path => /\/LoginPage-/.test(path)), 'Login route was not split into an asset');
-  check(!scripts.some(path => /\/(POS|Employees|Inventory|Purchases|Customers|Dashboard|Settings|Logistics|GasPlants|RegisterPage)-/.test(path)), 'Anonymous startup downloaded management routes');
+  check(!scripts.some(path => /\/(POS|Sales|Finance|Employees|Inventory|Purchases|Customers|Dashboard|Settings|Logistics|GasPlants|RegisterPage)-/.test(path)), 'Anonymous startup downloaded management routes');
   const anonymousScripts = [...new Set(scripts)];
   await page.getByRole('link', { name: 'Create a Business', exact: true }).click();
   await page.getByRole('heading', { name: 'Create your Business', exact: true }).waitFor();
@@ -35,10 +38,11 @@ async page => {
   const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + payload + '.Zml4dHVyZQ';
   await page.context().addInitScript(({ user, token }) => {
     const session = JSON.stringify({ access_token: token, refresh_token: 'fixture', token_type: 'bearer', expires_in: 86400, expires_at: Math.floor(Date.now() / 1000) + 86400, user });
-    for (const host of ['api', '127', 'localhost']) localStorage.setItem(`sb-${host}-auth-token`, session);
+    for (const host of ['api.lpg.144.79.249.4.sslip.io','127.0.0.1:54321','localhost:54321','127.0.0.1:55421']) localStorage.setItem(`sb-${host}-auth-token`, session);
   }, { user, token });
   await page.goto(origin + '/?route-loading-authenticated=1#/pos');
   await page.locator('.pos-workspace').waitFor();
+  check(await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Sales', exact: true }).count() === 1, 'Sales navigation must appear once');
   check(!scripts.some(path => /\/Employees-/.test(path)), 'Unvisited employee route loaded early');
   await page.locator('.sidebar').evaluate(element => { element.dataset.routeLoadingTest = 'stable'; });
   let release, requested;
@@ -52,7 +56,7 @@ async page => {
   release();
   await page.locator('.employees-page').waitFor();
   const routes = [['/', '.dashboard-workspace'], ['/inventory', '.inv-overview-toolbar'], ['/customers', '.customers-page'],
-    ['/employees', '.employees-page'], ['/finance', '.empty-state h2'], ['/purchases', '.purchases-page'],
+    ['/employees', '.employees-page'], ['/finance', '.finance-page'], ['/purchases', '.purchases-page'], ['/sales', '.sales-page'],
     ['/logistics', '.inv-tabs'], ['/gas-plants', '.inv-stats-row'], ['/settings', '.settings-tabs'], ['/pos', '.pos-workspace']];
   for (const [path, selector] of routes) {
     await page.goto(origin + '/#' + path);

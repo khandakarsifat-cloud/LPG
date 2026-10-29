@@ -22,8 +22,10 @@ const receipt: ReceiptData = {
   customer_name: 'Test Customer', customer_phone: '01700000000', customer_tier: 'retail',
   items: [
     { name: 'Brand 12kg', type: 'refill', quantity: 2, unit_price: 1200, line_total: 2400 },
-    { name: 'Returned cylinder', type: 'empty_return', quantity: 2, unit_price: 0, line_total: 0 },
+    { item_id: 'empty', name: 'Returned cylinder', type: 'empty_return', quantity: 2, unit_price: 0, line_total: 0 },
   ], subtotal: 2400, discount_amount: 100, exchange_fee: 50, total_amount: 2350, notes: 'Thank you\u001b@',
+  paid_amount: 2350, due_amount: 0, unattributed_paid: 0, payments: [{ wallet_name: 'Cash Register', method: 'cash', amount: 2350 }],
+  bottles: { expected: 2, received: 2, outstanding: 0, obligations: [{ name: 'Returned cylinder', expected: 2 }], actual: [{ phase: 'checkout', item_id: 'empty', name: 'Returned cylinder', quantity: 2 }] },
 };
 const requestId = '33333333-3333-4333-8333-333333333333';
 
@@ -32,9 +34,10 @@ test('receipt content preserves customer, Bengali, prices, adjustments and empty
   assert.equal(lines[0].text, receipt.shop_name);
   assert(lines.some(line => line.text === 'TOTAL' && line.right === 'Tk 2,350.00'));
   assert(lines.some(line => line.text === 'Discount' && line.right === '-Tk 100.00'));
-  assert(lines.some(line => line.text === 'Exchange Fee' && line.right === 'Tk 50.00'));
-  assert(lines.some(line => line.text === 'Free' && line.right === '-'));
-  assert(lines.some(line => line.text === '2 refills | 2 empties returned'));
+  assert(lines.some(line => line.text === 'Exchange Cost' && line.right === 'Tk 50.00'));
+  assert(lines.some(line => line.text === 'Expected 2 | Received 2'));
+  assert(!lines.some(line => line.text === 'Free'));
+  assert(lines.some(line => line.text === 'Bottle Settled'));
   assert(!lines.some(line => line.text.includes('\u001b')));
 });
 
@@ -73,9 +76,25 @@ test('validation bounds receipt, paper, transport and request identifiers', () =
   assert.throws(() => validatePrintRequest({ ...payload, config: { ...config, printer: { ...printer, transport: 'ethernet' } } }), /Only Windows USB/);
   assert.throws(() => validatePrintRequest({ ...payload, request_id: '../bad-path' }), /identifier/);
   assert.throws(() => validatePrintRequest({ ...payload, receipt: { ...receipt, total_amount: NaN } }), /amount/);
+  assert.throws(() => validatePrintRequest({ ...payload, receipt: { ...receipt, payments: [], payment_tracking: false } }), /entries/);
+  assert.throws(() => validatePrintRequest({ ...payload, receipt: { ...receipt, paid_amount: undefined } }), /amount/);
+  assert.equal(validatePrintRequest({ ...payload, receipt: { ...receipt, payments: [], unattributed_paid: 2350 } }).receipt.unattributed_paid, 2350);
   assert.throws(() => allowedOrigins('http://evil.example'), /loopback origins/);
   assert.ok(allowedOrigins('https://lpg.20.40.48.3.sslip.io').has('https://lpg.20.40.48.3.sslip.io'));
   assert.throws(() => allowedOrigins('https://example.com/path'), /exact/);
+});
+
+test('receipt validation includes later charges and reconciles physical bottle products', () => {
+  const updated = { ...receipt, additional_charges: 50, paid_amount: 2400, due_amount: 0,
+    payments: [{ wallet_name: 'Cash Register', method: 'cash', amount: 2400 }],
+    bottles: { expected: 2, received: 1, outstanding: 1,
+      actual: [{ phase: 'collection' as const, name: 'Other brand 12kg', quantity: 1 }],
+      obligations: [{ name: 'Original brand 12kg', expected: 2 }] } };
+  assert.equal(validatePrintRequest({ request_id: requestId, receipt: updated, config }).receipt, updated);
+  const excess = { ...updated, bottles: { ...updated.bottles, received: 4, outstanding: 0, actual: [{ phase: 'collection' as const, item_id: 'actual', name: 'Other brand 12kg', quantity: 4 }] } };
+  assert.equal(validatePrintRequest({ request_id: requestId, receipt: excess, config }).receipt, excess);
+  assert.throws(() => validatePrintRequest({ request_id: requestId, receipt: { ...updated, additional_charges: 0 }, config }), /totals/);
+  assert.throws(() => validatePrintRequest({ request_id: requestId, receipt: { ...updated, bottles: { ...updated.bottles, received: 2 } }, config }), /reconcile/);
 });
 
 test('persistent request journal never sends the same job twice, including after bridge restart', async () => {

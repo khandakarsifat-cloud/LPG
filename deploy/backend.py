@@ -24,7 +24,7 @@ def require(condition, message):
 
 def run(args, label, *, data=None, output=None, stdin=None):
     result = subprocess.run(args, input=data, stdout=output or subprocess.PIPE,
-                            stdin=stdin, stderr=subprocess.PIPE, env={'PATH': os.defpath, 'HOME': '/root'})
+                            stdin=stdin, stderr=subprocess.PIPE, env={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', 'HOME': '/root'})
     # Raw Compose/SQL output can contain credentials or user data. Never print it.
     require(result.returncode == 0, f'{label} failed (exit {result.returncode}); inspect privately on the VPS.')
     return result.stdout.decode() if output is None else ''
@@ -45,6 +45,12 @@ def validate_model(model):
         service = model['services'][name]
         require(not service.get('build'), f'Unexpected image build: {name}.')
         require(set(service.get('depends_on', {})) <= set(SERVICES), f'Excluded dependency of {name}.')
+        for port in service.get('ports', []):
+            if name == 'caddy':
+                require(port.get('host_ip') == '0.0.0.0' and port.get('protocol', 'tcp') == 'tcp'
+                        and int(port['target']) == int(port['published']) in (80, 443), 'Only Caddy TCP 80/443 may be public.')
+            else:
+                require(port.get('host_ip') in ('127.0.0.1', '::1'), f'Internal service publicly published: {name}.')
     for key, name in [('lpg_db_data', 'lpg_db_data'), ('lpg_storage_data', 'lpg_storage_data'), ('db-config', 'lpg_db-config')]:
         volume = model['volumes'][key]
         require(volume.get('external') and volume['name'] == name, f'Persistent volume changed: {key}.')
@@ -109,13 +115,21 @@ def validate_sql(sql):
         visible.append(' ')
     visible.append(sql[index:])
     top = ''.join(visible)
-    require(not re.search(r'\b(BEGIN|COMMIT|END|ROLLBACK|ABORT|START\s+TRANSACTION|PREPARE\s+TRANSACTION)\b', top, re.I),
+    require(not re.search(r'(?:^|;)\s*(BEGIN|COMMIT|END|ROLLBACK|ABORT|START\s+TRANSACTION|PREPARE\s+TRANSACTION)\b', top, re.I),
             'Top-level transaction control is prohibited. Omit BEGIN/COMMIT from new migrations.')
     require(not re.search(r'\b(VACUUM|CONCURRENTLY)\b', top, re.I), 'Nontransactional SQL needs a separate reviewed maintenance procedure.')
 
 
 def sql_literal(value):
     return "'" + value.replace("'", "''") + "'"
+
+
+def validate_proxy(model, source):
+    run(['docker', 'run', '--rm', '--pull', 'never', '--network', 'none',
+         '-e', 'API_DOMAIN=' + model['services']['caddy']['environment']['API_DOMAIN'],
+         '-v', str(source / 'deploy/Caddyfile') + ':/etc/caddy/Caddyfile:ro',
+         '--entrypoint', 'caddy', model['services']['caddy']['image'],
+         'validate', '--config', '/etc/caddy/Caddyfile'], 'Validate proxy configuration before activation')
 
 
 def verify_health(model, api_url):
@@ -151,7 +165,7 @@ def deploy(root, stage, project, api_url, approval):
     env_file = root / '.env'
     require(env_file.is_file() and not env_file.is_symlink(), 'Existing production .env required; never upload a development environment.')
     require(env_file.stat().st_mode & 0o077 == 0, 'Production .env must be private (chmod 600).')
-    require(all((root / file).is_file() for file in ['compose.yml', 'compose.azure.yml']), 'This command updates an existing Azure installation only.')
+    require(all((root / file).is_file() for file in ['compose.yml', 'compose.vps.yml']), 'This command updates an existing VPS installation only.')
     (root / 'deploy').mkdir(exist_ok=True)
     with (root / 'deploy/.deployment.lock').open('a') as lock:
         try:
@@ -164,7 +178,7 @@ def deploy(root, stage, project, api_url, approval):
 def update(root, stage, project, api_url, approval):
     def compose(source):
         return ['docker', 'compose', '--project-directory', str(root), '--env-file', str(root / '.env'), '-p', project,
-                '-f', str(source / 'compose.yml'), '-f', str(source / 'compose.azure.yml')]
+                '-f', str(source / 'compose.yml'), '-f', str(source / 'compose.vps.yml')]
 
     old_cmd, candidate_cmd = compose(root), compose(stage)
     # Inspect disabled definitions too when promoting Studio/meta into production.
@@ -265,6 +279,8 @@ def update(root, stage, project, api_url, approval):
     for name in SERVICES:
         if name in affected:
             run(candidate_cmd + ['pull', name], f'Image availability for {name}')
+    if 'caddy' in affected:
+        validate_proxy(candidate, stage)
     # Persist affected services before replacing bind files so an interrupted
     # deployment can retry them even when source files already match next time.
     if affected:
@@ -302,6 +318,7 @@ def update(root, stage, project, api_url, approval):
         run(['docker', 'stop', *excluded_ids], 'Stop excluded development/optional services (no volumes removed)')
     run(old_cmd + ['up', '-d', '--no-deps', '--no-build', '--pull', 'never', '--no-recreate', '--wait', '--wait-timeout', '180', *SERVICES], 'Final health verification (no recreation)')
     verify_health(candidate, api_url)
+    run(['python3', '-B', str(root / 'deploy/backup.py'), '--configure'], 'Verify daily backup scheduling')
     pending_file.unlink(missing_ok=True)
     print('Ten production services verified; data volumes and VPS environment preserved.', flush=True)
 

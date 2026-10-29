@@ -6,7 +6,7 @@ async page => {
   const user={id:id(2),aud:'authenticated',role:'authenticated',email:'pages@example.invalid',app_metadata:{},user_metadata:{},created_at:now};
   const payload=btoa(JSON.stringify({sub:user.id,exp:Math.floor(Date.now()/1000)+86400,aud:'authenticated',role:'authenticated'})).replaceAll('=','').replaceAll('+','-').replaceAll('/','_');
   const token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.'+payload+'.Zml4dHVyZQ';
-  await page.context().addInitScript(({user,token})=>{const session=JSON.stringify({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user});for(const host of ['127','api','localhost'])localStorage.setItem(`sb-${host}-auth-token`,session);},{user,token});
+  await page.context().addInitScript(({user,token})=>{const session=JSON.stringify({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user});for(const host of ['api.lpg.144.79.249.4.sslip.io','127.0.0.1:54321','localhost:54321','127.0.0.1:55421'])localStorage.setItem(`sb-${host}-auth-token`,session);},{user,token});
   let brands=Array.from({length:14},(_,n)=>({tenant_id:tenant,brand_id:id(10+n),brand_name:`Brand ${n+1}`,is_active:true}));
   const items=Array.from({length:30},(_,n)=>({tenant_id:tenant,item_id:id(100+n),brand_id:brands[Math.floor(n/15)].brand_id,brand:brands[Math.floor(n/15)].brand_name,size_kg:5+n%15,mouth_size:'22mm',filled_quantity:100,empty_quantity:100,lpg_brands:brands[Math.floor(n/15)]}));
   const purchaseItems=items.slice(0,7).map((item,n)=>({...item,purchase_item_id:id(300+n),brand_name:brands[0].brand_name,type:'refill',quantity:2,empty_dispatched:2,unit_price:10,billed_quantity:2,received_quantity:null,line_total:20}));
@@ -50,9 +50,13 @@ async page => {
     else if(name==='get_purchase_directory')data=purchasePage(args);
     else if(name==='get_purchase_overview')data=purchaseOverview();
     else if(name==='get_purchases_by_ids')data=purchases.filter(p=>args.p_ids.includes(p.purchase_id));
-    else if(name==='list_employees')data=employees;
-    else if(name==='list_employee_payments')data=payments;
-    else if(name==='list_employee_payment_categories')data=[{category_id:id(950),code:'bonus',name:'Bonus',category_kind:'bonus',is_active:true}];
+    else if(name==='get_purchase_settlement'){const p=purchases.find(p=>p.purchase_id===args.p_purchase_id);data={total:p.total_cost,paid:0,due:p.total_cost,refund_due:0,refunded:0,financial_closed_at:null,can_cancel:true,financial_locked:false,obligations:[],payment_count:0,payments:[]};}
+    else if(name==='get_employee_directory')data={entries:employees.slice(args.p_offset,args.p_offset+args.p_limit),total:employees.length};
+    else if(name==='get_employee_overview')data={employees:employees.length,active:employees.length,types:['Worker'],prepared:0,earned:0,paid:0,advance_applied:0,outstanding:0};
+    else if(name==='get_employee_profile')data={employee:{...employees.find(e=>e.employee_id===args.p_employee_id),payroll_start:now.slice(0,10),revision:1},terms:[],financial:{paid:1000,outstanding:0},advances:[],prepared_through:null};
+    else if(name==='get_employee_periods')data={entries:[],total:0};
+    else if(name==='get_employee_activity')data={entries:payments.slice(args.p_offset,args.p_offset+args.p_limit).map(p=>({id:p.payment_id,employee_id:p.employee_id,employee_name:p.employee_name,kind:'payment',description:'Bonus fixture',date:p.payment_date,created_at:p.created_at,actor:'Owner',amount:p.amount,details:{source_snapshot:{wallet_evidence:'unattributed'}},wallets:[],reversible:false})),total:payments.length};
+    else if(name==='get_transit_payroll')data={driver_paid:0,helper_paid:0,paid:0,payments:[]};
     else if(name==='list_gas_plants')data=plants;
     else if(name==='update_purchase'){
       const p=purchases.find(p=>p.purchase_id===args.p_purchase_id);Object.assign(p,args.p_payload);p.revision++;p.items=p.items.map((line,n)=>({...items.find(item=>item.item_id===line.item_id),...line,purchase_item_id:line.purchase_item_id||id(1200+n),brand_name:brands[0].brand_name,billed_quantity:line.quantity,received_quantity:null,line_total:line.quantity*line.unit_price}));p.subtotal=p.items.reduce((s,i)=>s+i.line_total,0);p.company_payable=p.subtotal-p.commission;p.total_cost=p.company_payable+p.transport_cost+p.labour_cost;data={};
@@ -88,15 +92,12 @@ async page => {
   await page.goto(origin+'/#/inventory');await page.locator('.inv-tile:not(.inv-tile-skeleton)').first().waitFor();
   check(await page.locator('.inv-tile').count()===items.length,'Inventory must show the complete catalog');
   check(await page.getByRole('navigation',{name:'products pages'}).count()===0,'Inventory items must not paginate');
-  await page.goto(origin+'/#/employees');await page.locator('.employees-table tbody tr').first().waitFor();
-  check(await page.locator('.employees-table tbody tr').count()===12,'Employee directory page size');
-  await page.getByRole('navigation',{name:'employees pages'}).getByRole('button',{name:'Next page'}).click();
-  check(await page.locator('.employees-table tbody tr').count()===1,'Employee second page missing');
-  await page.locator('.employees-payment-row').first().waitFor();
-  check(await page.locator('.employees-payment-row').count()===6,'Employee payment page size');
-  await page.getByRole('navigation',{name:'payments pages'}).getByRole('button',{name:'Next page'}).click();
-  check(await page.locator('.employees-payment-row').count()===4,'Employee payment last page missing');
-  check((await page.locator('.employees-total-grid').textContent()).includes('1,000'),'Employee yearly totals must include all payment pages');
+  await page.goto(origin+'/#/employees');await page.locator('.employee-card').first().waitFor();
+  await page.getByRole('button',{name:'Open Employee 1',exact:true}).click();
+  const employee=page.getByRole('dialog',{name:'Employee profile',exact:true});
+  await employee.locator('[data-activity-id]').first().waitFor();
+  check(await employee.locator('[data-activity-id]').count()===10,'Employee history contains the bounded fixture page');
+  await employee.getByRole('button',{name:'Close',exact:true}).click();
   await page.goto(origin+'/#/gas-plants');await page.getByRole('navigation',{name:'gas plants pages'}).waitFor();
   await page.getByRole('navigation',{name:'gas plants pages'}).getByRole('button',{name:'Next page'}).click();
   await page.getByText('Plant 14',{exact:true}).waitFor();
@@ -114,7 +115,7 @@ async page => {
   await transit.getByRole('button',{name:'Close dialog',exact:true}).click();
   await page.goto(origin+'/#/settings');await page.getByRole('button',{name:/LPG Brands/}).click();
   await page.getByRole('navigation',{name:'brands pages'}).waitFor();
-  await page.getByRole('button',{name:'Move Brand 12 down',exact:true}).click();
+  await page.getByRole('button',{name:'Move Brand 1 down',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.brand-order-controls')?.textContent.includes('Position'));
   check(calls.filter(c=>c.name==='set_lpg_brand_order').at(-1)?.args.p_brand_ids.length===14,'Brand reordering must retain the full catalog');
   return 'PASS: long purchase/catalog/employee/payment/plant/truck/transit/brand pages; full financial summaries, cross-page draft save and complete brand order.';

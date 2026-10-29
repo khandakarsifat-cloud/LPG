@@ -1,18 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { LPGBrand, CreateBrandPayload } from '../types/inventory';
+import { readAllRows } from '../lib/queryPages';
 
 export const useLPGBrands = () => {
   return useQuery({
     queryKey: ['lpg_brands'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('list_lpg_brands', {
-        p_active_only: false,
-      });
-
-      if (error) throw error;
-      return (data as LPGBrand[]) || [];
-    },
+    queryFn: ({ signal }) => readAllRows<LPGBrand>((from, to) => supabase.rpc('list_lpg_brands', {
+      p_active_only: false,
+    }).range(from, to).abortSignal(signal)),
     refetchInterval: 30_000,
   });
 };

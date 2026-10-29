@@ -11,6 +11,7 @@ const InventoryPage = lazy(() => import('./pages/Inventory').then(module => ({ d
 const LogisticsPage = lazy(() => import('./pages/Logistics').then(module => ({ default: module.LogisticsPage })));
 const GasPlantsPage = lazy(() => import('./pages/GasPlants').then(module => ({ default: module.GasPlantsPage })));
 const PurchasesPage = lazy(() => import('./pages/Purchases').then(module => ({ default: module.PurchasesPage })));
+const SalesPage = lazy(() => import('./pages/Sales').then(module => ({ default: module.SalesPage })));
 const SettingsPage = lazy(() => import('./pages/Settings').then(module => ({ default: module.SettingsPage })));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(module => ({ default: module.LoginPage })));
 const RegisterPage = lazy(() => import('./pages/auth/RegisterPage').then(module => ({ default: module.RegisterPage })));
@@ -55,6 +56,7 @@ function App() {
                 <Route path="employees" element={<EmployeesPage />} />
                 <Route path="finance" element={<FinancePage />} />
                 <Route path="purchases" element={<PurchasesPage />} />
+                <Route path="sales" element={<SalesPage />} />
                 <Route path="logistics" element={<LogisticsPage />} />
                 <Route path="gas-plants" element={<GasPlantsPage />} />
                 <Route path="settings" element={<SettingsPage />} />

@@ -5,17 +5,17 @@ inside the established development database container. It starts a separate
 PostgREST container using the deployed image, ten pooled connections, a 192 MiB
 memory limit and a new test-only signing key. Port 3300 binds to loopback only.
 Existing database contents, roles, service configuration and credentials are not
-changed. The future production VPS is outside this test's scope.
+changed. The configured primary VPS is the current target. The October 23 capacity report describes the former Azure host; it does not establish the new host's capacity. Run large load fixtures only under separately agreed capacity-test scope.
 
 Use a private workspace created by `mktemp -d /tmp/lpg-business-load.XXXXXX` and
 stage the repository's `supabase/migrations` and `supabase/tests` there. On the
 development VPS, run with the existing Docker privileges:
 
 ```sh
-python3 "$SOURCE/supabase/tests/business-load/prepare.py" init --state "$SOURCE" --source "$SOURCE"
-python3 "$SOURCE/supabase/tests/business-load/prepare.py" seed --state "$SOURCE" --businesses 640
-python3 "$SOURCE/supabase/tests/business-load/prepare.py" analyze --state "$SOURCE"
-python3 "$SOURCE/supabase/tests/business-load/monitor.py" --state "$SOURCE" > "$SOURCE/metrics.jsonl"
+sudo -n python3 "$SOURCE/supabase/tests/business-load/prepare.py" init --state "$SOURCE" --source "$SOURCE"
+sudo -n python3 "$SOURCE/supabase/tests/business-load/prepare.py" seed --state "$SOURCE" --businesses 640
+sudo -n python3 "$SOURCE/supabase/tests/business-load/prepare.py" analyze --state "$SOURCE"
+sudo -n python3 "$SOURCE/supabase/tests/business-load/monitor.py" --state "$SOURCE" > "$SOURCE/metrics.jsonl"
 ```
 
 Run the monitor separately. Copy `tokens.json` privately to the generator machine;

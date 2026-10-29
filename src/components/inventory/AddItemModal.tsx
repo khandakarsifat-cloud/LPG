@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { X, Package, Loader2 } from 'lucide-react';
-import { useCreateItem, useItems } from '../../hooks/useInventory';
+import { useCreateItem, useInventoryBalances } from '../../hooks/useInventory';
 import { useLPGBrands } from '../../hooks/useBrands';
 import type { CreateItemPayload, MouthSize } from '../../types/inventory';
-import { CYLINDER_WEIGHT_OPTIONS, MOUTH_SIZE_OPTIONS } from '../../types/inventory';
+import { CYLINDER_SIZES_KG, MOUTH_SIZE_OPTIONS } from '../../types/inventory';
 
 interface AddItemModalProps {
   open: boolean;
@@ -15,13 +15,11 @@ type FormState = CreateItemPayload;
 export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
   const createItem = useCreateItem();
   const { data: brands = [] } = useLPGBrands();
-  const { data: items = [] } = useItems();
+  const { data: items = [] } = useInventoryBalances();
 
   const [form, setForm] = useState<FormState>({
-    brand_id: null,
-    brand: '',
+    brand_id: '',
     size_kg: 5,
-    cylinder_weight: null,
     mouth_size: '22mm',  // default
   });
 
@@ -49,7 +47,7 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
 
     if (exists) {
       setDuplicateError(
-        `${form.brand} ${form.size_kg}kg (${form.mouth_size}) already exists. Same brand+weight+mouth size cannot be duplicated.`
+        `${brands.find(b => b.brand_id === form.brand_id)?.brand_name ?? 'Product'} ${form.size_kg}kg (${form.mouth_size}) already exists. Same brand+weight+mouth size cannot be duplicated.`
       );
       return;
     }
@@ -58,14 +56,12 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
     try {
       await createItem.mutateAsync({
         brand_id:        form.brand_id,
-        brand:           form.brand,
         size_kg:         form.size_kg,
-        cylinder_weight: form.cylinder_weight ?? null,
         mouth_size:      form.mouth_size,
       });
 
       onClose();
-      setForm({ brand_id: null, brand: '', size_kg: 5, cylinder_weight: null, mouth_size: '22mm' });
+      setForm({ brand_id: '', size_kg: 5, mouth_size: '22mm' });
     } catch {
       // error displayed via createItem.isError
     } finally {
@@ -118,11 +114,9 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                   className="input-field"
                   value={form.brand_id || ''}
                   onChange={(e) => {
-                    const selected = brands.find((b) => b.brand_id === e.target.value);
                     setForm((p) => ({
                       ...p,
-                      brand_id: e.target.value || null,
-                      brand: selected?.brand_name || '',
+                      brand_id: e.target.value,
                     }));
                   }}
                   required
@@ -149,11 +143,11 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                 required
               >
                 <option value="">Select weight...</option>
-                {CYLINDER_WEIGHT_OPTIONS.map((weight) => {
-                  const weightNum = parseFloat(weight);
+                {CYLINDER_SIZES_KG.map((weight) => {
+                  const weightNum = weight;
                   return (
                     <option key={weight} value={weightNum}>
-                      {weight}
+                      {weight}kg
                     </option>
                   );
                 })}

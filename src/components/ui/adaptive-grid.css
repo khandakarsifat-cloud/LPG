@@ -1,0 +1,58 @@
+/* CSS owns track count. useGridPageSize reads these resolved tracks only when
+   display pagination is needed; catalog and POS grids simply scroll. */
+.adaptive-grid {
+  --grid-min: 15rem;
+  --grid-max: 22rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--grid-min)), 1fr));
+  gap: 8px;
+  align-items: start;
+  align-content: start;
+  min-width: 0;
+  max-width: none;
+}
+.adaptive-grid > * { min-width: 0; width: 100%; max-width: var(--grid-max); }
+.adaptive-grid.adaptive-grid--inventory { --grid-min: 8rem; --grid-max: 13rem; }
+.adaptive-grid.adaptive-grid--pos { --grid-min: 14rem; --grid-max: 17.5rem; }
+.adaptive-grid.adaptive-grid--bottles { --grid-min: 8rem; --grid-max: 13.75rem; gap: 6px; }
+.adaptive-grid.adaptive-grid--plants { --grid-min: 21.25rem; --grid-max: 26rem; }
+.adaptive-grid.adaptive-grid--brands { --grid-min: 18.75rem; --grid-max: 24rem; }
+.adaptive-grid.adaptive-grid--transits { --grid-min: 19rem; --grid-max: 25rem; }
+.adaptive-grid.adaptive-grid--wallets { --grid-min: 10.5rem; --grid-max: 15rem; }
+.bottle-picker-brand { font-size: var(--font-xs); overflow-wrap: anywhere; }
+
+/* One-column cards can use a phone's width; large windows keep bounded cards. */
+@media (max-width: 600px) {
+  .adaptive-grid > * { max-width: min(100%, 25rem); }
+}
+
+@media (min-width: 600px) {
+  .adaptive-grid--pos > * { max-width: var(--grid-max); }
+}
+.adaptive-grid > .brand-row-start { grid-column-start: 1; }
+.adaptive-grid--inventory > .inv-tile { block-size: 9rem; }
+.adaptive-grid--inventory .inv-tile-history-hint { margin-top: auto; }
+.adaptive-grid--bottles > .bottle-picker-card { grid-template-rows: 2rem 1.5rem 2rem; block-size: 7rem; }
+.bottle-picker-brand { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
+.adaptive-grid--pos .pos-product-heading { block-size: 4.5rem; }
+.adaptive-grid--pos .pos-product-title { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.adaptive-grid--transits > .transit-card { block-size: 15rem; grid-template-rows: 2.5rem 2.25rem minmax(0,1fr) 2.5rem 1rem; gap: .5rem; padding: .75rem; }
+.adaptive-grid--transits .transit-card p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.adaptive-grid--transits .transit-card .purchase-section-heading > strong { min-width: 0; overflow-wrap: anywhere; font-size: .875rem; }
+.transit-card .purchase-section-heading > strong > svg { flex-shrink: 0; }
+.transit-card .purchase-section-heading > strong > span { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.adaptive-grid--brands > .brand-card { block-size: 17rem; padding: .75rem; }
+.brand-card-body { min-height: 0; display: flex; flex-direction: column; }
+.brand-card-body h4, .brand-card-body p { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.brand-card-body h4 { -webkit-line-clamp: 2; }
+.brand-card-body p { -webkit-line-clamp: 3; }
+.brand-card .brand-card-state { margin-top: auto; }
+.adaptive-grid--plants > .gas-plant-card { display: grid; grid-template-rows: 3rem 1.5rem 2.5rem 1px minmax(0,1fr) 2.25rem; block-size: 21rem; gap: .5rem; padding: .75rem; }
+.gas-plant-card .plant-location > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.gas-plant-card .plant-brand > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gas-plant-card .plant-officer { min-height: 0; overflow-wrap: anywhere; }
+.plant-officer-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight: 600; font-size: .8125rem; line-height: 1.3; }
+.plant-officer-email { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adaptive-grid--wallets > .finance-wallet { block-size: 9.5rem; }
+.finance-wallet .finance-wallet-main { block-size: 100%; grid-template-rows: 2.5rem minmax(0,1fr) 2rem; align-items: start; }
+.finance-wallet-label > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

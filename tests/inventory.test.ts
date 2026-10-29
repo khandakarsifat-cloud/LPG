@@ -16,12 +16,12 @@ test('inventory history calendar includes the complete Bangladesh day and suppor
 });
 const row = { item_id: 'a', customer_tier: 'retail', price_type: 'refill' as const, price: 1200, mrp: 1500, effective_from: '2026-01-01' };
 
-test('inventory history links recorded references and exact legacy notes, never guessing a sale from short notes', () => {
+test('inventory history links normalized references and never parses note text', () => {
   const id = 'a1000000-0000-4000-8000-000000000001';
   const movement = { movement_type: 'purchase' as const, reference_type: null, reference_id: null, notes: `Received goods from Purchase ${id}` };
-  assert.deepEqual(inventoryMovementSource(movement), { kind: 'purchase', id });
-  assert.deepEqual(inventoryMovementSource({ ...movement, notes: `Empty bottles sent for refill (Purchase ${id})` }), { kind: 'purchase', id });
-  assert.deepEqual(inventoryMovementSource({ ...movement, notes: `Quantity adjustment for Purchase ${id}` }), { kind: 'purchase', id });
+  assert.deepEqual(inventoryMovementSource(movement), { kind: 'purchase', id: null });
+  assert.deepEqual(inventoryMovementSource({ ...movement, reference_type: 'purchase_history', reference_id: id }), { kind: 'purchase', id });
+  assert.deepEqual(inventoryMovementSource({ ...movement, notes: `Quantity adjustment for Purchase ${id}` }), { kind: 'purchase', id: null });
   assert.deepEqual(inventoryMovementSource({ ...movement, movement_type: 'sale', notes: 'POS Sale #a1000000' }), { kind: 'sale', id: null });
   assert.deepEqual(inventoryMovementSource({ ...movement, movement_type: 'sale', reference_type: 'sale', reference_id: id }), { kind: 'sale', id });
   assert.deepEqual(inventoryMovementSource({ ...movement, movement_type: 'adjust_gain', notes: `Counted ${id}` }), { kind: null, id: null });
@@ -52,14 +52,14 @@ test('inventory uses configured brand order, ascending weights and stable mouth-
     description: null, is_active: active, created_at: '', updated_at: '' });
   const a = brand('a', 'Alpha');
   const b = brand('b', 'Beta', false);
-  const item = (id: string, company: LPGBrand | null, weight: number, mouth: '20mm' | '22mm' = '22mm'): ItemWithBrand => ({
-    tenant_id: 'tenant', item_id: id, brand_id: company?.brand_id ?? null, brand: company?.brand_name ?? 'Legacy', size_kg: weight,
-    filled_quantity: 0, empty_quantity: 0, cylinder_weight: null, mouth_size: mouth, created_at: '', lpg_brands: company,
+  const item = (id: string, company: LPGBrand, weight: number, mouth: '20mm' | '22mm' = '22mm'): ItemWithBrand => ({
+    tenant_id: 'tenant', item_id: id, brand_id: company.brand_id, size_kg: weight,
+    filled_quantity: 0, empty_quantity: 0, mouth_size: mouth, created_at: '', lpg_brands: company,
   });
-  const items = [item('large', a, 25), item('beta', b, 12), item('wide', a, 12), item('small', a, 5), item('narrow', a, 12, '20mm'), item('legacy', null, 35)];
+  const items = [item('large', a, 25), item('beta', b, 12), item('wide', a, 12), item('small', a, 5), item('narrow', a, 12, '20mm'), item('other', brand('c', 'Other'), 35)];
   const before = [...items];
   const groups = groupInventoryByBrand(items, [b, a]);
-  assert.deepEqual(groups.map(group => group.name), ['Beta', 'Alpha', 'Legacy']);
+  assert.deepEqual(groups.map(group => group.name), ['Beta', 'Alpha', 'Other']);
   assert.deepEqual(groups[1].items.map(product => product.item_id), ['small', 'narrow', 'wide', 'large']);
   assert.deepEqual(items, before);
   assert.equal(groups[0].items.length, 1, 'inactive brands with stock remain visible');
@@ -69,7 +69,7 @@ test('receipts retain the saved selling price and keep discounts separate', () =
   const lines = formatReceipt({ sale_id: 'fixture-sale', created_at: '2026-10-18', shop_name: 'Shop',
     customer_name: 'Customer', customer_phone: '01700000000', customer_tier: 'retail',
     items: [{ name: '12kg', type: 'refill', quantity: 2, unit_price: 1200, line_total: 2400 }],
-    subtotal: 2400, discount_amount: 100, exchange_fee: 50, total_amount: 2350 });
+    subtotal: 2400, discount_amount: 100, exchange_fee: 50, total_amount: 2350, paid_amount: 2350, due_amount: 0, unattributed_paid: 0, payments: [] });
   assert(lines.some(line => line.text.includes('@ Tk 1,200.00')));
   assert(lines.some(line => line.right === 'Tk 2,400.00'));
   assert(lines.some(line => line.text === 'Discount' && line.right === '-Tk 100.00'));

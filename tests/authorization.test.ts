@@ -8,7 +8,7 @@ const accessible = (permissions: string[]) =>
     .map(([path]) => path);
 
 test('Dashboard/POS capabilities do not expose management routes', () => {
-  assert.deepEqual(accessible(['dashboard:view', 'pos:sell', 'sales:view', 'receipts:print']), ['/', '/pos']);
+  assert.deepEqual(accessible(['dashboard:view', 'pos:sell', 'sales:view', 'receipts:print']), ['/', '/pos', '/sales']);
 });
 
 test('every current tenant route is available with the complete capability set', () => {

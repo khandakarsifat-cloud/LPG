@@ -8,7 +8,7 @@ async page => {
   const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + payload + '.Zml4dHVyZQ';
   await page.context().addInitScript(({ user, token, tenant }) => {
     const session = JSON.stringify({ access_token: token, refresh_token: 'fixture-refresh', token_type: 'bearer', expires_in: 86400, expires_at: Math.floor(Date.now() / 1000) + 86400, user });
-    for (const host of ['api', '127', 'localhost']) localStorage.setItem(`sb-${host}-auth-token`, session);
+    for (const host of ['api.lpg.144.79.249.4.sslip.io','127.0.0.1:54321','localhost:54321','127.0.0.1:55421']) localStorage.setItem(`sb-${host}-auth-token`, session);
     localStorage.setItem(`lpg:receipt-print-method:v1:${tenant}`, 'browser');
     window.print = () => { throw Error('Unexpected physical/browser print in finance UI test'); };
   }, { user, token, tenant });
@@ -57,7 +57,7 @@ async page => {
       data = { sale_id: s.sale_id, paid_amount: s.paid_amount, due: s.due };
     } else if (name === 'get_sale_settlement') {
       const s = sales.find(s => s.sale_id === args.p_sale_id);
-      data = s ? { sale_id: s.sale_id, tracking: true, total: s.total_amount, paid: s.paid_amount, due: s.due, paid_at_checkout: s.paid_amount, payments: [], payment_count: 0, receipt_payments: s.payments.map(p => ({ ...p, wallet_name: wallets.find(w => w.wallet_id === p.wallet_id).name, method: wallets.find(w => w.wallet_id === p.wallet_id).kind })) } : { tracking: false, paid: 1500, due: 0, total: 1500, payment_count: 0, payments: [], receipt_payments: [] };
+      data = s ? { sale_id: s.sale_id, total: s.total_amount, paid: s.paid_amount, due: s.due, paid_at_checkout: s.paid_amount, payments: [], payment_count: 0, receipt_payments: s.payments.map(p => ({ ...p, wallet_name: wallets.find(w => w.wallet_id === p.wallet_id).name, method: wallets.find(w => w.wallet_id === p.wallet_id).kind })) } : { paid: 1500, due: 0, total: 1500, payment_count: 0, payments: [], receipt_payments: [] };
     } else if (name === 'sales') data = url.searchParams.has('sale_id') ? sales.find(s => s.sale_id === url.searchParams.get('sale_id').replace('eq.', '')) : sales;
     else if (name === 'get_dashboard_stats') data = { todayRevenue: 0, todayMovements: 0, totalCustomers: 1 };
     await route.fulfill({ json: data });

@@ -1,4 +1,4 @@
-// Execute with playwright-cli run-code --filename=tests/purchase.browser.cjs
+// Execute with playwright-cli run-code --filename=tests/purchase-recovery.browser.cjs
 // against a local Vite server. Uses isolated API fixtures, never real Auth/data.
 async page => {
   const appUrl=new URL(page.url()).origin;
@@ -14,8 +14,8 @@ async page => {
   const token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.'+payload+'.Zml4dHVyZQ';
   await page.context().addInitScript(({user,token})=>{
     localStorage.setItem('lpg-theme','light');
-    localStorage.setItem('sb-api-auth-token',JSON.stringify({access_token:token,refresh_token:'fixture-refresh',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user}));
-    localStorage.setItem('sb-127-auth-token',localStorage.getItem('sb-api-auth-token'));
+    localStorage.setItem('sb-api.lpg.144.79.249.4.sslip.io-auth-token',JSON.stringify({access_token:token,refresh_token:'fixture-refresh',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user}));
+    localStorage.setItem('sb-127.0.0.1:54321-auth-token',localStorage.getItem('sb-api.lpg.144.79.249.4.sslip.io-auth-token'));
   },{user,token});
   const purchases=[];
   const creationBodies=[];
@@ -106,13 +106,11 @@ async page => {
         if(failDispatch){failDispatch=false;await route.fulfill({status:400,json:{message:'Not enough empty cylinders',code:'P0001',details:JSON.stringify([{item_id:sku,product:'Beximco LPG 12 kg 22mm',required:4,available:2,missing:2}])}});return;}
         const p=purchases.find(p=>p.purchase_id===params.p_purchase_id);p.status='in_transit';p.dispatched_at=now;p.revision++;record(p,'dispatched',{empty_cylinders:p.items.reduce((s,i)=>s+i.empty_dispatched,0)});break;
       }
-      case 'pay_purchase': { calls.push(path);const p=purchases.find(p=>p.purchase_id===params.p_purchase_id);p.payment_status='paid';p.paid_at=now;p.revision++;record(p,'paid',{total_cost:p.total_cost});break; }
       case 'receive_purchase': {
         calls.push(path);const p=purchases.find(p=>p.purchase_id===params.p_purchase_id);
         for(const i of p.items)i.received_quantity=i.quantity;
         p.status='received';p.received_at=now;p.receipt_notes='';p.revision++;recalculate(p);record(p,'received',{notes:p.receipt_notes});break;
       }
-      case 'cancel_purchase': { const p=purchases.find(p=>p.purchase_id===params.p_purchase_id);p.status='cancelled';p.revision++;record(p,'cancelled');break; }
       case 'create_custom_transit': { const d=params.p_payload; transits.unshift({tenant_id:tenant,transit_id:crypto.randomUUID(),truck_id:d.truck_id,truck_name:'Dhaka Delivery Truck',purchase_id:null,status:'active',transport_fee:d.fee,client_name:d.client_name,destination:d.destination,description:d.description,driver_cost:0,helper_cost:0,oil_cost:0,others_cost:0,additional_costs:[],total_cost:0,revision:1,closed_at:null,created_at:now,updated_at:now});break; }
       case 'save_transit_costs': {const t=transits.find(t=>t.transit_id===params.p_transit_id);Object.assign(t,params.p_costs);t.total_cost=t.driver_cost+t.helper_cost+t.oil_cost+t.others_cost+t.additional_costs.reduce((s,c)=>s+c.amount,0);t.revision++;break;}
       case 'transition_transit': {const t=transits.find(t=>t.transit_id===params.p_transit_id);if(params.p_action==='close')t.closed_at=now;else t.status=params.p_action==='complete'?'completed':'cancelled';t.revision++;break;}

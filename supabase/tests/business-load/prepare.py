@@ -1,4 +1,4 @@
-"""Disposable Azure customer-directory load fixture. Never targets an existing DB.
+"""Disposable VPS customer-directory load fixture. Never targets an existing DB.
 
 Run on the established development VPS through SSH, with source staged separately.
 Creates a fresh lpg_load_* database; preserves live roles and all other databases.
@@ -74,7 +74,7 @@ if args.action == 'init':
             sql((args.source / 'supabase/tests/finance-legacy.before.sql').read_text())
         if 'purchase_wallet_lifecycle' in migration.name:
             sql((args.source / 'supabase/tests/purchase-wallets-legacy.before.sql').read_text())
-        sql(migration.read_text())
+        sql('begin;\n'+migration.read_text()+'\ncommit;' if 'canonical_development_model' in migration.name else migration.read_text())
         if 'multi_wallet_finance' in migration.name:
             sql((args.source / 'supabase/tests/finance-legacy.after.sql').read_text())
         if 'purchase_wallet_lifecycle' in migration.name:
@@ -132,18 +132,20 @@ elif args.action == 'seed':
           insert into public.role_permissions(tenant_id,role_id,permission_id)
             select '{tenant}','{role}',permission_id from public.permissions;
           insert into public.user_roles(tenant_id,user_id,role_id) values('{tenant}','{user}','{role}');
-          insert into public.items(tenant_id,item_id,brand,size_kg)
-            select '{tenant}',('d0000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'Load product '||n,12
+          insert into public.lpg_brands(tenant_id,brand_id,brand_name)
+            select '{tenant}',('d0000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'Load product '||n from generate_series(1,2) n;
+          insert into public.items(tenant_id,item_id,brand_id,size_kg)
+            select '{tenant}',('d0000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,('d0000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,12
             from generate_series(1,2) n;
           insert into public.customers(tenant_id,customer_id,name,phone,tier)
             select '{tenant}',('e0000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
               'Business {number} Customer '||lpad(n::text,4,'0'),'019'||lpad(n::text,8,'0'),
               case when n%3=0 then 'wholesale' else 'retail' end from generate_series(1,2000) n;
           insert into public.sales(tenant_id,sale_id,customer_id,status,sale_tier,subtotal,total_amount,
-            payment_tracking,paid_amount,paid_at_checkout,created_by,created_at)
+            paid_amount,paid_at_checkout,created_by,created_at)
             select '{tenant}',('f0000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
               ('e0000000-0000-4000-8000-'||lpad((1+(n-1)%2000)::text,12,'0'))::uuid,
-              'completed','retail',1000+n%100,1000+n%100,true,500,500,'{user}',
+              'completed','retail',1000+n%100,1000+n%100,500,500,'{user}',
               '2026-01-01 00:00:00+06'::timestamptz+(n%90)*interval '1 day'
             from generate_series(1,{manifest['sales_per_business']}) n;
           insert into public.sale_items(tenant_id,sale_item_id,sale_id,item_id,type,quantity,unit_price,line_total,created_at)

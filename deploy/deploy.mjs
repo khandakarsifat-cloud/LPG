@@ -3,16 +3,17 @@ import { existsSync, readFileSync, readdirSync, lstatSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseEnv } from 'node:util';
+import { validatePWA } from './pwa.mjs';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const services = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'caddy'];
 export const workerURL = 'https://floral-dew-443b.khandakarsifat.workers.dev';
-const backendNames = ['AZURE_HOST', 'AZURE_USER', 'AZURE_PORT', 'AZURE_SSH_KEY', 'AZURE_PROJECT_DIR', 'AZURE_COMPOSE_PROJECT', 'PRODUCTION_API_URL'];
+const backendNames = ['VPS_HOST', 'VPS_USER', 'VPS_PORT', 'VPS_SSH_KEY', 'VPS_PROJECT_DIR', 'VPS_COMPOSE_PROJECT', 'PRODUCTION_API_URL'];
 const frontendNames = ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
 const redactions = new Set();
 
 export function cleanEnv(source = process.env) {
-  const names = new Set(['path', 'systemroot', 'windir', 'temp', 'tmp', 'userprofile', 'home', 'appdata', 'localappdata', 'comspec', 'pathext', 'lang', 'programfiles', 'programfiles(x86)', 'programw6432', 'programdata', 'allusersprofile']);
+  const names = new Set(['path', 'systemroot', 'windir', 'temp', 'tmp', 'userprofile', 'home', 'appdata', 'localappdata', 'comspec', 'pathext', 'lang', 'programfiles', 'programfiles(x86)', 'programw6432', 'programdata', 'allusersprofile', 'ssh_auth_sock']);
   return Object.fromEntries(Object.entries(source).filter(([name]) => names.has(name.toLowerCase())));
 }
 
@@ -33,8 +34,8 @@ function run(command, args, { env = cleanEnv(), input, quiet = false, binary = f
 
 export function validateAPI(value) {
   const url = new URL(value);
-  if (url.origin !== 'https://api.lpg.20.40.48.3.sslip.io' || url.pathname !== '/' || url.search || url.hash || url.username || url.password) {
-    throw new Error('Production API must be https://api.lpg.20.40.48.3.sslip.io (the existing Azure gateway).');
+  if (url.origin !== 'https://api.lpg.144.79.249.4.sslip.io' || url.pathname !== '/' || url.search || url.hash || url.username || url.password) {
+    throw new Error('Production API must be https://api.lpg.144.79.249.4.sslip.io (the primary VPS gateway).');
   }
   return url.origin;
 }
@@ -45,7 +46,7 @@ export function validateAnon(key) {
     const claims = JSON.parse(Buffer.from(payload, 'base64url').toString());
     if (!header || !signature || extra || claims.role !== 'anon' || (claims.exp && claims.exp * 1000 <= Date.now())) throw new Error();
   } catch {
-    throw new Error('VITE_SUPABASE_ANON_KEY must be the existing, unexpired Azure anon JWT; secret/service_role keys are prohibited.');
+    throw new Error('VITE_SUPABASE_ANON_KEY must be the existing, unexpired VPS anon JWT; secret/service_role keys are prohibited.');
   }
 }
 
@@ -54,17 +55,18 @@ export function config(kind) {
   if (!existsSync(file)) throw new Error(`Missing deploy/.env.${kind}. Copy deploy/.env.${kind}.example and populate it.`);
   const values = parseEnv(readFileSync(file, 'utf8'));
   const names = kind === 'backend' ? backendNames : frontendNames;
-  const missing = names.filter(name => !values[name]?.trim() || /^(replace-|<)/.test(values[name]));
+  const missing = names.filter(name => name !== 'VPS_SSH_KEY' && (!values[name]?.trim() || /^(replace-|<)/.test(values[name])));
   if (missing.length) throw new Error(`Missing values in deploy/.env.${kind}: ${missing.join(', ')}`);
   const extra = Object.keys(values).filter(name => !names.includes(name));
   if (extra.length) throw new Error(`Unsupported variables in deploy/.env.${kind}: ${extra.join(', ')}. Backend secrets stay on the VPS.`);
   if (kind === 'backend') {
-    for (const name of ['AZURE_HOST', 'AZURE_USER', 'AZURE_COMPOSE_PROJECT']) {
+    for (const name of ['VPS_HOST', 'VPS_USER', 'VPS_COMPOSE_PROJECT']) {
       if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(values[name])) throw new Error(`Invalid ${name}.`);
     }
-    if (!/^\d+$/.test(values.AZURE_PORT) || Number(values.AZURE_PORT) < 1 || Number(values.AZURE_PORT) > 65535) throw new Error('Invalid AZURE_PORT.');
-    if (!/^\/[a-zA-Z0-9_/-]+$/.test(values.AZURE_PROJECT_DIR) || ['/', '/opt', '/home', '/tmp'].includes(values.AZURE_PROJECT_DIR) || values.AZURE_PROJECT_DIR.includes('//')) throw new Error('AZURE_PROJECT_DIR must be a specific absolute Linux project directory.');
-    if (!existsSync(values.AZURE_SSH_KEY)) throw new Error('AZURE_SSH_KEY does not exist. Use the existing private key; do not upload it.');
+    if (!/^\d+$/.test(values.VPS_PORT) || Number(values.VPS_PORT) < 1 || Number(values.VPS_PORT) > 65535) throw new Error('Invalid VPS_PORT.');
+    if (!/^\/[a-zA-Z0-9_/-]+$/.test(values.VPS_PROJECT_DIR) || ['/', '/opt', '/home', '/tmp'].includes(values.VPS_PROJECT_DIR) || values.VPS_PROJECT_DIR.includes('//')) throw new Error('VPS_PROJECT_DIR must be a specific absolute Linux project directory.');
+    if (values.VPS_HOST !== '144.79.249.4') throw new Error('VPS_HOST must be the primary backend 144.79.249.4.');
+    if (values.VPS_SSH_KEY && !existsSync(values.VPS_SSH_KEY)) throw new Error('VPS_SSH_KEY does not exist. Leave empty to use the SSH agent.');
     validateAPI(values.PRODUCTION_API_URL);
   } else {
     if (!/^[a-f0-9]{32}$/i.test(values.CLOUDFLARE_ACCOUNT_ID)) throw new Error('CLOUDFLARE_ACCOUNT_ID must be the existing account ID (32 hexadecimal characters).');
@@ -78,19 +80,25 @@ export function config(kind) {
 
 export function validateGraph(model) {
   const enabled = Object.entries(model.services).filter(([, service]) => !service.profiles?.length).map(([name]) => name);
-  if (enabled.length !== services.length || enabled.some(name => !services.includes(name))) throw new Error('Azure Compose must enable exactly the ten production services, including Studio/meta.');
+  if (enabled.length !== services.length || enabled.some(name => !services.includes(name))) throw new Error('VPS Compose must enable exactly the ten production services, including Studio/meta.');
   for (const name of services) {
     for (const dependency of Object.keys(model.services[name].depends_on ?? {})) {
       if (!services.includes(dependency)) throw new Error(`${name} pulls in excluded service ${dependency}.`);
     }
     if (model.services[name].build) throw new Error(`Production service ${name} unexpectedly builds an image.`);
+    for (const port of model.services[name].ports ?? []) {
+      if (name === 'caddy') {
+        if (port.host_ip !== '0.0.0.0' || (port.protocol ?? 'tcp') !== 'tcp'
+          || Number(port.target) !== Number(port.published) || ![80, 443].includes(Number(port.published))) throw new Error('Only Caddy TCP 80/443 may be public.');
+      } else if (!['127.0.0.1', '::1'].includes(port.host_ip)) throw new Error(`Internal service publicly published: ${name}.`);
+    }
   }
   for (const [key, name] of [['lpg_db_data', 'lpg_db_data'], ['lpg_storage_data', 'lpg_storage_data'], ['db-config', 'lpg_db-config']]) {
     if (!model.volumes[key]?.external || model.volumes[key].name !== name) throw new Error(`Persistent volume ${key} changed; deployment refused.`);
   }
 }
 
-export function backendFiles() {
+export function backendFiles(bootstrap = false) {
   const migrations = readdirSync(resolve(root, 'supabase/migrations')).filter(name => name.endsWith('.sql')).sort();
   const versions = new Set();
   for (const name of migrations) {
@@ -98,9 +106,11 @@ export function backendFiles() {
     if (!match || versions.has(match[1])) throw new Error(`Invalid or duplicate migration version: ${name}`);
     versions.add(match[1]);
   }
-  const files = ['compose.yml', 'compose.azure.yml', 'deploy/Caddyfile', 'deploy/backend.py',
+  const files = ['compose.yml', 'compose.vps.yml', 'deploy/Caddyfile', 'deploy/backend.py', 'deploy/backup.py', 'deploy/restore-check.py',
     ...readdirSync(resolve(root, 'supabase/docker/volumes/api/envoy')).filter(name => /\.(yaml|sh)$/.test(name)).map(name => `supabase/docker/volumes/api/envoy/${name}`),
-    ...migrations.map(name => `supabase/migrations/${name}`)];
+    ...migrations.map(name => `supabase/migrations/${name}`),
+    ...(bootstrap ? ['.env.example', 'deploy/bootstrap.py', 'deploy/docker-firewall.sh',
+      ...readdirSync(resolve(root, 'supabase/docker/volumes/db')).filter(name => name.endsWith('.sql')).map(name => `supabase/docker/volumes/db/${name}`)] : [])];
   for (const file of files) if (!lstatSync(resolve(root, file)).isFile()) throw new Error(`Deployment files must be regular files: ${file}`);
   return files;
 }
@@ -109,11 +119,11 @@ function checkBackend() {
   backendFiles();
   try {
     // Synthetic placeholders only: never render the private development .env.
-    const output = run('docker', ['compose', '--env-file', '.env.example', '-f', 'compose.yml', '-f', 'compose.azure.yml', 'config', '--format', 'json'], {
-      env: { ...cleanEnv(), API_DOMAIN: 'api.lpg.20.40.48.3.sslip.io' }, quiet: true,
+    const output = run('docker', ['compose', '--env-file', '.env.example', '-f', 'compose.yml', '-f', 'compose.vps.yml', 'config', '--format', 'json'], {
+      env: { ...cleanEnv(), API_DOMAIN: 'api.lpg.144.79.249.4.sslip.io' }, quiet: true,
     });
     validateGraph(JSON.parse(output));
-    console.log('Azure Compose validated: ten production services, safe dependencies and external data volumes.');
+    console.log('VPS Compose validated: ten production services, safe dependencies and external data volumes.');
   } catch (error) {
     if (error.message?.includes('Cannot run docker: ENOENT')) {
       console.log('Local docker CLI not found; Compose validation will be enforced remotely by the VPS updater.');
@@ -173,29 +183,34 @@ export function buildFrontend(values) {
   run(process.execPath, ['node_modules/typescript/bin/tsc', '-b'], { env });
   run(process.execPath, ['deploy/frontend-build.mjs'], { env: { ...env, VITE_SUPABASE_URL: validateAPI(values.VITE_SUPABASE_URL), VITE_SUPABASE_ANON_KEY: values.VITE_SUPABASE_ANON_KEY } });
   if (!existsSync(resolve(root, 'dist/index.html'))) throw new Error('Production build did not generate dist/index.html.');
+  validatePWA(resolve(root, 'dist'));
   wrangler(values, true);
 }
 
 export function shellQuote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }
 
-async function deployBackend(values, approval) {
-  const files = backendFiles();
+async function deployBackend(values, approval, bootstrap = false) {
+  const files = backendFiles(bootstrap);
   const archive = run('tar', ['-cf', '-', ...files], { quiet: true, binary: true });
   // tar bytes must remain binary on Windows.
-  const sshArgs = ['-i', values.AZURE_SSH_KEY, '-p', values.AZURE_PORT, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=15', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3', `${values.AZURE_USER}@${values.AZURE_HOST}`];
-  const command = `umask 077; stage=$(mktemp -d /tmp/lpg-deploy.XXXXXX) || exit 1; tar -xf - -C "$stage" && sudo -n python3 "$stage/deploy/backend.py" ${shellQuote(values.AZURE_PROJECT_DIR)} "$stage" ${shellQuote(values.AZURE_COMPOSE_PROJECT)} ${shellQuote(validateAPI(values.PRODUCTION_API_URL))} ${shellQuote(approval)}; result=$?; rm -rf -- "$stage"; exit "$result"`;
+  const sshArgs = [...(values.VPS_SSH_KEY ? ['-i', values.VPS_SSH_KEY] : []), '-p', values.VPS_PORT, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=15', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3', `${values.VPS_USER}@${values.VPS_HOST}`];
+  const script = bootstrap ? 'bootstrap.py' : 'backend.py';
+  const command = `umask 077; stage=$(mktemp -d /tmp/lpg-deploy.XXXXXX) || exit 1; tar -xf - -C "$stage" && sudo -n python3 -B "$stage/deploy/${script}" ${shellQuote(values.VPS_PROJECT_DIR)} "$stage" ${shellQuote(values.VPS_COMPOSE_PROJECT)} ${shellQuote(validateAPI(values.PRODUCTION_API_URL))} ${shellQuote(approval)}; result=$?; rm -rf -- "$stage"; exit "$result"`;
   run('ssh', [...sshArgs, command], { input: archive });
   // The updater verifies public Auth/REST/Storage with the VPS anon key and
   // checks the dashboard login. Bare health requests are gateway-protected.
   // Frontend/all also checks these endpoints from Windows with its public key.
-  console.log('Azure deployment and public HTTPS health check passed.');
+  console.log('VPS deployment and public HTTPS health check passed.');
 }
 
 export async function main(args = process.argv.slice(2)) {
   const [target, ...flags] = args;
-  if (!['backend', 'frontend', 'all'].includes(target) || flags.some(flag => flag !== '--check' && !/^--approve-migrations=(\d{14}(,\d{14})*)$/.test(flag))) throw new Error('Usage: deploy.mjs backend|frontend|all [--check] [--approve-migrations=version,...]');
+  if (!['backend', 'frontend', 'all'].includes(target) || flags.some(flag => !['--check', '--bootstrap'].includes(flag) && !/^--approve-migrations=(\d{14}(,\d{14})*)$/.test(flag))) throw new Error('Usage: deploy.mjs backend|frontend|all [--check] [--bootstrap] [--approve-migrations=version,...]');
   if (flags.filter(flag => flag.startsWith('--approve-migrations=')).length > 1) throw new Error('Supply migration approval once.');
   const check = flags.includes('--check');
+  const bootstrap = flags.includes('--bootstrap');
+  if (bootstrap && target !== 'backend') throw new Error('--bootstrap applies only to backend. Verify the backend before publishing the frontend.');
+  if (bootstrap) backendFiles(true);
   const approval = flags.find(flag => flag.startsWith('--approve-migrations='))?.split('=')[1] ?? '';
   if (check && approval) throw new Error('--check cannot be combined with migration approval.');
   if (target === 'frontend' && approval) throw new Error('Migration approval applies only to backend/all.');
@@ -206,7 +221,7 @@ export async function main(args = process.argv.slice(2)) {
   if (frontend) buildFrontend(frontend);
   if (check) { console.log('Local validation passed. No SSH/API calls or publishing performed.'); return; }
   if (frontend) await checkRemoteWorker(frontend);
-  if (backend) await deployBackend(backend, approval);
+  if (backend) await deployBackend(backend, approval, bootstrap);
   if (frontend) {
     await checkPublicAPI(validateAPI(frontend.VITE_SUPABASE_URL), frontend.VITE_SUPABASE_ANON_KEY);
     wrangler(frontend, false);

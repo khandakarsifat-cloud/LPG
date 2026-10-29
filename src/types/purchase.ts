@@ -42,7 +42,6 @@ export interface Purchase {
   received_at: string | null;
   paid_at: string | null;
   revision: number;
-  legacy_record: boolean;
   transport_funded?: number;
   paid_amount?: number;
   refund_due?: number;
@@ -66,11 +65,11 @@ export interface PurchaseRefundObligation {
 
 export interface PurchaseSettlement {
   total: number; paid: number; due: number; refund_due: number; refunded: number;
-  financial_closed_at: string | null; can_cancel: boolean; legacy: boolean; financial_locked: boolean;
+  financial_closed_at: string | null; can_cancel: boolean; financial_locked: boolean;
   obligations: PurchaseRefundObligation[];
   internal_wallet?: PaymentWallet;
   payment_count: number;
-  payments: { transaction_id: string; wallet_name: string; method: string; amount: number; type: string; created_at: string; operation_id: string | null; description: string; reference: string | null; component: string | null; actor: string | null; obligation_id: string | null }[];
+  payments: { transaction_id: string; purchase_payment_id?: string | null; wallet_name: string; method: string; amount: number; type: string; created_at: string; operation_id: string | null; description: string; reference: string | null; component: string | null; actor: string | null; obligation_id: string | null }[];
 }
 
 export interface PurchaseLinePayload {
@@ -102,6 +101,7 @@ export interface PurchaseActivity {
   actor_name: string;
   created_at: string;
   details: Record<string, unknown>;
+  wallet_entries?: PurchaseSettlement['payments'];
 }
 
 export const PURCHASE_STATUS_LABELS: Record<PurchaseStatus, string> = {

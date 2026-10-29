@@ -1,0 +1,16 @@
+.sales-page .purchase-list-summary{flex:1;min-width:0}.sales-page .purchase-list-summary dd{white-space:nowrap}
+.sales-page .purchase-filter-extras{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1.2fr) auto}
+.sale-card small{display:block;color:var(--text-muted);font-size:var(--font-xs);font-weight:400;overflow-wrap:anywhere}.sale-card .purchase-card-header strong{overflow-wrap:anywhere}
+.sale-money strong{font-variant-numeric:tabular-nums}
+.sale-bottle-dues{padding-top:.4rem}.sale-bottle-dues small{color:var(--warning)}
+@media(max-width:1100px){.sales-page .purchase-filter-extras{grid-template-columns:repeat(2,minmax(0,1fr))}.sales-page .purchase-filter-extras .purchase-date-range{grid-column:1/-1}.sales-page .purchase-filter-extras>.btn{justify-self:start}}
+@media(max-width:600px){
+ .sales-page .purchases-header{gap:.6rem}
+ .sales-page .purchase-list-summary{grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:.5rem}
+ .sales-page .purchase-list-summary>div{min-width:0}
+ .sales-page .purchase-list-summary dd{font-size:1rem;white-space:normal}
+ .sales-page .purchase-filter-extras>.purchase-select{min-width:0}
+ /* Reserve the action's height above the amount, rather than beside its text. */
+ .sales-page .purchase-list-summary>div:nth-child(2){padding-right:.75rem}
+ .sales-page .purchase-list-summary>div:nth-child(2) dt{padding-right:2rem;min-height:1.625rem}
+}

@@ -7,7 +7,7 @@ async page => {
   const user={id:id(2),aud:'authenticated',role:'authenticated',email:'pages@example.invalid',app_metadata:{},user_metadata:{},created_at:now};
   const payload=btoa(JSON.stringify({sub:user.id,exp:Math.floor(Date.now()/1000)+86400,aud:'authenticated',role:'authenticated'})).replaceAll('=','').replaceAll('+','-').replaceAll('/','_');
   const token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.'+payload+'.Zml4dHVyZQ';
-  await page.context().addInitScript(({user,token})=>{const session=JSON.stringify({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user});for(const host of ['127','api','localhost'])localStorage.setItem(`sb-${host}-auth-token`,session);},{user,token});
+  await page.context().addInitScript(({user,token})=>{const session=JSON.stringify({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user});for(const host of ['api.lpg.144.79.249.4.sslip.io','127.0.0.1:54321','localhost:54321','127.0.0.1:55421'])localStorage.setItem(`sb-${host}-auth-token`,session);},{user,token});
   const brands=Array.from({length:14},(_,n)=>({tenant_id:tenant,brand_id:id(10+n),brand_name:`Brand ${n+1}`,is_active:true}));
   const items=Array.from({length:30},(_,n)=>({tenant_id:tenant,item_id:id(100+n),brand_id:brands[Math.floor(n/15)].brand_id,brand:brands[Math.floor(n/15)].brand_name,size_kg:5+n%15,mouth_size:'22mm',filled_quantity:100,empty_quantity:100,lpg_brands:brands[Math.floor(n/15)]}));
   const purchaseItems=items.slice(0,7).map((item,n)=>({...item,purchase_item_id:id(300+n),brand_name:brands[0].brand_name,type:'refill',quantity:2,empty_dispatched:2,unit_price:10,billed_quantity:2,received_quantity:null,line_total:20}));
@@ -20,6 +20,7 @@ async page => {
   await page.route('**/auth/v1/**',r=>r.fulfill({json:user}));
   const serveFixture=async route=>{
     const url=new URL(route.request().url()),name=url.pathname.split('/').pop();
+    const args=route.request().method()==='POST'?route.request().postDataJSON():{};
     let data=[];
     if(name==='user_profiles')data=[{tenant_id:tenant,full_name:'Page Operator',email:user.email,tenants:{business_name:'Responsive verification'}}];
     else if(name==='get_my_permissions')data=['customers:view','customers:manage','finance:view','dashboard:view','pos:sell','sales:view','receipts:print','purchases:view','purchases:manage','inventory:view','inventory:manage','employees:view','employees:manage','payroll:view','payroll:pay','logistics:view','logistics:manage','settings:manage','gas_plants:view','gas_plants:manage'];
@@ -36,9 +37,12 @@ async page => {
     else if(name==='get_purchase_directory')data=purchasePage(route.request().postDataJSON());
     else if(name==='get_purchase_overview')data=purchaseOverview();
     else if(name==='get_purchases_by_ids')data=purchases.filter(p=>route.request().postDataJSON().p_ids.includes(p.purchase_id));
-    else if(name==='list_employees')data=employees;
-    else if(name==='list_employee_payments')data=payments;
-    else if(name==='list_employee_payment_categories')data=[{category_id:id(950),code:'bonus',name:'Bonus',category_kind:'bonus',is_active:true}];
+    else if(name==='get_employee_directory')data={entries:employees.slice(args.p_offset,args.p_offset+args.p_limit),total:employees.length};
+    else if(name==='get_employee_overview')data={employees:employees.length,active:employees.length,types:['Worker'],prepared:0,earned:0,paid:0,advance_applied:0,outstanding:0};
+    else if(name==='get_employee_profile')data={employee:{...employees.find(e=>e.employee_id===args.p_employee_id),payroll_start:now.slice(0,10),revision:1},terms:[],financial:{paid:1000,outstanding:0},advances:[],prepared_through:null};
+    else if(name==='get_employee_periods')data={entries:[],total:0};
+    else if(name==='get_employee_activity')data={entries:payments.slice(args.p_offset,args.p_offset+args.p_limit).map(p=>({id:p.payment_id,employee_id:p.employee_id,employee_name:p.employee_name,kind:'payment',description:'Bonus fixture',date:p.payment_date,created_at:p.created_at,actor:'Owner',amount:p.amount,details:{source_snapshot:{wallet_evidence:'unattributed'}},wallets:[],reversible:false})),total:payments.length};
+    else if(name==='get_transit_payroll')data={driver_paid:0,helper_paid:0,paid:0,payments:[]};
     else if(name==='list_gas_plants')data=plants;
     return route.fulfill({json:data});
   };
@@ -66,23 +70,23 @@ async page => {
   await page.goto(origin+'/?compact-pos-check=1#/pos');await page.locator('.pos-product-card').first().waitFor();await page.evaluate(()=>document.fonts.ready);
   await page.emulateMedia({reducedMotion:'reduce'});
   const results=[],failures=[];
-  for(const [width,height,collapsed,columns] of [[1360,740,true,4],[1350,734,false,3],[1100,760,false,2],[1280,800,false,3],[1280,600,true,4],[834,1112,true,2],[768,600,false,2]]){
+  for(const [width,height,collapsed] of [[1360,740,true],[1350,734,false],[1100,760,false],[1280,800,false],[1280,600,true],[834,1112,true],[768,600,false]]){
     await page.setViewportSize({width,height});await page.evaluate(value=>localStorage.setItem('lpg-sidebar-collapsed',String(value)),collapsed);await page.reload();await page.locator('.pos-product-card').first().waitFor();
-    const data=await page.evaluate(()=>{const box=e=>e.getBoundingClientRect();const cards=[...document.querySelectorAll('.pos-product-card')],first=box(cards[0]);const checkout=box(document.querySelector('.pos-side-panel'));const button=box([...document.querySelectorAll('button')].find(e=>e.textContent.includes('Complete Checkout')));return {columns:cards.filter(e=>Math.abs(box(e).top-first.top)<2).length,cardWidth:first.width,cardHeight:first.height,checkoutWidth:checkout.width,checkoutTop:checkout.top,productsBottom:box(document.querySelector('.pos-products')).bottom,checkoutBottom:checkout.bottom,buttonBottom:button.bottom,overlap:[...document.querySelectorAll('.pos-item-row')].some(e=>box(e.querySelector('.pos-option-label')).right+3>box(e.querySelector('.pos-option-controls')).left),overflow:document.querySelector('.page-content').scrollWidth>document.querySelector('.page-content').clientWidth+2};});
+    const data=await page.evaluate(()=>{const box=e=>e.getBoundingClientRect();const cards=[...document.querySelectorAll('.pos-product-card')],first=box(cards[0]);const checkout=box(document.querySelector('.pos-side-panel'));const button=box([...document.querySelectorAll('button')].find(e=>e.textContent.includes('Complete Checkout')));return {columns:cards.filter(e=>Math.abs(box(e).top-first.top)<2).length,cardWidth:first.width,cardHeight:first.height,checkoutWidth:checkout.width,checkoutTop:checkout.top,productsBottom:box(document.querySelector('.pos-products')).bottom,checkoutBottom:checkout.bottom,buttonBottom:button.bottom,overlap:[...document.querySelectorAll('.pos-item-row')].some(e=>box(e.querySelector('.pos-option-label')).right+3>box(e.querySelector('.pos-option-controls')).left),split:(document.querySelector('.pos-side-panel') && getComputedStyle(document.querySelector('.pos-side-panel')).position==='sticky'),overflow:document.querySelector('.page-content').scrollWidth>document.querySelector('.page-content').clientWidth+2};});
     results.push({width,height,collapsed,...data});
-    const misplaced=width>=1200 ? data.checkoutWidth>281||data.checkoutBottom>height||data.buttonBottom>height : data.checkoutTop<data.productsBottom||data.checkoutWidth>321;
-    if(data.columns!==columns||data.cardWidth>281||data.cardHeight>220||misplaced||data.overlap||data.overflow)failures.push(results.at(-1));
+    const misplaced=data.split ? data.checkoutWidth>281||data.checkoutBottom>height||data.buttonBottom>height : data.checkoutTop<data.productsBottom||data.checkoutWidth>321;
+    if(data.columns<2||data.cardWidth>281||data.cardHeight>220||misplaced||data.overlap||data.overflow)failures.push(results.at(-1));
   }
   const mobile=[];
   for(const [width,height] of [[320,568],[390,844],[597,840],[800,1100]]){
     await page.setViewportSize({width,height});
     for(const [path,selector] of [['/','.stats-grid'],['/inventory','.inv-hub-bar'],['/pos','.pos-workspace']]){
       await page.goto(origin+'/#'+path);await page.locator(selector).first().waitFor();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-      const data=await page.evaluate(({selector,path})=>{const el=document.querySelector(selector),b=el.getBoundingClientRect();const first=el.querySelector('.stat-card');return {width:b.width,height:b.height,statWidth:first?.getBoundingClientRect().width,statHeight:first?.getBoundingClientRect().height,overflow:document.querySelector('.page-content').scrollWidth>document.querySelector('.page-content').clientWidth+2,columns:path==='/pos'?getComputedStyle(document.querySelector('.pos-products-grid')).gridTemplateColumns.split(' ').length:null};},{selector,path});
+      const data=await page.evaluate(({selector,path})=>{const el=document.querySelector(selector),b=el.getBoundingClientRect();const first=el.querySelector('.stat-card');return {width:b.width,height:b.height,statWidth:first?.getBoundingClientRect().width,statHeight:first?.getBoundingClientRect().height,split:(document.querySelector('.pos-side-panel') && getComputedStyle(document.querySelector('.pos-side-panel')).position==='sticky'),overflow:document.querySelector('.page-content').scrollWidth>document.querySelector('.page-content').clientWidth+2,columns:path==='/pos'?getComputedStyle(document.querySelector('.pos-products-grid')).gridTemplateColumns.split(' ').length:null};},{selector,path});
       mobile.push({width,height,path,...data});
-      if(data.overflow||(path==='/inventory'&&data.height>145)||(path==='/'&&(data.statWidth>210||data.statHeight>125))||(path==='/pos'&&data.columns!==(width<600?1:2)))failures.push(mobile.at(-1));
+      if(data.overflow||(path==='/inventory'&&data.height>145)||(path==='/'&&(data.statWidth>210||data.statHeight>125))||(path==='/pos'&&(width<600?data.columns!==1:data.columns<2)))failures.push(mobile.at(-1));
     }
   }
   if(failures.length)throw Error(JSON.stringify(failures));
-  return {pos:results,mobileLayouts:mobile.length,checks:'four columns with desktop navigation collapsed, two tablet columns, one phone column, checkout below tablets/phones, bounded desktop checkout, no action overlap',failures};
+  return {pos:results,mobileLayouts:mobile.length,checks:'container-based column count and split/stacked checkout, bounded compact cards, one phone column, no action overlap',failures};
 }

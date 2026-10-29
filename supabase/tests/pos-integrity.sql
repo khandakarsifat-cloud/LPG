@@ -19,8 +19,7 @@ where r.tenant_id in ('c1111111-1111-4111-8111-111111111111', 'd1111111-1111-411
 insert into public.user_roles(tenant_id, user_id, role_id) values
   ('c1111111-1111-4111-8111-111111111111', 'c2222222-2222-4222-8222-222222222222', 'c4444444-4444-4444-8444-444444444444'),
   ('d1111111-1111-4111-8111-111111111111', 'd2222222-2222-4222-8222-222222222222', 'd4444444-4444-4444-8444-444444444444');
-insert into public.items(tenant_id, item_id, brand, size_kg, filled_quantity, empty_quantity)
-  values ('c1111111-1111-4111-8111-111111111111', 'c3333333-3333-4333-8333-333333333333', 'Print test item', 12, 10, 10);
+insert into public.items(tenant_id,item_id,brand_id,size_kg,filled_quantity,empty_quantity) values ('c1111111-1111-4111-8111-111111111111', 'c3333333-3333-4333-8333-333333333333',pg_temp.fixture_brand('c1111111-1111-4111-8111-111111111111', 'Print test item'), 12, 10, 10);
 
 insert into public.customers(tenant_id,customer_id,name,phone,tier) values
  ('c1111111-1111-4111-8111-111111111111','c5555555-5555-4555-8555-555555555555','Saved retail','01700000000','retail'),
@@ -104,8 +103,7 @@ select public.create_pos_sale('01700000008','Rollback',null,null,'retail',0,0,nu
  '[{"item_id":"c3333333-3333-4333-8333-333333333333","type":"package","quantity":1,"unit_price":2400}]',null,'c7777777-7777-4777-8777-777777777777');
 select pg_temp.pos_check((select count(*) from public.sales)=3,'the same request succeeds after a rolled-back accounting failure');
 reset role;
-insert into public.items(tenant_id,item_id,brand,size_kg,filled_quantity,empty_quantity) values
- ('c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333334','Zero-price fixture',5,2,2);
+insert into public.items(tenant_id,item_id,brand_id,size_kg,filled_quantity,empty_quantity) values ('c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333334',pg_temp.fixture_brand('c1111111-1111-4111-8111-111111111111','Zero-price fixture'),5,2,2);
 insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from) values
  ('c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333334','retail','package',0,now()-interval '1 day'),
  ('c1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333334','wholesale','package',900,now()+interval '1 day');
@@ -120,8 +118,7 @@ update public.price_books set effective_to=now()-interval '1 hour' where tenant_
 set local role authenticated;
 select pg_temp.pos_fails('select public.create_pos_sale(''01700000000'',null,null,null,''wholesale'',0,0,null,''[{"item_id":"c3333333-3333-4333-8333-333333333334","type":"package","quantity":1,"unit_price":0}]'',null,gen_random_uuid())','No active selling price');
 reset role;
-insert into public.items(tenant_id,item_id,brand,size_kg,filled_quantity,empty_quantity) values
- ('d1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333333','Other business',12,2,2);
+insert into public.items(tenant_id,item_id,brand_id,size_kg,filled_quantity,empty_quantity) values ('d1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333333',pg_temp.fixture_brand('d1111111-1111-4111-8111-111111111111','Other business'),12,2,2);
 insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from) values
  ('d1111111-1111-4111-8111-111111111111','c3333333-3333-4333-8333-333333333333','retail','package',2300,now()-interval '1 day');
 set local role authenticated;

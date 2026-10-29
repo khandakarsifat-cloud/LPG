@@ -21,14 +21,12 @@ export const CustomersPage = () => {
     const timer = setTimeout(() => setDeferred(filters), 200);
     return () => clearTimeout(timer);
   }, [filters]);
-  const { anchor, grid, pageSize } = useGridPageSize();
-  const [position, setPosition] = useState({ page: 0, size: pageSize });
-  const page = Math.floor(position.page * position.size / pageSize);
-  const setPage = (next: number) => setPosition({ page: next, size: pageSize });
+  const { grid, pageSize } = useGridPageSize();
   const [add, setAdd] = useState(false); const [advanced, setAdvanced] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerSummary>();
-  const overview = useCustomerOverview(); const query = useCustomerDirectory(deferred, page, pageSize);
+  const overview = useCustomerOverview(); const query = useCustomerDirectory(deferred, pageSize);
+  const { page, setPage } = query;
   const set = (next: CustomerFilters) => { setFilters(next); setPage(0); };
   const reset = () => set(defaultCustomerFilters);
   const count = customerActivityFilterCount(filters);
@@ -61,22 +59,21 @@ export const CustomersPage = () => {
       </div>}
     </div>
     <div className="customer-directory-heading"><h2>Customer directory <span>{query.data ? formatBDQty(query.data.total) : ''}</span></h2><small>Sales scope: {scope ? `${deferred.from || 'Start'} – ${deferred.to || 'Any date'} · ${deferred.item_ids === null ? 'all products' : `${deferred.item_ids.length} products`}` : 'all time, all products'}</small></div>
-    <div className="customer-directory-pages"><Pagination page={page} pageSize={pageSize} total={query.data?.total ?? 0} label="customers" onChange={setPage} busy={updating} alwaysVisible /></div>
-    <div className="directory-page-anchor" ref={anchor} />
+    <div className="customer-directory-pages"><Pagination page={query.data?.page ?? page} pageSize={query.data?.pageSize ?? pageSize} total={query.data?.total ?? 0} label="customers" onChange={setPage} busy={updating} alwaysVisible /></div>
     {query.isPending && <div className="customer-empty" role="status">Loading customers…</div>}
     {query.isError && <div className="purchase-error" role="alert">Customers could not be loaded. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></div>}
-    {query.data && <div aria-busy={updating}><div className="customer-grid" ref={grid} aria-busy={updating}>{query.data.entries.map(customer => {
+    <div aria-busy={updating}><div className="customer-grid adaptive-grid" ref={grid} aria-busy={updating}>{query.data?.entries.map(customer => {
       const inactive = !scope && overview.data && new Date(customer.last_transaction_at || customer.created_at) < new Date(`${overview.data.inactive_since}T00:00:00+06:00`);
-      return <button className="customer-card" key={customer.customer_id} onClick={() => { setSelectedCustomer(customer); setCustomerId(customer.customer_id); }} aria-label={`Open ${customerDisplayName(customer)}`}>
+      return <button className="customer-card" key={customer.customer_id} data-customer-id={customer.customer_id} onClick={() => { setSelectedCustomer(customer); setCustomerId(customer.customer_id); }} aria-label={`Open ${customerDisplayName(customer)}`}>
         <span className="customer-card-heading"><span><strong>{customerDisplayName(customer)}</strong>{customer.tier === 'wholesale' && customer.shop_name && <small>{customer.name}</small>}</span><span className={`customer-badge ${customer.tier}`}>{customer.tier === 'wholesale' ? 'Wholesale' : 'Retail'}</span></span>
-        <span className="customer-card-contact"><Phone size={13} />{customer.phone}</span><span className="customer-card-contact"><MapPin size={13} />{customer.address || 'No address saved'}</span>
+        <span className="customer-card-contact"><Phone size={13} /><span>{customer.phone}</span></span><span className="customer-card-contact"><MapPin size={13} /><span>{customer.address || 'No address saved'}</span></span>
         <span className="customer-card-sales"><span className="customer-card-total"><span>Total Sold</span><strong>{formatBDT(customer.total_sold_amount)}</strong><small>Total Due: {formatBDT(customer.total_due)}</small></span><span className="customer-card-split"><span><Droplets size={12} /><b>{formatBDQty(customer.refill)}</b> refill</span><span><Box size={12} /><b>{formatBDQty(customer.package)}</b> package</span></span></span>
         <span className={`customer-last-transaction${inactive ? ' inactive' : ''}`}><Clock3 size={11} />{inactive ? 'No transactions for 2+ months' : customer.last_transaction_at ? `Last sale ${customerDay(customer.last_transaction_at)}` : 'No sales yet'}</span>
       </button>;
     })}</div>
-      {query.isSuccess && !query.data.entries.length && <div className="customer-empty"><Search size={28} /><h3>{hasFilters ? 'No customers match these filters' : query.data.total ? 'No customers on this page' : 'No customers yet'}</h3><p>{hasFilters ? 'Try another name, number or area, or clear your filters.' : 'Add a customer to start tracking their sales history.'}</p>{page > 0 ? <button className="btn btn-secondary" onClick={() => setPage(0)}>Go to first page</button> : hasFilters ? <button className="btn btn-secondary" onClick={reset}>Clear search and filters</button> : null}</div>}
+      {query.isSuccess && query.data && !query.data.entries.length && <div className="customer-empty"><Search size={28} /><h3>{hasFilters ? 'No customers match these filters' : query.data.total ? 'No customers on this page' : 'No customers yet'}</h3><p>{hasFilters ? 'Try another name, number or area, or clear your filters.' : 'Add a customer to start tracking their sales history.'}</p>{page > 0 ? <button className="btn btn-secondary" onClick={() => setPage(0)}>Go to first page</button> : hasFilters ? <button className="btn btn-secondary" onClick={reset}>Clear search and filters</button> : null}</div>}
 
-    </div>}
+    </div>
     {add && <CustomerFormModal onClose={() => setAdd(false)} onSaved={saved => { set(defaultCustomerFilters); setSelectedCustomer(undefined); setCustomerId(saved.customer_id); }} />}
     {advanced && <CustomerFiltersModal filters={filters} onClose={() => setAdvanced(false)} onApply={set} />}
     {customerId && <CustomerDetailsModal customerId={customerId} preview={selectedCustomer?.customer_id === customerId ? selectedCustomer : undefined} onClose={() => setCustomerId(null)} />}

@@ -10,6 +10,7 @@ import { formatBDT } from '../../lib/formatBDT';
 import { PURCHASE_STATUS_LABELS, type Purchase } from '../../types/purchase';
 import './purchases.css';
 import { Pagination } from '../ui/Pagination';
+import { CardProductPreview } from '../ui/CardProductPreview';
 
 export function PurchasesList({ totalPurchases }: { totalPurchases?: number }) {
   const [selected, setSelected] = useState<Purchase | null>(null);
@@ -23,12 +24,9 @@ export function PurchasesList({ totalPurchases }: { totalPurchases?: number }) {
   const resetFilters = () => { setSearch(''); setStatus('all'); setPayment('all'); setFrom(''); setTo(''); setSort('date_desc'); };
   const deferredSearch = useDeferredValue(search);
   const deferred = { search: deferredSearch, status, payment, from, to, sort };
-  const resetKey = JSON.stringify(deferred);
-  const { anchor, grid, pageSize } = useGridPageSize();
-  const [position, setPosition] = useState({ page: 0, size: pageSize, key: resetKey });
-  const page = position.key === resetKey ? Math.floor(position.page * position.size / pageSize) : 0;
-  const setPage = (next: number) => setPosition({ page: next, size: pageSize, key: resetKey });
-  const query = usePurchaseDirectory(deferred, page, pageSize);
+  const { grid, pageSize } = useGridPageSize();
+  const query = usePurchaseDirectory(deferred, pageSize);
+  const { page, setPage } = query;
   const purchases = query.data?.entries ?? [];
   const total = query.data?.total ?? 0;
   return <div className="purchases-list">
@@ -51,24 +49,25 @@ export function PurchasesList({ totalPurchases }: { totalPurchases?: number }) {
     </div>
     {query.isError && <p role="alert" className="purchase-error">Purchases could not be loaded. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></p>}
     <div className="purchase-results-heading"><h2>Purchase orders <span>{total}{hasFilters && totalPurchases !== undefined ? ` of ${totalPurchases}` : ''}</span></h2>
-      <Pagination page={page} pageSize={pageSize} total={total} onChange={setPage} busy={query.isFetching} label="purchases" alwaysVisible />
+      <Pagination page={query.data?.page ?? page} pageSize={query.data?.pageSize ?? pageSize} total={total} onChange={setPage} busy={query.isFetching || search !== deferredSearch} label="purchases" alwaysVisible />
     </div>
-    <div className="directory-page-anchor" ref={anchor} />
     {query.isPending && <div className="purchase-empty" role="status">Loading purchases…</div>}
     {query.isSuccess && !purchases.length && <div className="purchase-empty purchase-list-empty"><Package size={28} /><p>{totalPurchases ? 'No purchases match these filters.' : 'Create a purchase with a destination plant to get started.'}</p>
       {page > 0 && <button className="btn btn-secondary" onClick={() => setPage(0)}>Go to first page</button>}
       {hasFilters && <button className="btn btn-secondary" onClick={resetFilters}>Clear filters</button>}
     </div>}
-    <div className="purchases-grid" ref={grid} aria-busy={query.isFetching}>{purchases.map(purchase => <button key={purchase.purchase_id} className="glass-panel purchase-card purchase-card-button" data-status={purchase.status} data-purchase-id={purchase.purchase_id} onClick={() => setSelected(purchase)}>
-      <div className="purchase-card-header"><div><strong>{purchase.company_name ?? 'Historical purchase'}</strong></div><PurchaseStatuses purchase={purchase} /></div>
+    <div className="purchases-grid adaptive-grid" ref={grid} aria-busy={query.isFetching}>{purchases.map(purchase => <button key={purchase.purchase_id} className="glass-panel purchase-card record-card" data-status={purchase.status} data-purchase-id={purchase.purchase_id} onClick={() => setSelected(purchase)}>
+      <div className="purchase-card-header"><div><strong>{purchase.company_name ?? 'Historical purchase'}</strong><small>{purchase.plant_name}</small></div></div>
+      <div className="record-statuses"><PurchaseStatuses purchase={purchase} /></div>
       <div className="purchase-card-meta"><div className="purchase-info-row"><Calendar size={14} /><span>{new Date(purchase.created_at).toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
         <div className="purchase-info-row"><Truck size={14} /><span>{purchase.truck_name ?? 'Truck not assigned'}</span></div></div>
-      {purchase.items.length > 0 && <div className="purchase-items-list" aria-label="Purchased products">
+      <CardProductPreview label="Purchased products">
         {purchase.items.map(item => <div key={item.purchase_item_id} className="purchase-item-pill">
           <span className="pill-qty">{purchase.status === 'received' ? item.received_quantity ?? item.quantity : item.quantity}×</span>
           <span className="pill-name">{item.size_kg} kg {item.mouth_size} {item.type === 'refill' ? 'refills' : 'new cylinders'}</span>
         </div>)}
-      </div>}
+      </CardProductPreview>
+      <div className="sale-money"><span>{purchase.status === 'cancelled' ? 'Refunded' : 'Paid'} <strong>{formatBDT(Number(purchase.status === 'cancelled' ? purchase.refunded_amount ?? 0 : purchase.paid_amount ?? 0))}</strong></span><span>{purchase.status === 'cancelled' ? 'Refund due' : 'Due'} <strong>{formatBDT(purchase.status === 'cancelled' ? Number(purchase.refund_due ?? 0) : Math.max(0, Number(purchase.total_cost) - Number(purchase.paid_amount ?? 0)))}</strong></span></div>
       <div className="purchase-card-footer"><span className="purchase-total-label">Total purchase cost</span>
         <strong className="purchase-total-value">{formatBDT(Number(purchase.total_cost))}</strong></div>
     </button>)}</div>

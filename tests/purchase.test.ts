@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyPurchaseDraft, filterPurchases, purchaseAccess, purchaseDay, purchaseDraft, purchaseTotals, purchaseEmptyShortages, validatePurchaseDraft, type PurchaseFilters } from '../src/lib/purchase.ts';
+import { emptyPurchaseDraft, purchaseAccess, purchaseDraft, purchaseTotals, purchaseEmptyShortages, validatePurchaseDraft } from '../src/lib/purchase.ts';
 import { inventoryMovementLabel } from '../src/lib/inventoryMovement.ts';
 import type { Purchase } from '../src/types/purchase.ts';
 import { describePurchaseActivity } from '../src/lib/purchaseActivity.ts';
@@ -9,7 +9,7 @@ const purchase: Purchase = {
   purchase_id: 'purchase', plant_id: 'plant', plant_name: 'Plant', brand_id: 'brand', company_name: 'Company',
   truck_id: 'truck', truck_name: 'Truck', status: 'created', payment_status: 'unpaid', commission: 50,
   subtotal: 800, company_payable: 750, transport_cost: 20, labour_cost: 10, total_cost: 780, notes: '', receipt_notes: null,
-  created_at: '2026-10-14T00:00:00Z', dispatched_at: null, received_at: null, paid_at: null, revision: 1, legacy_record: false,
+  created_at: '2026-10-14T00:00:00Z', dispatched_at: null, received_at: null, paid_at: null, revision: 1,
   items: [
     { purchase_item_id: 'refill', item_id: 'item', brand_name: 'Company', size_kg: 12, mouth_size: '22mm', type: 'refill', quantity: 4, empty_dispatched: 6, billed_quantity: 4, received_quantity: null, unit_price: 100, line_total: 400 },
     { purchase_item_id: 'new', item_id: 'item', brand_name: 'Company', size_kg: 12, mouth_size: '22mm', type: 'package', quantity: 2, empty_dispatched: 0, billed_quantity: 2, received_quantity: null, unit_price: 200, line_total: 400 },
@@ -23,6 +23,14 @@ test('activity describes financial, note and truck changes without substituting 
   } }, purchase);
   assert.deepEqual(summary.changes, ['Commission: Tk 10.00 → Tk 20.00', 'Truck assigned: Truck', 'Notes updated: Bring refills']);
   assert.ok(!summary.changes.join(' ').includes('Tk 50.00'));
+});
+
+test('unified activity renders ledger evidence once without repeating payment detail lines', () => {
+  const summary = describePurchaseActivity({ activity_id: 'a', action: 'payment_recorded', actor_name: 'Operator', created_at: '',
+    wallet_entries: [{ transaction_id: 'ledger', wallet_name: 'Cash', method: 'cash', amount: -50, type: 'purchase_payment_company', created_at: '', operation_id: 'operation', description: 'Company payment', reference: null, component: 'company', actor: 'Operator', obligation_id: null }],
+    details: { paid_amount: 50, due: 730, payments: [{ wallet_name: 'Cash', amount: 50, component: 'company', payment_id: 'payment' }] },
+  }, purchase);
+  assert.deepEqual(summary.changes, ['Total paid: Tk 50.00', 'Outstanding: Tk 730.00']);
 });
 
 test('activity compares product quantities, prices, empties, additions and removals by SKU and type', () => {
@@ -60,8 +68,8 @@ test('activity handles notes-only saves, no-op saves, payment and lifecycle evid
 
 test('all refill shortages are grouped by product and new cylinders do not consume empties', () => {
   const lines = purchaseDraft(purchase).items;
-  const inventory = [{ item_id: 'item', brand: 'Company', size_kg: 12, mouth_size: '22mm', empty_quantity: 2 },
-    { item_id: 'second', brand: 'Company', size_kg: 25, empty_quantity: 0 }];
+  const inventory = [{ item_id: 'item', lpg_brands: { brand_name: 'Company' }, size_kg: 12, mouth_size: '22mm', empty_quantity: 2 },
+    { item_id: 'second', lpg_brands: { brand_name: 'Company' }, size_kg: 25, empty_quantity: 0 }];
   const shortages = purchaseEmptyShortages([...lines, { ...lines[0], item_id: 'second', quantity: 3 }], inventory);
   assert.deepEqual(shortages.map(s => [s.required, s.available, s.missing]), [[4, 2, 2], [3, 0, 3]]);
   assert.deepEqual(purchaseEmptyShortages(lines.filter(l => l.type === 'package'), inventory), []);
@@ -144,48 +152,6 @@ test('inventory history identifies dispatch, new receipt and refill receipt', ()
   assert.equal(inventoryMovementLabel({ movement_type:'purchase',reference_type:'purchase_receipt_new' }),'New cylinders received');
   assert.equal(inventoryMovementLabel({ movement_type:'refill',reference_type:'purchase_receipt_refill' }),'Refills received');
   assert.equal(inventoryMovementLabel({ movement_type:'sale',reference_type:'sale' }),'Sale');
-});
-
-const filters: PurchaseFilters = { search: '', status: 'all', payment: 'all', from: '', to: '', sort: 'date_desc' };
-const searchable: Purchase[] = [
-  { ...purchase, purchase_id: 'a', company_name: 'Jamuna Gas', plant_name: 'Dhaka Plant', truck_name: 'Ashok Leyland', status: 'received', payment_status: 'paid', created_at: '2026-10-01T18:00:00Z', total_cost: 500,
-    items: [{ ...purchase.items[0], brand_name: 'Jamuna Gas', mouth_size: '22mm', size_kg: 12 }] },
-  { ...purchase, purchase_id: 'b', company_name: 'Bashundhara LPG', plant_name: 'Gazipur Plant', truck_name: 'JAC', status: 'in_transit', created_at: '2026-10-03T12:00:00Z', total_cost: 100,
-    items: [{ ...purchase.items[1], brand_name: 'Bashundhara LPG', size_kg: 12, mouth_size: '35mm' }] },
-  { ...purchase, purchase_id: 'c', company_name: 'Jamuna Gas', plant_name: 'Chattogram Plant', truck_name: 'Ashok', created_at: '2026-10-04T12:00:00Z', total_cost: 100, receipt_notes: 'Valve inspection',
-    items: [{ ...purchase.items[0], brand_name: 'Jamuna Gas', size_kg: 25, mouth_size: '22mm' }] },
-];
-const matches = (patch: Partial<PurchaseFilters>) => filterPurchases(searchable, { ...filters, ...patch }).map(p => p.purchase_id);
-
-test('search AND terms match across fields in any order, ignoring case and whitespace', () => {
-  assert.deepEqual(matches({ search: '  12KG   ASHOK jamuna  22mm  ' }), ['a']);
-  assert.deepEqual(matches({ search: 'jamuna jac' }), []);
-  assert.deepEqual(matches({ search: 'refill valve inspection' }), ['c']);
-});
-
-test('comma groups are OR, without joining fields from different purchases', () => {
-  assert.deepEqual(matches({ search: 'jamuna ashok 22mm 12kg, bashundhara 12kg' }), ['b', 'a']);
-  assert.deepEqual(matches({ search: ', , jamuna 12kg,  ,' }), ['a']);
-  assert.deepEqual(matches({ search: ' , , ' }), ['c', 'b', 'a']);
-  assert.deepEqual(matches({ search: 'jamuna 35mm, bashundhara 25kg' }), []);
-});
-
-test('search combines with status, payment and inclusive Dhaka date range', () => {
-  assert.deepEqual(matches({ search: 'jamuna, bashundhara', status: 'in_transit', payment: 'unpaid', from: '2026-10-03', to: '2026-10-03' }), ['b']);
-  assert.deepEqual(matches({ search: 'jamuna 12kg', payment: 'unpaid' }), []);
-  assert.deepEqual(matches({ from: '2026-10-02', to: '2026-10-02' }), ['a']);
-  assert.deepEqual(matches({ from: '2026-10-04', to: '2026-10-02' }), []);
-  assert.equal(purchaseDay('2026-10-01T17:59:59Z'), '2026-10-01');
-  assert.equal(purchaseDay('2026-10-01T18:00:00Z'), '2026-10-02');
-});
-
-test('all sort directions operate after filtering and do not mutate query data', () => {
-  assert.deepEqual(matches({ sort: 'date_asc' }), ['a', 'b', 'c']);
-  assert.deepEqual(matches({ sort: 'date_desc' }), ['c', 'b', 'a']);
-  assert.deepEqual(matches({ sort: 'amount_asc' }), ['b', 'c', 'a']);
-  assert.deepEqual(matches({ sort: 'amount_desc' }), ['a', 'b', 'c']);
-  assert.deepEqual(matches({ search: 'jamuna', sort: 'amount_asc' }), ['c', 'a']);
-  assert.deepEqual(searchable.map(p => p.purchase_id), ['a', 'b', 'c']);
 });
 
 test('Created drafts restore exchange quantities; saved dispatched history remains independent', () => {

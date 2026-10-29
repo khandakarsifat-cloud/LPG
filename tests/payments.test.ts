@@ -18,7 +18,7 @@ test('invalid, unknown and excessive payments are rejected', () => {
   assert(validatePayments([entry('missing', '1')], 500, wallets).error);
   assert(validatePayments([entry('cash', '501')], 500, wallets).error);
 });
-const receipt: ReceiptData = { sale_id: 'finance-test', created_at: '2026-10-20T10:00:00Z', shop_name: 'বাংলা দোকান', customer_name: 'Customer', customer_phone: '01700000000', customer_tier: 'retail', items: [{ name: 'Long brand name with Bengali বাংলা 12kg', type: 'package', quantity: 1, unit_price: 500, line_total: 500 }], subtotal: 500, total_amount: 500, discount_amount: 0, exchange_fee: 0, paid_amount: 300, due_amount: 200, payments: [{ wallet_name: 'Cash Register', method: 'cash', amount: 100 }, { wallet_name: '<b>bKash</b>', method: 'bkash', amount: 200 }] };
+const receipt: ReceiptData = { sale_id: 'finance-test', created_at: '2026-10-20T10:00:00Z', shop_name: 'বাংলা দোকান', customer_name: 'Customer', customer_phone: '01700000000', customer_tier: 'retail', items: [{ name: 'Long brand name with Bengali বাংলা 12kg', type: 'package', quantity: 1, unit_price: 500, line_total: 500 }], subtotal: 500, total_amount: 500, discount_amount: 0, exchange_fee: 0, paid_amount: 300, due_amount: 200, unattributed_paid: 0, payments: [{ wallet_name: 'Cash Register', method: 'cash', amount: 100 }, { wallet_name: '<b>bKash</b>', method: 'bkash', amount: 200 }] };
 test('58 and 80mm use distinct item layouts, retain partial payments and escape wallet names', () => {
   const narrow = formatReceipt(receipt, 58), wide = formatReceipt(receipt, 80);
   assert(narrow.length > wide.length); assert.equal(narrow.find(l => l.text.startsWith('Long'))?.right, undefined);

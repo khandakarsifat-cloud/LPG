@@ -13,7 +13,7 @@ async page => {
   await page.context().addInitScript(({ user, token }) => {
     const session = JSON.stringify({ access_token: token, refresh_token: 'fixture', token_type: 'bearer', expires_in: 86400,
       expires_at: Math.floor(Date.now() / 1000) + 86400, user });
-    for (const host of ['api', '127', 'localhost']) localStorage.setItem(`sb-${host}-auth-token`, session);
+    for (const host of ['api.lpg.144.79.249.4.sslip.io','127.0.0.1:54321','localhost:54321','127.0.0.1:55421']) localStorage.setItem(`sb-${host}-auth-token`, session);
     window.print = () => {
       window.top.__captureTierReceipt(document.body.innerText);
       window.dispatchEvent(new Event('afterprint'));
@@ -46,6 +46,8 @@ async page => {
       case 'get_my_permissions': data = ['dashboard:view', 'sales:view', 'receipts:print', 'pos:sell']; break;
       case 'get_dashboard_stats': data = { todayRevenue: 0, todayMovements: 0, totalCustomers: 1 }; break;
       case 'get_sale_settlement': data = { total: sales[0]?.total_amount ?? 0, paid: sales[0]?.total_amount ?? 0, due: 0, payments: [], payment_count: 0 }; break;
+      case 'get_sale_receipt': data = { sale: sales[0], shop_name: 'Tier verification', brands: [], settlement: { total: sales[0]?.total_amount ?? 0, paid: sales[0]?.total_amount ?? 0, due: 0, receipt_payments: [] }, bottles: { expected: 0, received: 0, outstanding: 0, obligations: [], actual: [], events: [], event_count: 0 } }; break;
+      case 'get_sale_bottles': data = { expected: 0, received: 0, outstanding: 0, obligations: [], actual: [], event_count: 0, events: [] }; break;
       case 'items': data = items; break;
       case 'price_books': data = prices; break;
       case 'customers': data = [customer]; break;
@@ -96,7 +98,7 @@ async page => {
   check(await page.getByRole('button', { name: 'Choose another customer' }).isVisible(), 'Selected customer was lost');
   await add('New Package for Tier Gas 12kg');
   // Editing cents must survive each keystroke; wheel/arrow navigation must not step money.
-  for (const label of ['Discount (Tk)', 'Exchange Fee (Tk)']) {
+  for (const label of ['Discount (Tk)', 'Exchange Cost (Tk)']) {
     const input = page.getByLabel(label, { exact: true });
     check(await input.getAttribute('type') === 'text' && await input.getAttribute('inputmode') === 'decimal', `${label} must use direct decimal entry`);
     await input.fill('');
@@ -108,7 +110,7 @@ async page => {
     check(await input.inputValue() === '12.50' && await input.evaluate(el => document.activeElement === el), `${label} changed or lost focus while scrolling`);
   }
   await page.getByLabel('Discount (Tk)', { exact: true }).fill('100');
-  await page.getByLabel('Exchange Fee (Tk)', { exact: true }).fill('50');
+  await page.getByLabel('Exchange Cost (Tk)', { exact: true }).fill('50');
   // The saved-customer tier control stays reachable at phone/tablet widths.
   for (const width of [390, 768, 1440]) {
     await page.setViewportSize({ width, height: 1050 });

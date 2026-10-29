@@ -13,9 +13,9 @@ async page => {
   await page.exposeFunction('__captureReceipt', text => { printed.push(text); onPrint(); });
   await page.context().addInitScript(({ user, token }) => {
     const session = JSON.stringify({ access_token: token, refresh_token: 'fixture-refresh', token_type: 'bearer', expires_in: 86400, expires_at: Math.floor(Date.now() / 1000) + 86400, user });
-    localStorage.setItem('sb-api-auth-token', session);
-    localStorage.setItem('sb-127-auth-token', session);
-    localStorage.setItem('sb-localhost-auth-token', session);
+    localStorage.setItem('sb-api.lpg.144.79.249.4.sslip.io-auth-token', session);
+    localStorage.setItem('sb-127.0.0.1:54321-auth-token', session);
+    localStorage.setItem('sb-localhost:54321-auth-token', session);
     window.print = () => {
       window.top.__captureReceipt(document.body.innerText);
       window.dispatchEvent(new Event('afterprint'));
@@ -49,7 +49,9 @@ async page => {
       case 'sales': saleReads++; data = [sale]; break;
       case 'wallets': data = [{ type: 'dealership', balance: 1000 }]; break;
       case 'get_payment_wallets': data = [{ wallet_id: 'bb000000-0000-4000-8000-000000000010', name: 'Cash Register', kind: 'cash', type: 'cash' }]; break;
-      case 'get_sale_settlement': data = { tracking: false, total: 1150, paid: 1150, due: 0, payment_count: 0, payments: [], receipt_payments: [] }; break;
+      case 'get_sale_settlement': data = { total: 1150, paid: 1150, due: 0, payment_count: 0, payments: [], receipt_payments: [] }; break;
+      case 'get_sale_receipt': saleReads++; data = { sale, shop_name: 'Receipt Shop বাংলা', brands: [], settlement: { total: 1150, paid: 1150, due: 0, payment_count: 0, payments: [], receipt_payments: [] }, bottles: { expected: 0, received: 0, outstanding: 0, obligations: [], actual: [], event_count: 0, events: [] } }; break;
+      case 'get_sale_bottles': data = { expected: 0, received: 0, outstanding: 0, obligations: [], actual: [], event_count: 0, events: [] }; break;
       case 'items': data = [{ item_id: sku, brand: 'Fixture Gas', size_kg: 12, mouth_size: '22mm', filled_quantity: 10, empty_quantity: 10, lpg_brands: { brand_name: 'Fixture Gas' } }]; break;
       case 'price_books': data = [{ item_id: sku, customer_tier: 'retail', price_type: 'package', price: 1200, effective_from: '2026-01-01' }]; break;
       case 'create_pos_sale': checkouts++; data = { sale_id: saleId, sale_tier: 'retail', customer_id: user.id, subtotal: 1200, total_amount: 1200, customer_phone: '01700000000', customer_name: 'Receipt Customer বাংলা' }; break;
@@ -58,6 +60,29 @@ async page => {
     await route.fulfill({ json: data });
   });
   const check = (condition, message) => { if (!condition) throw new Error(message); };
+  const detail = page.getByRole('dialog', { name: /^Transaction #/ });
+  const receiptDialog = page.getByRole('dialog', { name: 'Print receipt', exact: true });
+  const openReceipt = async () => {
+    const browserBefore = printed.length, usbBefore = bridgePrints;
+    await page.getByText('Receipt Customer বাংলা', { exact: true }).click();
+    await detail.getByRole('heading', { name: 'Payments', exact: true }).waitFor();
+    check(await detail.getByLabel('Receipt printer', { exact: true }).count() === 0, 'Dashboard must open normal transaction details');
+    await detail.getByRole('button', { name: 'Print receipt', exact: true }).click();
+    await receiptDialog.getByLabel('80mm receipt preview').waitFor();
+    check(printed.length === browserBefore && bridgePrints === usbBefore, 'Opening print preview must never dispatch a print');
+    check(await receiptDialog.getByRole('heading', { name: /^(Payments|Bottle settlement|Transaction history)$/ }).count() === 0, 'Print dialog must contain no settlement panels');
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      check(await receiptDialog.evaluate(el => el.scrollWidth <= el.clientWidth), `Print dialog overflow at ${width}px`);
+      check(await receiptDialog.locator('.modal-body').evaluate(el => el.scrollWidth <= el.clientWidth), `Print content clipped at ${width}px`);
+      await page.screenshot({ path: `.temp/printing-verification/print-dialog-${width}.png` });
+    }
+  };
+  const closeReceipt = async () => {
+    await receiptDialog.getByRole('button', { name: 'Close', exact: true }).click();
+    check(await detail.isVisible(), 'Closing print dialog must retain sale details');
+    await detail.getByRole('button', { name: 'Close', exact: true }).click();
+  };
   const waitPrints = async count => {
     // Wait on the intercepted print call, including async checkout/read/render work.
     if (printed.length < count) await new Promise((resolve, reject) => {
@@ -76,37 +101,37 @@ async page => {
   await page.getByRole('button', { name: 'Receipt Printer', exact: true }).click();
   check(await page.getByLabel('Printer', { exact: true }).inputValue() === 'browser', 'Browser choice must survive reload');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.getByText('Receipt Customer বাংলা', { exact: true }).click();
-  await page.getByRole('button', { name: 'Print Receipt Again' }).click();
+  await openReceipt();
+  await receiptDialog.getByRole('button', { name: 'Print receipt', exact: true }).click();
   await waitPrints(1);
   check(bridgePrints === 0 && checkouts === 0, 'Browser reprint must not call bridge or checkout');
   check(printed[0].includes('Tk 1,150.00') && printed[0].includes('Receipt Shop বাংলা'), 'Browser receipt must use saved amounts and Unicode');
   check(printed[0].includes('<img src=x onerror=alert(1)>'), 'Receipt notes must render as text');
   check(saleReads >= 2, 'Reprint must load saved sale');
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await closeReceipt();
   // USB selection, discovery and transport continue through the original boundary.
   bridgeRunning = true;
   await page.getByRole('button', { name: 'Receipt Printer', exact: true }).click();
   await page.getByLabel('Printer', { exact: true }).selectOption(printer.queue_id);
   await page.getByRole('button', { name: 'Save Printer' }).click();
   check(configWrites === 1, 'USB configuration must still save through the existing upsert');
-  await page.getByText('Receipt Customer বাংলা', { exact: true }).click();
-  await page.getByRole('button', { name: 'Print Receipt Again' }).click();
+  await openReceipt();
+  await receiptDialog.getByRole('button', { name: 'Print receipt', exact: true }).click();
   await page.getByText('Receipt sent to printer (fixture).', { exact: true }).waitFor();
   check(bridgePrints === 1 && checkouts === 0, 'USB reprint must send once without checkout');
   // Cashiers can choose browser printing without printer-management permissions.
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await closeReceipt();
   cashier = true; bridgeRunning = false;
   await page.reload();
-  await page.getByText('Receipt Customer বাংলা', { exact: true }).click();
+  await openReceipt();
   await page.getByLabel('Receipt printer', { exact: true }).click();
   await page.keyboard.press('Escape');
-  check(await page.getByRole('button', { name: 'Print Receipt Again' }).isVisible(), 'Dismissing receipt picker closed sale details');
+  check(await receiptDialog.getByRole('button', { name: 'Print receipt', exact: true }).isVisible(), 'Dismissing receipt picker closed print preview');
   await page.getByLabel('Receipt printer', { exact: true }).selectOption('browser');
-  await page.getByRole('button', { name: 'Print Receipt Again' }).click();
+  await receiptDialog.getByRole('button', { name: 'Print receipt', exact: true }).click();
   await waitPrints(2);
   check(bridgePrints === 1 && configWrites === 1 && checkouts === 0, 'Cashier browser printing must be independent of the bridge');
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await closeReceipt();
   // No configured printer: browser printing is the default at checkout and reprint.
   config = null;
   await page.evaluate(tenant => localStorage.removeItem(`lpg:receipt-print-method:v1:${tenant}`), tenant);
@@ -139,7 +164,8 @@ async page => {
       const { browserReceiptHTML } = await import('/src/lib/browserPrint.ts');
       return browserReceiptHTML({ ...sale, shop_name: 'Receipt Shop বাংলা', customer_name: sale.customers.name,
         customer_phone: sale.customers.phone, customer_tier: 'retail',
-        items: sale.sale_items.map(line => ({ ...line, name: line.items.brand + ' 12kg' })) }, paperWidth);
+        paid_amount: sale.total_amount, due_amount: 0, unattributed_paid: sale.total_amount, payments: [],
+        items: sale.sale_items.map(line => ({ ...line, name: line.items.lpg_brands.brand_name + ' 12kg' })) }, paperWidth);
     }, { sale, paperWidth });
     await page.setContent(html);
     await page.screenshot({ path: `.temp/printing-verification/receipt-${paperWidth}.png` });

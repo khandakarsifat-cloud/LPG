@@ -19,8 +19,7 @@ where r.tenant_id in ('c1111111-1111-4111-8111-111111111111', 'd1111111-1111-411
 insert into public.user_roles(tenant_id, user_id, role_id) values
   ('c1111111-1111-4111-8111-111111111111', 'c2222222-2222-4222-8222-222222222222', 'c4444444-4444-4444-8444-444444444444'),
   ('d1111111-1111-4111-8111-111111111111', 'd2222222-2222-4222-8222-222222222222', 'd4444444-4444-4444-8444-444444444444');
-insert into public.items(tenant_id, item_id, brand, size_kg, filled_quantity, empty_quantity)
-  values ('c1111111-1111-4111-8111-111111111111', 'c3333333-3333-4333-8333-333333333333', 'Print test item', 12, 10, 10);
+insert into public.items(tenant_id,item_id,brand_id,size_kg,filled_quantity,empty_quantity) values ('c1111111-1111-4111-8111-111111111111', 'c3333333-3333-4333-8333-333333333333',pg_temp.fixture_brand('c1111111-1111-4111-8111-111111111111', 'Print test item'), 12, 10, 10);
 
 insert into public.customers(tenant_id,customer_id,name,phone,tier) values
  ('c1111111-1111-4111-8111-111111111111','c5555555-5555-4555-8555-555555555555','Saved retail','01700000000','retail'),

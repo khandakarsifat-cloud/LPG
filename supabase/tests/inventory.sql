@@ -44,17 +44,14 @@ select t,'c1000000-0000-4000-8000-000000000001','Test brand' from inv_context cr
 insert into public.gas_plants(tenant_id,plant_id,plant_name,brand_id)
 select t,'d1000000-0000-4000-8000-000000000001','Plant','c1000000-0000-4000-8000-000000000001'
 from inv_context cross join lateral(values(a),(b)) v(t);
-insert into public.items(tenant_id,item_id,brand_id,brand,size_kg,mouth_size,filled_quantity,empty_quantity)
-select t,'f1000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000001','Test brand',12,'22mm',100,100
+insert into public.items(tenant_id,item_id,brand_id,size_kg,mouth_size,filled_quantity,empty_quantity) select t,'f1000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000001',12,'22mm',100,100
 from inv_context cross join lateral(values(a),(b)) v(t);
-insert into public.items(tenant_id,item_id,brand_id,brand,size_kg,mouth_size)
-select a,'f1000000-0000-4000-8000-000000000002','c1000000-0000-4000-8000-000000000001','Test brand',12,'20mm' from inv_context;
-insert into public.items(tenant_id,item_id,brand_id,brand,size_kg)
-select b,'f1000000-0000-4000-8000-000000000003','c1000000-0000-4000-8000-000000000001','Other tenant',25 from inv_context;
+insert into public.items(tenant_id,item_id,brand_id,size_kg,mouth_size) select a,'f1000000-0000-4000-8000-000000000002','c1000000-0000-4000-8000-000000000001',12,'20mm' from inv_context;
+insert into public.items(tenant_id,item_id,brand_id,size_kg) select b,'f1000000-0000-4000-8000-000000000003','c1000000-0000-4000-8000-000000000001',25 from inv_context;
 -- Pre-correction shared settings stay attributed and apply to both types without rewriting history.
-insert into public.product_commission_rates(tenant_id,item_id,commission_per_unit,created_by)
-select a,'f1000000-0000-4000-8000-000000000002'::uuid,7,'a1000000-0000-4000-8000-000000000001'::uuid from inv_context
-union all select b,'f1000000-0000-4000-8000-000000000001'::uuid,999,'b1000000-0000-4000-8000-000000000001'::uuid from inv_context;
+insert into public.product_commission_rates(tenant_id,item_id,refill_commission_per_unit,package_commission_per_unit,created_by)
+select a,'f1000000-0000-4000-8000-000000000002'::uuid,7,7,'a1000000-0000-4000-8000-000000000001'::uuid from inv_context
+union all select b,'f1000000-0000-4000-8000-000000000001'::uuid,999,999,'b1000000-0000-4000-8000-000000000001'::uuid from inv_context;
 insert into public.customers(tenant_id,customer_id,name,phone)
 select t,'e1000000-0000-4000-8000-000000000001','Customer','01700000000'
 from inv_context cross join lateral(values(a),(b)) v(t);
@@ -99,6 +96,11 @@ from inv_context cross join lateral(values
  (a,'92000000-0000-4000-8000-000000000003'::uuid,'refill',99),
  (b,'92000000-0000-4000-8000-000000000001'::uuid,'refill',99)
 ) v(t,id,kind,qty);
+insert into public.sale_bottle_receipts(tenant_id,receipt_id,sale_id,phase,operation_id,created_by,created_at)
+select a,'93000000-0000-4000-8000-000000000001','92000000-0000-4000-8000-000000000001','checkout',gen_random_uuid(),
+ 'a1000000-0000-4000-8000-000000000001',saturday::timestamp at time zone 'Asia/Dhaka' from inv_context;
+insert into public.sale_bottle_receipt_lines(tenant_id,receipt_id,sale_id,received_item_id,quantity)
+select a,'93000000-0000-4000-8000-000000000001','92000000-0000-4000-8000-000000000001','f1000000-0000-4000-8000-000000000001',7 from inv_context;
 insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,mrp,effective_from,effective_to)
 select a,'f1000000-0000-4000-8000-000000000001','retail',kind,price,mrp,start_time,end_time
 from inv_context cross join lateral(values
@@ -182,7 +184,7 @@ do $$ declare d jsonb; first_version uuid; latest_version uuid; original_order u
   perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',0,1.001,null)$q$,'two decimal');
   perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',0,'Infinity'::numeric,null)$q$,'nonnegative');
   perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',0,null,null)$q$,'nonnegative');
-  perform pg_temp.inv_fails($q$select public.set_product_commission('f1000000-0000-4000-8000-000000000001',15,null)$q$,'Reload the application');
+  perform pg_temp.inv_fails($q$select public.set_product_commission('f1000000-0000-4000-8000-000000000001',15,null)$q$,'does not exist');
   perform public.set_product_commissions('f1000000-0000-4000-8000-000000000001',20,45,first_version);
   perform pg_temp.inv_fails(format($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',30,50,%L)$q$,first_version),'Commission changed');
   d:=public.get_product_inventory('f1000000-0000-4000-8000-000000000001');
@@ -213,7 +215,7 @@ reset role;
 select pg_temp.inv_check((select count(*)=4 from public.product_commission_rates where created_by='a1000000-0000-4000-8000-000000000001'),'rate history includes legacy entry and each explicit save');
 select pg_temp.inv_check((select count(*)=3 and bool_and(package_commission_per_unit is not null) from public.product_commission_rates where created_by='a1000000-0000-4000-8000-000000000001' and item_id='f1000000-0000-4000-8000-000000000001'),'each new save records both rates atomically');
 select pg_temp.inv_check((select bool_and(created_by='a1000000-0000-4000-8000-000000000001') from public.product_commission_rates c join inv_context i on c.tenant_id=i.a),'rate actor is authenticated owner');
-select pg_temp.inv_fails($q$update public.product_commission_rates set commission_per_unit=99 where created_by='a1000000-0000-4000-8000-000000000001'$q$,'immutable');
+select pg_temp.inv_fails($q$update public.product_commission_rates set refill_commission_per_unit=99 where created_by='a1000000-0000-4000-8000-000000000001'$q$,'immutable');
 select pg_temp.inv_fails($q$update public.product_commission_rates set package_commission_per_unit=99 where created_by='a1000000-0000-4000-8000-000000000001'$q$,'immutable');
 select pg_temp.inv_fails($q$delete from public.product_commission_rates where created_by='a1000000-0000-4000-8000-000000000001'$q$,'immutable');
 select pg_temp.inv_check((select count(*)=1 and max(display_order)=0 from public.lpg_brands b join inv_context c on b.tenant_id=c.b),'other tenant brand order unchanged');

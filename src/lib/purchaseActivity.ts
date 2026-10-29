@@ -14,6 +14,7 @@ const titles: Record<string, string> = {
   transport_funded: 'Transport funding adjusted', payment_recorded: 'Purchase payment recorded',
   cancellation_confirmed: 'Owner confirmed cancellation', cancellation_initiated: 'Cancellation initiated',
   refund_recorded: 'Refund / funding reversal recorded', refund_completed: 'Refunds completed', financially_closed: 'Purchase financially closed',
+  wallet_entry: 'Wallet transaction',
 };
 
 /** Describe recorded evidence only; current purchase values are used for labels, never historical amounts. */
@@ -67,7 +68,7 @@ export function describePurchaseActivity(activity: PurchaseActivity, purchase: P
       ? 'Purchase saved. Product quantities and prices are recorded below; earlier product values were not captured in this entry.'
       : 'Purchase saved; no recorded field changes.');
   } else {
-    if (Array.isArray(details.payments)) for (const value of details.payments) {
+    if (!activity.wallet_entries?.length && Array.isArray(details.payments)) for (const value of details.payments) {
       const payment = record(value);
       changes.push(`${String(payment.wallet_name ?? 'Wallet')} · ${String(payment.component ?? 'payment')}: ${amount(payment.amount) ?? 'Unknown amount'}${payment.reference ? ` · Ref: ${String(payment.reference)}` : ''}`);
       if (payment.payment_id) changes.push(`Payment reference: ${String(payment.payment_id)}`);

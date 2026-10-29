@@ -7,7 +7,7 @@ if (process.argv.includes('--with-migration')) {
   throw new Error('Use purchase:db:test -- --replay-module <PGlite package directory> for unapplied migration replay. auth:db:test requires the migrated local schema.');
 }
 for (const name of ['authorization.sql', 'receipt_printers.sql']) {
-  const tests = readFileSync(new URL(name, import.meta.url), 'utf8');
+  const tests = readFileSync(new URL('fixture-helpers.sql', import.meta.url), 'utf8') + '\n' + readFileSync(new URL(name, import.meta.url), 'utf8');
   const output = execFileSync('docker', [
     'compose', 'exec', '-T', 'db', 'psql', '-U', 'supabase_admin', '-d', 'postgres',
     '-v', 'ON_ERROR_STOP=1', '-q', '-t',

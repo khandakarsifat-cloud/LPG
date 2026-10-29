@@ -19,8 +19,7 @@ where r.tenant_id in ('a1111111-1111-4111-8111-111111111111', 'b1111111-1111-411
 insert into public.user_roles(tenant_id, user_id, role_id) values
   ('a1111111-1111-4111-8111-111111111111', 'a2222222-2222-4222-8222-222222222222', 'a4444444-4444-4444-8444-444444444444'),
   ('b1111111-1111-4111-8111-111111111111', 'b2222222-2222-4222-8222-222222222222', 'b4444444-4444-4444-8444-444444444444');
-insert into public.items(tenant_id, item_id, brand, size_kg, filled_quantity, empty_quantity)
-  values ('a1111111-1111-4111-8111-111111111111', 'a3333333-3333-4333-8333-333333333333', 'Print test item', 12, 10, 10);
+insert into public.items(tenant_id,item_id,brand_id,size_kg,filled_quantity,empty_quantity) values ('a1111111-1111-4111-8111-111111111111', 'a3333333-3333-4333-8333-333333333333',pg_temp.fixture_brand('a1111111-1111-4111-8111-111111111111', 'Print test item'), 12, 10, 10);
 
 insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from) values ('a1111111-1111-4111-8111-111111111111','a3333333-3333-4333-8333-333333333333','retail','refill',1200,now()-interval '1 day');
 set local role authenticated;

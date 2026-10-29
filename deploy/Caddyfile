@@ -1,14 +1,26 @@
 {$API_DOMAIN} {
     header Strict-Transport-Security "max-age=31536000"
-    @api path /auth/v1/* /rest/v1/* /realtime/v1/* /storage/v1/* /graphql/v1*
-    handle @api {
-        reverse_proxy api-gw:8000
+    @untrustedOrigin {
+        header Origin *
+        not {
+            header Origin https://floral-dew-443b.khandakarsifat.workers.dev
+            header Origin https://{$API_DOMAIN}
+        }
     }
-    handle {
-        # Studio uses Envoy's dashboard Basic Auth. Do not expose its local MCP
-        # bypass or the direct metadata/function routes through this fallback.
-        @private path /mcp* /api/mcp* /pg* /functions*
-        respond @private "Not found" 404
-        reverse_proxy api-gw:8000
+    @api path /auth/v1/* /rest/v1/* /realtime/v1/* /storage/v1/* /graphql/v1*
+    route {
+        # Preserve this order: reject untrusted browser origins before any API
+        # or dashboard handler. Caddy otherwise sorts handle before respond.
+        respond @untrustedOrigin "Origin not allowed" 403
+        handle @api {
+            reverse_proxy api-gw:8000
+        }
+        handle {
+            # Studio uses Envoy's dashboard Basic Auth. Do not expose its local
+            # MCP bypass or direct metadata/function routes through fallback.
+            @private path /mcp* /api/mcp* /pg* /functions*
+            respond @private "Not found" 404
+            reverse_proxy api-gw:8000
+        }
     }
 }

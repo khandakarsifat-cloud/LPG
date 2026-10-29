@@ -39,9 +39,9 @@ export const useSaleDetails = (saleId: string | null) => useQuery<SaleTransactio
   queryFn: async ({ signal }) => {
     if (!saleId) throw new Error('No sale selected');
     const { data, error } = await supabase.from('sales').select(`
-      sale_id, sale_tier, created_at, total_amount, subtotal, discount_amount, exchange_fee, notes,
+      sale_id, sale_tier, created_at, total_amount, additional_charges, paid_amount, subtotal, discount_amount, exchange_fee, notes,
       customers(name, phone, shop_name, address, tier), user_profiles(full_name, email),
-      sale_items(quantity, unit_price, line_total, type, items(brand, size_kg, mouth_size, lpg_brands(brand_name)))
+      sale_items(item_id, quantity, unit_price, line_total, type, items(item_id, brand_id, size_kg, mouth_size, lpg_brands(brand_name)))
     `).eq('sale_id', saleId).abortSignal(signal).single()
       .overrideTypes<SaleTransaction, { merge: false }>();
     if (error) throw error;
@@ -61,6 +61,8 @@ export const useTodaySalesFeed = (page = 0) =>
           sale_tier,
           created_at,
           total_amount,
+          additional_charges,
+          paid_amount,
           subtotal,
           discount_amount,
           exchange_fee,
@@ -77,7 +79,6 @@ export const useTodaySalesFeed = (page = 0) =>
             line_total,
             type,
             items (
-              brand,
               size_kg,
               lpg_brands (
                 brand_name
@@ -90,22 +91,7 @@ export const useTodaySalesFeed = (page = 0) =>
         .order('created_at', { ascending: false }).order('sale_id', { ascending: false })
         .range(page * 8, page * 8 + 8).abortSignal(signal);
       
-      if (error) {
-        console.error('Error fetching full sales feed:', error);
-        // Fallback
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('sales')
-          .select('sale_id, sale_tier, created_at, total_amount, subtotal, discount_amount, exchange_fee, notes')
-          .gte('created_at', todayIso)
-          .eq('status', 'completed')
-          .order('created_at', { ascending: false }).order('sale_id', { ascending: false })
-          .range(page * 8, page * 8 + 8).abortSignal(signal);
-          
-        if (fallbackError) throw fallbackError;
-        const rows = (fallbackData as unknown as SaleTransaction[]) || [];
-        return { entries: rows.slice(0, 8), hasMore: rows.length > 8 };
-      }
-      
+      if (error) throw error;
       const rows = (data as unknown as SaleTransaction[]) || [];
       return { entries: rows.slice(0, 8), hasMore: rows.length > 8 };
     },

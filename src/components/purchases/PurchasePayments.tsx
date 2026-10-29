@@ -4,12 +4,10 @@ import { usePurchaseOperation, usePurchaseSettlement } from '../../hooks/usePurc
 import { usePaymentWallets } from '../../hooks/useFinance';
 import { formatBDT } from '../../lib/formatBDT';
 import { paymentDraft, validatePayments } from '../../lib/payments';
-import { purchaseDate } from '../../lib/purchase';
 import type { PaymentDraft } from '../../types/finance';
 import type { Purchase, PurchaseSettlement } from '../../types/purchase';
 import { PaymentEntries } from '../pos/PaymentEntries';
 import { PurchaseDialog } from './PurchaseControls';
-import { Pagination } from '../ui/Pagination';
 
 const purchaseComponentLabel: Record<string, string> = { company: 'Company payment', labour: 'Labour / historical trip charges', transport: 'Transport funding', legacy: 'Historical purchase payment', transport_income: 'Historical Logistics funding reversal' };
 
@@ -56,23 +54,18 @@ export function PurchasePaymentDialog({ purchase, settlement, refund, operation,
   </PurchaseDialog>;
 }
 
-export function PurchasePayments({ purchase }: { purchase: Purchase }) {
-  const [page, setPage] = useState(0);
-  const query = usePurchaseSettlement(purchase.purchase_id, page);
+export function PurchaseSettlementSummary({ purchase }: { purchase: Purchase }) {
+  const query = usePurchaseSettlement(purchase.purchase_id);
   const data = query.data;
-  return <section className="purchase-section settlement-panel" aria-label="Purchase payments and refunds">
-    <h3>Payments & refunds</h3>
+  return <section className="purchase-section settlement-panel" aria-label="Purchase settlement summary">
+    <h3>Payment summary</h3>
     {query.isPending && <p role="status">Loading settlement…</p>}
     {query.error && <p role="alert" className="purchase-error">Settlement could not be loaded. <button type="button" className="btn btn-secondary" onClick={() => void query.refetch()}>Retry settlement</button></p>}
     {data && <><dl className="payment-totals"><div><dt>Total payable</dt><dd>{formatBDT(data.total)}</dd></div><div><dt>Amount paid</dt><dd>{formatBDT(data.paid)}</dd></div><div className="payment-due"><dt>{purchase.status === 'cancelled' ? 'Refund remaining' : 'Outstanding'}</dt><dd>{formatBDT(purchase.status === 'cancelled' ? data.refund_due : data.due)}</dd></div></dl>
       {purchase.status === 'cancelled' && <p className="purchase-alert">{data.financial_closed_at ? 'Financially closed: all recorded refund obligations are settled.' : 'Pending refund: normal purchase operations are locked.'} Refunded / reversed: {formatBDT(data.refunded)}. Transit operating costs close separately in Logistics.</p>}
-      {data.legacy && <p className="purchase-hint">Historical records are preserved. Any unrecorded payment method remains unknown; refunds are limited to original ledger evidence. Legacy wallet names reflect their label when snapshotting was introduced.</p>}
       {data.obligations.map(o => <div key={o.obligation_id}><div className="settlement-row"><span>{purchaseComponentLabel[o.component] ?? o.component}<small>{formatBDT(o.refunded)} refunded / reversed · {o.credit_business ? 'Return to purchasing business' : 'Logistics reversal only'}</small></span><strong>{formatBDT(o.remaining)} due</strong></div>
         <details><summary>Original payment references ({o.sources.length})</summary>{o.sources.map(s => <p className="purchase-hint" key={s.transaction_id}>{s.wallet_name} · {formatBDT(Math.abs(s.amount))}<br />Ledger: {s.transaction_id}{s.payment_id && ` · Payment: ${s.payment_id}`}<br />{s.description}</p>)}</details>
       </div>)}
-      {data.payments.map(p => <div className="settlement-row" key={p.transaction_id}><span>{p.wallet_name}<small>{purchaseDate(p.created_at)} · {p.actor ?? 'Historical actor not recorded'}<br />{p.description}{p.reference && ` · Ref: ${p.reference}`}<br />Ledger: {p.transaction_id}{p.operation_id && ` · Operation: ${p.operation_id}`}</small></span><strong>{p.amount > 0 ? '+' : '−'}{formatBDT(Math.abs(p.amount))}</strong></div>)}
-      {!data.payment_count && <p className="purchase-hint">No wallet entries were recorded.</p>}
-      <Pagination page={page} pageSize={10} total={data.payment_count} onChange={setPage} busy={query.isFetching} label="purchase wallet entries" />
     </>}
   </section>;
 }

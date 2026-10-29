@@ -1,5 +1,5 @@
 import { useListPage } from '../../hooks/useListPage';
-import { Pagination } from '../ui/Pagination';
+import { Pagination, PageNavigation } from '../ui/Pagination';
 import { useState } from 'react';
 import { usePurchaseActivity } from '../../hooks/usePurchases';
 import { purchaseDraft, purchaseDate } from '../../lib/purchase';
@@ -20,7 +20,6 @@ export function PurchaseIdentity({ purchase }: { purchase: Purchase }) {
       {purchase.paid_at && <div><dt>Paid</dt><dd>{purchaseDate(purchase.paid_at)}</dd></div>}
       {Number(purchase.operating_cost) > 0 && <div><dt>Logistics operating costs</dt><dd>{formatBDT(Number(purchase.operating_cost))}</dd></div>}
     </dl>
-    {purchase.legacy_record && <p className="purchase-hint">Historical purchase. Existing stock and payments are retained; dates and outgoing quantities reflect the earlier workflow.</p>}
     {Number(purchase.operating_cost) > 0 && <p className="purchase-hint">Operating costs are recorded against the logistics wallet separately from purchase transport and labour charges.</p>}
   </section>;
 }
@@ -64,9 +63,14 @@ export function PurchaseHistory({ purchase }: { purchase: Purchase }) {
     {!query.isError && <ol className="purchase-activity">{entries.map((activity, index) => {
       const previous = entries.slice(0, index).reverse().find(entry => Array.isArray(entry.details?.items));
       const summary = describePurchaseActivity(activity, purchase, previous?.details.items);
-      return <li key={activity.activity_id}>
+      return <li key={activity.activity_id} data-activity-id={activity.activity_id}>
         <div className="purchase-activity-heading"><strong>{summary.title}</strong><time dateTime={activity.created_at}>{purchaseDate(activity.created_at)}</time></div>
         <span className="purchase-activity-actor">{activity.actor_name}</span>
+        {activity.wallet_entries?.map(entry => <div className="purchase-activity-wallet" key={entry.transaction_id} data-transaction-id={entry.transaction_id}>
+          <div><strong>{entry.wallet_name}</strong><strong>{entry.amount > 0 ? '+' : '−'}{formatBDT(Math.abs(entry.amount))}</strong></div>
+          <small>{entry.description}{entry.reference && ` · Ref: ${entry.reference}`}</small>
+          <details><summary>Audit references</summary><p className="purchase-hint">{purchaseDate(entry.created_at)} · {entry.actor ?? 'Historical actor not recorded'}<br />Method: {entry.method}{entry.component && ` · Component: ${entry.component}`}<br />Ledger: {entry.transaction_id}{entry.purchase_payment_id && <><br />Payment: {entry.purchase_payment_id}</>}{entry.operation_id && <><br />Operation: {entry.operation_id}</>}</p></details>
+        </div>)}
         <ul className="purchase-activity-changes">{summary.changes.slice(0, 3).map((change, i) => <li key={i}>{change}</li>)}</ul>
         {summary.changes.length > 3 && <details><summary>{summary.changes.length - 3} more changes</summary>
           <ActivityLines lines={summary.changes.slice(3)} label="changes" />
@@ -76,10 +80,7 @@ export function PurchaseHistory({ purchase }: { purchase: Purchase }) {
         </details>}
       </li>;
     })}</ol>}
-    <nav className="purchase-history-pagination" aria-label="Activity history pages">
-      <button type="button" className="btn btn-secondary" disabled={page === 0 || query.isFetching} onClick={() => setPage(page - 1)}>Previous</button>
-      <span role="status">Page {page + 1}</span>
-      <button type="button" className="btn btn-secondary" disabled={!query.data?.hasMore || query.isFetching || query.isError} onClick={() => setPage(page + 1)}>Next</button>
-    </nav>
+    <PageNavigation page={query.data?.page ?? page} hasMore={!query.isError && (query.data?.hasMore ?? false)} busy={query.isFetching}
+      onChange={setPage} label="Activity history" alwaysVisible />
   </section>;
 }

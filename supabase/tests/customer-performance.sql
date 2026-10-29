@@ -28,12 +28,11 @@ insert into public.customers(tenant_id,customer_id,name,phone,tier)
 select t,('b7400000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'Perf Customer '||lpad(n::text,5,'0'),
  '019'||lpad(n::text,8,'0'),case when n%3=0 then 'wholesale' else 'retail' end
 from (values('a7100000-0000-4000-8000-000000000001'::uuid),('a7100000-0000-4000-8000-000000000002'::uuid)) x(t) cross join generate_series(1,5000) n;
-insert into public.items(tenant_id,item_id,brand,size_kg)
-select t,('b7500000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'Perf product',12
+insert into public.items(tenant_id,item_id,brand_id,size_kg) select t,('b7500000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,pg_temp.fixture_brand(t,'Perf product'),12
 from (values('a7100000-0000-4000-8000-000000000001'::uuid),('a7100000-0000-4000-8000-000000000002'::uuid)) x(t) cross join generate_series(1,2) n;
-insert into public.sales(tenant_id,sale_id,customer_id,status,sale_tier,subtotal,total_amount,payment_tracking,paid_amount,created_by,created_at)
+insert into public.sales(tenant_id,sale_id,customer_id,status,sale_tier,subtotal,total_amount,paid_amount,created_by,created_at)
 select t,('b7600000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
- ('b7400000-0000-4000-8000-'||lpad((1+(n-1)%5000)::text,12,'0'))::uuid,'completed','retail',1000+n%100,1000+n%100,true,500,
+ ('b7400000-0000-4000-8000-'||lpad((1+(n-1)%5000)::text,12,'0'))::uuid,'completed','retail',1000+n%100,1000+n%100,500,
  case when t='a7100000-0000-4000-8000-000000000001' then 'a7200000-0000-4000-8000-000000000001'::uuid else 'a7200000-0000-4000-8000-000000000002'::uuid end,
  '2026-01-01 00:00:00+06'::timestamptz+(n%90)*interval '1 day'
 from (values('a7100000-0000-4000-8000-000000000001'::uuid),('a7100000-0000-4000-8000-000000000002'::uuid)) x(t) cross join generate_series(1,30000) n;
@@ -71,7 +70,7 @@ reset role;
 explain (analyze,buffers,summary)
 with scoped_customers as materialized (select customer_id from public.customers where tenant_id='a7100000-0000-4000-8000-000000000001'), headers as materialized (
     select s.customer_id,s.sale_id,s.created_at,s.total_amount,
-      case when s.payment_tracking then greatest(0,s.total_amount-s.paid_amount) else 0 end due
+      greatest(0,s.total_amount+s.additional_charges-s.paid_amount) due
     from public.sales s join scoped_customers c on c.customer_id=s.customer_id
     where s.tenant_id='a7100000-0000-4000-8000-000000000001'::uuid and s.status='completed'
       and ('2026-01-01'::date is null or s.created_at >= ('2026-01-01'::date::timestamp at time zone 'Asia/Dhaka'))

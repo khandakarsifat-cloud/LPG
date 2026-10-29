@@ -5,6 +5,8 @@ import type { POSSalePayload } from '../../hooks/usePOS';
 import type { MouthSize } from '../../types/inventory';
 import { formatBDNumber } from '../../lib/formatBDT';
 import { findSellingPrice } from '../../lib/productPricing';
+import { useLPGBrands } from '../../hooks/useBrands';
+import { groupInventoryByBrand } from '../../lib/inventoryGroups';
 
 interface ProductOptionRowProps {
   icon: React.ReactNode;
@@ -114,12 +116,14 @@ interface POSItemsGridProps {
 export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, mouthSize }: POSItemsGridProps) => {
   const { data: allItems, isLoading: loadingItems } = useInventoryBalances();
   const { data: priceBooks, isLoading: loadingPrices } = usePriceBooks();
+  const brands = useLPGBrands();
 
-  const items = allItems?.filter(i => !i.mouth_size || i.mouth_size === mouthSize);
+  const items = groupInventoryByBrand(allItems?.filter(i => !i.mouth_size || i.mouth_size === mouthSize) ?? [], brands.data ?? [])
+    .flatMap(group => group.items);
 
-  if (loadingItems || loadingPrices) {
+  if (loadingItems || loadingPrices || brands.isPending) {
     return (
-      <div className="inv-tiles-grid">
+      <div className="inv-tiles-grid adaptive-grid adaptive-grid--inventory">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="inv-tile inv-tile-skeleton skeleton" />
         ))}
@@ -141,8 +145,8 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
   }
 
   return (
-    <div className="pos-products-grid">
-      {(items ?? []).map(item => {
+    <div className="pos-products-grid adaptive-grid adaptive-grid--pos">
+      {items.map((item, index) => {
         const refillPrice = getPrice(item.item_id, 'refill');
         const packagePrice = getPrice(item.item_id, 'package');
         const inStock = item.filled_quantity > 0;
@@ -153,7 +157,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
         return (
           <div
             key={item.item_id}
-            className="card pos-product-card"
+            className={`card pos-product-card${index === 0 || items[index - 1].brand_id !== item.brand_id ? ' brand-row-start' : ''}`}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -170,7 +174,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
                 <Package size={17} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
                   <h3 className="pos-product-title" title={`${item.lpg_brands?.brand_name} ${item.size_kg}kg`} style={{ margin: 0, fontWeight: 750, color: 'var(--text-main)', lineHeight: 1.3 }}>
                     {item.lpg_brands?.brand_name} {item.size_kg}kg
                   </h3>

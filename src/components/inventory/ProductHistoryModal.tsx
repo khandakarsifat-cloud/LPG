@@ -119,7 +119,7 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
   const [saving, setSaving] = useState(false);
   const [editorVersion, setEditorVersion] = useState(0);
   const [reloading, setReloading] = useState(false);
-  const brandName = item.lpg_brands?.brand_name ?? item.brand;
+  const brandName = item.lpg_brands?.brand_name ?? 'Product unavailable';
 
   useLayoutEffect(() => {
     const panel = dialog.current;

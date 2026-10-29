@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { ShoppingBag, Activity } from 'lucide-react';
-import { useTodaySalesFeed, type SaleTransaction } from '../../hooks/useDashboard';
+import { useTodaySalesFeed } from '../../hooks/useDashboard';
 import { formatBDNumber } from '../../lib/formatBDT';
-import { SaleDetailsModal } from './SaleDetailsModal';
+import { TransactionDetailsModal } from '../transactions/TransactionDetailsModal';
 import '../inventory/inventory.css'; // Reuse existing styles if any
 import { PageNavigation } from '../ui/Pagination';
 
@@ -11,7 +11,7 @@ export const SalesFeed = () => {
   const [page, setPage] = useState(0);
   const { data, isLoading, isError, refetch, isFetching } = useTodaySalesFeed(page);
   const sales = data?.entries ?? [];
-  const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null);
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -38,15 +38,14 @@ export const SalesFeed = () => {
     <>
       <div className="movements-feed">
         {sales.map((sale) => {
-          // Handle both possible ways customer name is stored
-          const customerName = sale.customers?.name || sale.customer_name || 'Unknown Customer';
+          const customerName = sale.customers?.name || 'Unknown Customer';
           
           return (
             <div 
               key={sale.sale_id} 
               className="movement-row" 
               style={{ cursor: 'pointer' }}
-              onClick={() => setSelectedSale(sale)}
+              onClick={() => setSelectedSaleId(sale.sale_id)}
             >
             {/* Icon */}
             <div className="movement-icon" style={{ color: 'var(--primary)' }}>
@@ -77,8 +76,9 @@ export const SalesFeed = () => {
             <div className="movement-right">
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
                 <span style={{ color: 'var(--accent)', fontSize: '1rem', fontWeight: 700 }}>
-                  Tk {formatBDNumber(sale.total_amount)}
+                  Tk {formatBDNumber(Number(sale.total_amount) + Number(sale.additional_charges ?? 0))}
                 </span>
+                {sale.paid_amount !== undefined && <small>Due Tk {formatBDNumber(Number(sale.total_amount) + Number(sale.additional_charges ?? 0) - Number(sale.paid_amount))}</small>}
               </div>
               <span className="movement-time">
                 {formatDistanceToNow(new Date(sale.created_at), { addSuffix: true })}
@@ -90,11 +90,7 @@ export const SalesFeed = () => {
       </div>
 
       <PageNavigation page={page} hasMore={data?.hasMore ?? false} onChange={setPage} label="sales" busy={isFetching} />
-      <SaleDetailsModal
-        isOpen={!!selectedSale}
-        onClose={() => setSelectedSale(null)}
-        sale={selectedSale}
-      />
+      {selectedSaleId && <TransactionDetailsModal saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} returnLabel="Close" />}
     </>
   );
 };

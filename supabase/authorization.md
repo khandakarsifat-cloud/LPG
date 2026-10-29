@@ -12,7 +12,7 @@ writes additionally require trusted OWNER membership; the UI uses the server-ret
 
 | Role | Initial capabilities |
 | --- | --- |
-| OWNER | All 23 current tenant capabilities |
+| OWNER | All 24 current tenant capabilities |
 | MANAGER | The same complete set, in its own role mapping |
 | SALESMAN | `dashboard:view`, `pos:sell`, `sales:view`, `receipts:print` |
 
@@ -75,8 +75,8 @@ the caller's own profile/business identity needed to load the workspace.
 | Purchases | Purchase view/manage gates lists, activity and supporting product/truck/plant selectors. Create/edit/dispatch/receive/payments/refunds require `purchases:manage`; internal stock and wallet writes need no separate inventory/finance management grant. See [lifecycle and settlement](../docs/modules/purchases-and-logistics.md). |
 | Logistics | Logistics view/manage gates truck/transit/wallet reads; truck/custom-transit/cost mutations require `logistics:manage`. |
 | Brands / plants | `settings:manage` gates brand mutations. Plant/officer mutations require `gas_plants:manage`; plant view and purchase selectors retain their supporting reads. |
-| Employees | Employee view/manage gates profile/phone/payment-count lists; employee mutations require `employees:manage`. |
-| Payroll | Payroll view/pay gates payment/category lists; `payroll:pay` gates payment recording. Payments retain their existing immutability and monthly salary uniqueness. |
+| Employees | Employee or payroll capabilities permit bounded directory/profile reads. `employees:manage` gates profile and effective salary-term changes; employee-only readers receive no monthly balances or financial activity. |
+| Salary payments | `payroll:view` / `payroll:pay` gate salary-month and financial activity reads; `payroll:pay` gates salary, named bonus, linked trip payments and audited returns. The first salary payment establishes a fixed employee/month amount; multiple payments may settle it. Payroll-only users can read payment-wallet names without Finance balances. Linked trip payouts additionally require `logistics:manage`. |
 | Finance / audit | Finance view/manage allows same-tenant wallet/ledger/dues reads. `finance:manage` gates custom wallet management, transfers, adjustments and sale collections; browser ledger/payment/request writes remain denied. POS reads payment destinations without balances through a gated RPC. Saved-sale permissions allow payment attribution reads; customer view/manage permits aggregate outstanding balance. `audit:view` retains audit reads. |
 
 Only item/customer registration and printer configuration have direct browser
@@ -164,3 +164,10 @@ physical printing are not part of these authorization tests; no physical print
 job was sent.
 
 Purchase cancellation additionally checks trusted OWNER membership and exact `CANCEL` in `initiate_purchase_cancellation`; received purchases always reject. Normal payments/refunds require `purchases:manage`. New purchase financial tables are RLS-enabled with no direct browser privileges; the bounded settlement RPC requires purchase view/manage access. `get_payment_wallets` also permits purchase managers, exposing only active destination identities.
+
+
+`20261023012148` adds `sales:collect_bottles`, mapped initially to OWNER/MANAGER and included in new-owner/manager setup. SALESMAN retains its four existing capabilities and can view the Sales directory through `sales:view`. Bottle collection alone grants neither customer settlement costs, monetary collection nor wallet balances; costs/payments require `finance:manage`. `20261026035440` rejects new expense funding and reuses the existing customer-charge mechanism. The tenant-gated `get_sale_receipt` requires `receipts:print` and reads one current transaction snapshot; its default PUBLIC/anon privileges are revoked. Aggregate settlement (`20261023150829`) validates actual products against trusted tenant catalog and original expected quantities, with explicit acknowledgement for unexpected or excess product receipts. New bottle evidence tables have RLS and no direct browser privileges. Bounded detail/directory/overview RPCs enforce trusted tenant and their read capabilities; customer bottle balance exposes only an aggregate under existing customer/Finance read permissions.
+
+## Canonical development contracts
+
+`20261026070000_canonical_development_model.sql` removes retired RPC overloads and the duplicated bottle-obligation table without adding browser grants. Expected returns now come from immutable `sale_items`; actual receipt lines retain their composite tenant/sale/receipt/product relationships. Brand identity is required and tenant-qualified. Existing permission gates, unexposed helpers, money/stock recorders and request locks remain authoritative. See the [audit](../docs/reports/2026-10-26-canonical-development-audit.md) for verification and retained accounting evidence.

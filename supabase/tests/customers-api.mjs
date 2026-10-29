@@ -5,13 +5,13 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { parseEnv } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
-assert(process.argv.includes('--azure'), 'Explicit --azure target required');
+assert(process.argv.includes('--vps'), 'Explicit --vps target required');
 const f=parseEnv(readFileSync('deploy/.env.frontend','utf8')), b=parseEnv(readFileSync('deploy/.env.backend','utf8'));
-assert.equal(f.VITE_SUPABASE_URL,'https://api.lpg.20.40.48.3.sslip.io');
-assert.equal(b.AZURE_PROJECT_DIR,'/opt/lpg');
+assert.equal(f.VITE_SUPABASE_URL,'https://api.lpg.144.79.249.4.sslip.io');
+assert.equal(b.VPS_PROJECT_DIR,'/opt/lpg');
 const client=()=>createClient(f.VITE_SUPABASE_URL,f.VITE_SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
-const sql=q=>execFileSync('ssh',['-i',b.AZURE_SSH_KEY,'-p',b.AZURE_PORT,'-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',`${b.AZURE_USER}@${b.AZURE_HOST}`,
- 'cd /opt/lpg && sudo docker compose -p lpg -f compose.yml -f compose.azure.yml exec -T db psql -X -U supabase_admin -d postgres -qAt -v ON_ERROR_STOP=1'],{input:q,encoding:'utf8'}).trim();
+const sql=q=>execFileSync('ssh',[...(b.VPS_SSH_KEY ? ['-i', b.VPS_SSH_KEY] : []),'-p',b.VPS_PORT,'-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',`${b.VPS_USER}@${b.VPS_HOST}`,
+ 'sudo -n docker compose --project-directory /opt/lpg --env-file /opt/lpg/.env -p lpg -f /opt/lpg/compose.yml -f /opt/lpg/compose.vps.yml exec -T db psql -X -U supabase_admin -d postgres -qAt -v ON_ERROR_STOP=1'],{input:q,encoding:'utf8'}).trim();
 const uuid=x=>{assert.match(x,/^[0-9a-f-]{36}$/i);return `'${x}'::uuid`;};
 const checked=async request=>{const {data,error}=await request;if(error)throw Error(`${error.code}: ${error.message}`);return data;};
 const users=[],tenants=[],clients=[];
@@ -42,7 +42,8 @@ try {
  console.log('PASS: stale revision returns one HTTP 400/P0001 response without serialization retry');
  const records=Array.from({length:31},(_,n)=>({tenant_id:owner.tenant,customer_id:randomUUID(),name:`Filter customer ${String(n).padStart(2,'0')}`,tier:'retail',phone:'017'+String(n).padStart(8,'0'),address:'Filter fixture Dhaka'}));
  await checked(c.from('customers').insert(records));
- const products=[0,1].map(n=>({tenant_id:owner.tenant,item_id:randomUUID(),brand:'Filter fixture product '+n,size_kg:12}));
+ const brands=await Promise.all([0,1].map(n=>checked(c.rpc('create_lpg_brand',{p_brand_name:'Filter fixture product '+n,p_description:null}))));
+ const products=[0,1].map(n=>({tenant_id:owner.tenant,item_id:randomUUID(),brand_id:brands[n].brand_id,size_kg:12}));
  await checked(c.from('items').insert(products));
  sql(`update public.items set filled_quantity=100,empty_quantity=100 where tenant_id=${uuid(owner.tenant)};insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from)values(${uuid(owner.tenant)},${uuid(products[0].item_id)},'retail','package',1000,now()-interval '1 day'),(${uuid(owner.tenant)},${uuid(products[1].item_id)},'retail','package',3000,now()-interval '1 day');`);
  const cash=(await checked(c.rpc('get_payment_wallets'))).find(w=>w.type==='cash');assert(cash);
@@ -75,7 +76,7 @@ try {
   const {chromium}=await import(pathToFileURL(resolve(process.argv[process.argv.indexOf('--browser-module')+1],'index.mjs')).href);
   browser=await chromium.launch({channel:'chrome',headless:true});
   const context=await browser.newContext({viewport:{width:1440,height:1000}});
-  await context.addInitScript(s=>localStorage.setItem('sb-api-auth-token',JSON.stringify(s)),owner.session);
+  await context.addInitScript(s=>localStorage.setItem('sb-api.lpg.144.79.249.4.sslip.io-auth-token',JSON.stringify(s)),owner.session);
   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('https://floral-dew-443b.khandakarsifat.workers.dev/?customer-filter-acceptance=1#/customers');
   await page.locator('.customer-card').first().waitFor();
@@ -105,7 +106,7 @@ try {
 } finally {
  if(browser)await browser.close();
  if(tenants.length){const ids=tenants.map(uuid).join(',');
-  const tables=['finance_requests','wallet_transactions','customer_transactions','sale_payments','sale_items','sales','inventory_movements','price_books','items','customers','receipt_printers','wallets','user_roles','role_permissions','roles','audit_logs','user_profiles','tenants'];
+  const tables=['finance_requests','wallet_transactions','customer_transactions','sale_payments','sale_bottle_receipt_lines','sale_bottle_receipts','sale_items','sales','inventory_movements','price_books','items','lpg_brands','customers','receipt_printers','wallets','user_roles','role_permissions','roles','audit_logs','user_profiles','tenants'];
   sql(`begin;do $$begin if exists(select 1 from public.tenants where tenant_id in (${ids}) and business_name not like 'Customer filter API fixture %') then raise exception 'Not a customer filter fixture';end if;end$$;create temporary table customer_fixture_cleanup(id integer);create function pg_temp.customer_fixture_cleanup() returns trigger language plpgsql as $$begin ${tables.map(t=>`delete from public.${t} where tenant_id in (${ids});`).join('\n')} return new;end$$;create trigger cleanup after insert on customer_fixture_cleanup for each row execute function pg_temp.customer_fixture_cleanup();insert into customer_fixture_cleanup values(1);commit;`);
  }
  if(users.length)sql(`delete from auth.users where id in (${users.map(uuid).join(',')});`);

@@ -7,7 +7,7 @@ async page => {
   const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + payload + '.Zml4dHVyZQ';
   await page.context().addInitScript(({ user, token }) => {
     const session = JSON.stringify({ access_token: token, refresh_token: 'fixture-refresh', token_type: 'bearer', expires_in: 86400, expires_at: Math.floor(Date.now() / 1000) + 86400, user });
-    for (const host of ['api', '127', 'localhost']) localStorage.setItem(`sb-${host}-auth-token`, session);
+    for (const host of ['api.lpg.144.79.249.4.sslip.io','127.0.0.1:54321','localhost:54321','127.0.0.1:55421']) localStorage.setItem(`sb-${host}-auth-token`, session);
   }, { user, token });
   let permissions = ['customers:view', 'customers:manage', 'sales:view', 'receipts:print', 'dashboard:view', 'inventory:view', 'inventory:manage', 'purchases:view', 'purchases:manage', 'pos:sell', 'logistics:view', 'logistics:manage', 'employees:view', 'employees:manage', 'settings:manage', 'gas_plants:view', 'gas_plants:manage'];
   const brands = Array.from({ length: 15 }, (_, n) => ({ brand_id: id(10 + n), brand_name: n === 0 ? 'Jamuna Gas' : n === 1 ? 'Omera' : `Brand ${n + 1}`, is_active: true }));
@@ -33,7 +33,9 @@ async page => {
     else if (name === 'get_customer_overview') data = { wholesale: 11, retail: 20, new_wholesale: 2, new_retail: 4, inactive_wholesale: 1, inactive_retail: 3, week_start: '2026-10-17', inactive_since: '2026-08-19' };
     else if (name === 'get_customer_filter_products') data = { items, brands };
     else if (name === 'get_customer_balance') data = 0;
-    else if (name === 'get_sale_settlement') data = { total: 4700, paid: 4700, due: 0, tracking: false, payments: [], payment_count: 0, receipt_payments: [] };
+    else if (name === 'get_customer_bottle_balance') data = 0;
+    else if (name === 'get_sale_bottles') data = { expected: 0, received: 0, outstanding: 0, obligations: [], actual: [], event_count: 0, events: [] };
+    else if (name === 'get_sale_settlement') data = { total: 4700, paid: 4700, due: 0, payments: [], payment_count: 0, receipt_payments: [] };
     else if (name === 'get_customer_directory') {
       if (args.p_customer_id && holdProfile) await profileGate;
       if (failDirectory) return route.fulfill({ status: 500, json: { message: 'Directory temporarily unavailable' } });

@@ -34,4 +34,8 @@ function assertLocalSupabaseConfig(url?: string, anonKey?: string) {
 
 assertLocalSupabaseConfig(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  // Self-hosted API domains often share their first label. Scope sessions to
+  // the complete endpoint so independent backends never reuse a cached login.
+  auth: { storageKey: `sb-${new URL(SUPABASE_URL).host}-auth-token` },
+});

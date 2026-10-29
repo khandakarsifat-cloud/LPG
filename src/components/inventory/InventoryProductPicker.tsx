@@ -1,4 +1,4 @@
-import { useListPage, usePageSize } from '../../hooks/useListPage';
+import { useGroupedListPage, useGridPageSize } from '../../hooks/useListPage';
 import { useState } from 'react';
 import { PurchaseDialog } from '../purchases/PurchaseControls';
 import { ProductTile } from './BalancesGrid';
@@ -14,11 +14,10 @@ export function InventoryProductPicker({ items, brands, selected, onApply, onClo
 }) {
   const [draft, setDraft] = useState(() => new Set(selected ?? items.map(item => item.item_id)));
   const [search, setSearch] = useState('');
-  const groups = groupInventoryByBrand(items.filter(item => `${item.lpg_brands?.brand_name ?? item.brand} ${item.size_kg}kg ${item.size_kg} kg ${item.mouth_size ?? ''}`.toLowerCase().includes(search.toLowerCase().trim())), brands);
+  const groups = groupInventoryByBrand(items.filter(item => `${item.lpg_brands?.brand_name ?? 'Product unavailable'} ${item.size_kg}kg ${item.size_kg} kg ${item.mouth_size ?? ''}`.toLowerCase().includes(search.toLowerCase().trim())), brands);
   const flat = groups.flatMap(group => group.items);
-  const pageSize = usePageSize(12, 6);
-  const paging = useListPage(flat, pageSize, search);
-  const visible = new Set(paging.entries.map(item => item.item_id));
+  const { grid, columns, pageSize } = useGridPageSize({ compact: true });
+  const paging = useGroupedListPage(flat, columns, pageSize, search);
   const count = items.filter(item => draft.has(item.item_id)).length;
   const toggle = (id: string) => setDraft(previous => {
     const next = new Set(previous);
@@ -32,11 +31,9 @@ export function InventoryProductPicker({ items, brands, selected, onApply, onClo
         <div><button className="btn btn-secondary" onClick={() => setDraft(new Set(items.map(item => item.item_id)))}>Select all</button>
           <button className="btn btn-ghost" onClick={() => setDraft(new Set())}>Clear selection</button></div>
       </div>
-      <div className="inv-brand-groups">{groups.filter(group => group.items.some(item => visible.has(item.item_id))).map(group => <section key={group.key} aria-label={`${group.name} products`}>
-        <h3 className="inv-brand-heading">{group.name}</h3>
-        <div className="inv-tiles-grid">{group.items.filter(item => visible.has(item.item_id)).map(item => <ProductTile key={item.item_id} item={item}
-          showStock={showStock} selected={draft.has(item.item_id)} onClick={() => toggle(item.item_id)} />)}</div>
-      </section>)}</div>
+      <div className="inv-tiles-grid adaptive-grid adaptive-grid--inventory" ref={grid}>{paging.entries.map((item, index) => <ProductTile key={item.item_id} item={item}
+        startsBrand={index === 0 || paging.entries[index - 1].brand_id !== item.brand_id}
+        showStock={showStock} selected={draft.has(item.item_id)} onClick={() => toggle(item.item_id)} />)}</div>
       {!items.length && <p className="product-help">No registered products yet.</p>}
       {items.length > 0 && flat.length === 0 && <p className="product-help">No products match your search.</p>}
       <Pagination {...paging} onChange={paging.setPage} label="products" />

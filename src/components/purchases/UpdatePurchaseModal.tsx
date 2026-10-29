@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { Truck, CheckCircle2, CreditCard, Save } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUpdatePurchase, useDispatchPurchase, useReceivePurchase, usePurchaseOperation, usePurchaseSettlement, usePurchaseDetails, purchaseKeys } from '../../hooks/usePurchases';
-import { useItems } from '../../hooks/useInventory';
+import { useInventoryBalances } from '../../hooks/useInventory';
 import { purchaseAccess, purchaseDraft, purchaseTotals, validatePurchaseDraft, purchaseEmptyShortages, PurchaseStockError, type EmptyShortage } from '../../lib/purchase';
 import { formatBDT } from '../../lib/formatBDT';
 import { PurchaseConfirmation, PurchaseDialog } from './PurchaseControls';
@@ -12,7 +12,7 @@ import { PurchaseForm } from './PurchaseForm';
 import { PurchaseHistory, PurchaseIdentity, PurchaseSummary } from './PurchaseSummary';
 import { PurchaseStockWarning } from './PurchaseStockWarning';
 import type { Purchase } from '../../types/purchase';
-import { PurchasePaymentDialog, PurchasePayments } from './PurchasePayments';
+import { PurchasePaymentDialog, PurchaseSettlementSummary } from './PurchasePayments';
 
 export function UpdatePurchaseModal({ open, purchase, onClose }: { open: boolean; purchase: Purchase | null; onClose: () => void }) {
   const fresh = usePurchaseDetails(open && purchase ? purchase.purchase_id : null);
@@ -23,7 +23,7 @@ export function UpdatePurchaseModal({ open, purchase, onClose }: { open: boolean
 function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: () => void }) {
   const { can } = useAuth();
   const qc = useQueryClient();
-  const itemsQuery = useItems();
+  const itemsQuery = useInventoryBalances();
   const settlement = usePurchaseSettlement(purchase.purchase_id);
   const access = purchaseAccess(purchase, can('purchases:manage'), settlement.data?.can_cancel, settlement.data?.financial_locked ?? true);
   const [draft, setDraft] = useState(() => purchaseDraft(purchase));
@@ -121,7 +121,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
               <p className="purchase-hint">Financial values lock after the first normal payment. Notes remain editable until receipt and full settlement.</p>
             </section>}
           </>}
-          <PurchasePayments purchase={purchase} />
+          <PurchaseSettlementSummary purchase={purchase} />
           <PurchaseHistory purchase={purchase} />
         </div>
         <div className="modal-footer purchase-details-footer">

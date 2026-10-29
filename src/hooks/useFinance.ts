@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest } from '../lib/pendingRequest';
@@ -54,16 +53,16 @@ export type FinanceOperation = { action: 'collection'; sale_id: string; payments
 export function useFinanceOperation() {
   const { profile, user } = useAuth(); const refresh = useFinanceRefresh();
   const key = `lpg-finance-pending:${profile?.tenant_id}:${user?.id}`;
-  const [hasPending, setHasPending] = useState(() => hasPendingRequest(key));
+  const hasPending = hasPendingRequest(key);
   const mutation = useMutation({
     mutationFn: async (operation?: FinanceOperation) => {
       if (!profile || !user) throw new Error('Sign in before recording a payment.');
-      const request = prepareRequest(key, operation); setHasPending(true);
+      const request = prepareRequest(key, operation);
       const body = request.body;
       const result = body.action === 'collection'
         ? await supabase.rpc('collect_sale_payment', { p_sale_id: body.sale_id, p_payments: body.payments, p_request_id: request.id })
         : await supabase.rpc('move_wallet_money', { p_payload: body, p_request_id: request.id });
-      if (!result.error || isDefiniteRejection(result.error.code)) { finishRequest(key, request.id); setHasPending(false); }
+      if (!result.error || isDefiniteRejection(result.error.code)) finishRequest(key, request.id);
       if (result.error) throw new Error(result.error.message);
       return result.data;
     }, onSuccess: refresh,

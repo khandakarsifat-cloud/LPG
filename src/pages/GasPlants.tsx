@@ -1,4 +1,4 @@
-import { useListPage, usePageSize } from '../hooks/useListPage';
+import { useListPage, useGridPageSize } from '../hooks/useListPage';
 import { Pagination } from '../components/ui/Pagination';
 import { useState } from 'react';
 import {
@@ -21,7 +21,8 @@ import type { GasPlant } from '../types/gasPlants';
 export const GasPlantsPage = () => {
   const { data: plants = [], isLoading, error } = useGasPlants();
   const updatePlant = useUpdateGasPlant();
-  const paging = useListPage(plants, usePageSize(12, 4));
+  const { grid, pageSize } = useGridPageSize();
+  const paging = useListPage(plants, pageSize);
 
   const [addDialogOpen,    setAddDialogOpen]    = useState(false);
   const [editingPlant,     setEditingPlant]      = useState<GasPlant | null>(null);
@@ -120,7 +121,7 @@ export const GasPlantsPage = () => {
           </p>
         </div>
       ) : isLoading ? (
-        <div className="gas-plants-grid">
+        <div className="gas-plants-grid adaptive-grid adaptive-grid--plants">
           {[1, 2, 3].map((i) => (
             <div key={i} className="glass-panel" style={{ padding: '1.5rem', minHeight: '200px', opacity: 0.4 }}>
               <div style={{ background: 'var(--bg-secondary)', borderRadius: '0.5rem', height: '1.25rem', width: '60%', marginBottom: '1rem' }} />
@@ -142,7 +143,7 @@ export const GasPlantsPage = () => {
           </button>
         </div>
       ) : (
-        <div className="gas-plants-grid">
+        <div className="gas-plants-grid adaptive-grid adaptive-grid--plants" ref={grid}>
           {paging.entries.map((plant) => (
             <PlantCard
               key={plant.plant_id}
@@ -187,8 +188,6 @@ const PlantCard = ({ plant, onEdit, onOfficer, onToggleActive, isToggling }: Pla
     <div
       className="glass-panel gas-plant-card"
       style={{
-        display: 'flex',
-        flexDirection: 'column',
         opacity: plant.is_active ? 1 : 0.65,
         transition: 'opacity 0.2s',
         border: '1px solid var(--border)',
@@ -254,8 +253,7 @@ const PlantCard = ({ plant, onEdit, onOfficer, onToggleActive, isToggling }: Pla
       </div>
 
       {/* Company / Brand */}
-      {plant.brand_name && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="plant-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Building2 size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
           <span
             style={{
@@ -267,30 +265,27 @@ const PlantCard = ({ plant, onEdit, onOfficer, onToggleActive, isToggling }: Pla
               color: 'var(--primary)',
             }}
           >
-            {plant.brand_name}
+            {plant.brand_name || 'Brand not assigned'}
           </span>
         </div>
-      )}
 
       {/* Location */}
-      {plant.location && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', color: 'var(--text-muted)' }}>
+        <div className="plant-location" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', color: 'var(--text-muted)' }}>
           <MapPin size={14} style={{ flexShrink: 0, marginTop: '0.15rem' }} />
-          <span style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>{plant.location}</span>
+          <span title={plant.location ?? undefined} style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>{plant.location || 'Location not saved'}</span>
         </div>
-      )}
 
       {/* Divider */}
       <div style={{ borderTop: '1px solid var(--border)' }} />
 
       {/* Area Officer Section */}
-      <div>
+      <div className="plant-officer">
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: plant.officer_id ? '0.75rem' : '0',
+            marginBottom: plant.officer_id ? '0.375rem' : '0',
           }}
         >
           <span
@@ -322,7 +317,7 @@ const PlantCard = ({ plant, onEdit, onOfficer, onToggleActive, isToggling }: Pla
 
         {plant.officer_id ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-            <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{plant.officer_name}</div>
+            <div className="plant-officer-name" title={plant.officer_name ?? undefined}>{plant.officer_name}</div>
             {plant.whatsapp_phone && (
               <a
                 href={`https://wa.me/${plant.whatsapp_phone.replace(/[^0-9]/g, '')}`}
@@ -354,7 +349,7 @@ const PlantCard = ({ plant, onEdit, onOfficer, onToggleActive, isToggling }: Pla
                 }}
               >
                 <Mail size={13} />
-                {plant.email}
+                <span className="plant-officer-email" title={plant.email}>{plant.email}</span>
               </a>
             )}
           </div>

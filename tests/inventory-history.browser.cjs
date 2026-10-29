@@ -12,7 +12,7 @@ async page => {
   const token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.'+payload+'.Zml4dHVyZQ';
   await page.context().addInitScript(({user,token})=>{
     const session=JSON.stringify({access_token:token,refresh_token:'fixture-refresh',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user});
-    for(const host of ['api','127','localhost'])localStorage.setItem(`sb-${host}-auth-token`,session);
+    for(const host of ['api.lpg.144.79.249.4.sslip.io','127.0.0.1:54321','localhost:54321','127.0.0.1:55421'])localStorage.setItem(`sb-${host}-auth-token`,session);
   },{user,token});
   const brands=[{brand_id:id(10),brand_name:'Jamuna Gas',is_active:true},{brand_id:id(11),brand_name:'Omera',is_active:true}];
   const items=[{tenant_id:tenant,item_id:id(20),brand_id:id(10),brand:'Jamuna Gas',size_kg:5,mouth_size:'22mm',filled_quantity:50,empty_quantity:20,lpg_brands:brands[0]},
@@ -23,7 +23,7 @@ async page => {
   movements[1]={...movements[1],filled_quantity_change:0,empty_quantity_change:1};
   for(const n of [2,3,4,34,35])movements[n]={...movements[n],movement_type:'purchase',reference_type:n===2?'purchase_dispatch':n===4?'purchase_cancellation':'purchase_receipt_new',reference_id:purchaseId,
     filled_quantity_change:n===2?0:n===4?-5:5,empty_quantity_change:n===2?-5:n===4?5:0};
-  movements[35]={...movements[35],reference_type:null,reference_id:null,notes:`Received goods from Purchase ${purchaseId}`};
+  movements[35]={...movements[35],reference_type:'purchase_history',reference_id:purchaseId,notes:`Received goods from Purchase ${purchaseId}`};
   movements[37]={...movements[37],movement_type:'adjust_gain',reference_type:null,reference_id:null,notes:'Initial count',filled_quantity_change:5};
   const purchase={purchase_id:purchaseId,truck_id:null,truck_name:null,plant_id:id(50),plant_name:'Jamuna Gas',brand_id:id(10),company_name:'Jamuna Gas',status:'received',payment_status:'paid',subtotal:1000,commission:0,company_payable:1000,transport_cost:0,labour_cost:0,total_cost:1000,
     notes:null,receipt_notes:null,created_at:'2026-10-18T10:00:00Z',dispatched_at:'2026-10-18T11:00:00Z',received_at:'2026-10-18T12:00:00Z',paid_at:'2026-10-18T12:00:00Z',revision:1,legacy_record:false,
@@ -54,6 +54,9 @@ async page => {
       case 'list_purchases':throw Error('Unbounded purchase read');
       case 'get_purchases_by_ids':if(viewer)throw Error('Viewer requested purchases');data=route.request().postDataJSON().p_ids.includes(purchaseId)?[purchase]:[];break;
       case 'get_purchase_activity':data=[];break;
+      case 'get_purchase_settlement':data={total:1000,paid:1000,due:0,refund_due:0,refunded:0,financial_closed_at:null,can_cancel:false,legacy:false,financial_locked:true,obligations:[],payments:[],payment_count:0};break;
+      case 'get_sale_settlement':data={total:1200,paid:1200,due:0,payments:[],payment_count:0,receipt_payments:[]};break;
+      case 'get_sale_bottles':data={expected:0,received:0,outstanding:0,obligations:[],actual:[],event_count:0,events:[]};break;
       case 'sales':{
         if(viewer)throw Error('Viewer requested sales');
         if(url.searchParams.get('select')?.includes('sale_items')){
@@ -75,7 +78,7 @@ async page => {
   check((await page.locator('.inv-history').innerText()).includes('Received empty from Rahim on POS sale'),'empty return context');
   check((await page.locator('.inv-history').innerText()).includes('Sent empty to Jamuna Gas (plant) on purchase'),'dispatch plant context');
   check((await page.locator('.inv-history').innerText()).includes('Received package from Jamuna Gas (plant) on purchase'),'receipt plant context');
-  await page.getByRole('button',{name:'Next',exact:true}).click();
+  await page.getByRole('button',{name:'Next page',exact:true}).click();
   await page.getByText('Page 2',{exact:true}).waitFor();
   check(await page.locator('.inv-history-row').count()===10,'next page queries older rows');
   await page.getByRole('combobox',{name:'Activity',exact:true}).selectOption('purchase');
@@ -123,8 +126,8 @@ async page => {
   await picker.getByRole('button',{name:'Apply all products',exact:true}).click();
   await page.waitForFunction(()=>document.querySelectorAll('.inv-history-row').length===10);
   await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
-  await page.getByRole('button',{name:'Next',exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector('.inv-history-pagination')?.textContent.includes('Page 2'));
+  await page.getByRole('button',{name:'Next page',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('nav[aria-label="Inventory history pages"]')?.textContent.includes('Page 2'));
   await page.getByRole('button',{name:'Filter inventory history dates',exact:true}).click();
   const dates=page.getByRole('dialog',{name:'Inventory history dates',exact:true});
   await dates.getByLabel('From',{exact:true}).fill('2026-10-18');

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, AlertTriangle, RefreshCw, Droplets, Box, History, Check } from 'lucide-react';
+import { Package, AlertTriangle, RefreshCw, Droplets, Box, History, Check, Flame } from 'lucide-react';
 import { useInventoryBalances } from '../../hooks/useInventory';
 import { useLPGBrands } from '../../hooks/useBrands';
 import { groupInventoryByBrand } from '../../lib/inventoryGroups';
@@ -35,17 +35,18 @@ interface TileProps {
   onClick: () => void;
   selected?: boolean;
   showStock?: boolean;
+  startsBrand?: boolean;
 }
 
-export const ProductTile = ({ item, onClick, selected, showStock = true }: TileProps) => {
+export const ProductTile = ({ item, onClick, selected, showStock = true, startsBrand = false }: TileProps) => {
   const filled  = item.filled_quantity ?? 0;
   const empty   = item.empty_quantity  ?? 0;
   const status  = getStockStatus(filled, empty);
   const color   = STATUS_COLOR[status];
-  const brandName = item.lpg_brands?.brand_name ?? item.brand;
+  const brandName = item.lpg_brands?.brand_name ?? 'Product unavailable';
 
   return (
-    <button type="button" className={`inv-tile${selected ? ' inv-tile-selected' : ''}`} onClick={onClick}
+    <button type="button" className={`inv-tile${selected ? ' inv-tile-selected' : ''}${startsBrand ? ' brand-row-start' : ''}`} onClick={onClick}
       aria-pressed={selected} title={`${brandName} ${item.size_kg}kg ${item.mouth_size ?? ''} — ${selected === undefined ? 'view product details' : 'select product'}`}>
       {/* Status dot */}
       {selected === undefined ? <span className="inv-tile-dot" style={{ background: color }} />
@@ -90,10 +91,15 @@ export const BalancesGrid = () => {
 
   if (isLoading || brands.isPending) {
     return (
-      <div className="inv-tiles-grid">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="inv-tile inv-tile-skeleton skeleton" />
-        ))}
+      <div className="inv-brands-list">
+        <div className="inv-brand-group">
+          <div className="inv-brand-header inv-brand-header-skeleton skeleton" style={{ minHeight: '2.35rem', border: 'none' }} />
+          <div className="inv-tiles-grid adaptive-grid adaptive-grid--inventory">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="inv-tile inv-tile-skeleton skeleton" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -138,13 +144,52 @@ export const BalancesGrid = () => {
         </button>
       </div>
 
-      {/* Tile grid */}
-      <div className="inv-brand-groups">
-        {brands.isError && <p className="product-error" role="alert">Could not load saved brand order. <button className="btn btn-ghost" onClick={() => brands.refetch()}>Retry</button></p>}
-        {groups.map(group => <section className="inv-brand-group" key={group.key} aria-label={`${group.name} products`}>
-          <h3 className="inv-brand-heading">{group.name}</h3>
-          <div className="inv-tiles-grid">{group.items.map(item => <ProductTile key={item.item_id} item={item} onClick={() => setSelectedItem(item)} />)}</div>
-        </section>)}
+      {/* Brand-grouped catalog */}
+      {brands.isError && (
+        <p className="product-error" role="alert">
+          Could not load saved brand order. <button className="btn btn-ghost" onClick={() => brands.refetch()}>Retry</button>
+        </p>
+      )}
+      <div className="inv-brands-list">
+        {groups.map(group => {
+          const totalFilled = group.items.reduce((sum, item) => sum + (item.filled_quantity ?? 0), 0);
+          const totalEmpty = group.items.reduce((sum, item) => sum + (item.empty_quantity ?? 0), 0);
+
+          return (
+            <section key={group.key} className="inv-brand-group" aria-label={`${group.name} products`}>
+              <div className="inv-brand-header">
+                <div className="inv-brand-info">
+                  <span className="inv-brand-icon" aria-hidden="true">
+                    <Flame size={14} />
+                  </span>
+                  <h3 className="inv-brand-heading">{group.name}</h3>
+                  <span className="inv-brand-badge" title={`${group.items.length} registered product sizes`}>
+                    {group.items.length} {group.items.length === 1 ? 'product' : 'products'}
+                  </span>
+                </div>
+
+                <div className="inv-brand-stock-rollup" aria-label={`${group.name} stock totals`}>
+                  <span className="inv-brand-pill inv-brand-pill--filled" title={`Total filled ${group.name} cylinders: ${totalFilled}`}>
+                    <Droplets size={11} aria-hidden="true" />
+                    <strong>{totalFilled.toLocaleString()}</strong>
+                    <span>filled</span>
+                  </span>
+                  <span className="inv-brand-pill inv-brand-pill--empty" title={`Total empty ${group.name} cylinders: ${totalEmpty}`}>
+                    <Box size={11} aria-hidden="true" />
+                    <strong>{totalEmpty.toLocaleString()}</strong>
+                    <span>empty</span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="inv-tiles-grid adaptive-grid adaptive-grid--inventory">
+                {group.items.map(item => (
+                  <ProductTile key={item.item_id} item={item} onClick={() => setSelectedItem(item)} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
 
       {/* Per-product history modal */}

@@ -6,16 +6,16 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
 const backend = config('backend');
-assert.equal(backend.AZURE_HOST, '20.40.48.3', 'Only the existing development VPS');
-assert.equal(backend.AZURE_PROJECT_DIR, '/opt/lpg');
+assert.equal(backend.VPS_HOST, '144.79.249.4', 'Only the existing development VPS');
+assert.equal(backend.VPS_PROJECT_DIR, '/opt/lpg');
 mkdirSync('.temp/business-load', { recursive: true });
 assert(!existsSync('.temp/business-load/stop-tunnels'), 'Remove the prior stop marker before starting');
 const children = Array.from({ length: 8 }, (_, index) => spawn('ssh', [
-  '-i', backend.AZURE_SSH_KEY, '-p', backend.AZURE_PORT,
+  ...(backend.VPS_SSH_KEY ? ['-i', backend.VPS_SSH_KEY] : []), '-p', backend.VPS_PORT,
   '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
   '-o', 'ExitOnForwardFailure=yes', '-o', 'ServerAliveInterval=30',
   '-N', '-L', `127.0.0.1:${53300 + index}:127.0.0.1:3300`,
-  `${backend.AZURE_USER}@${backend.AZURE_HOST}`,
+  `${backend.VPS_USER}@${backend.VPS_HOST}`,
 ], { env: cleanEnv(), stdio: ['ignore', 'ignore', 'inherit'], windowsHide: true }));
 writeFileSync('.temp/business-load/tunnel-pids.json', JSON.stringify(children.map(child => child.pid)));
 let closing = false;

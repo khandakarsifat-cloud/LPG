@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import { formatBDNumber, formatBDQty, formatBDT } from '../../lib/formatBDT';
+import { formatBDQty, formatBDT } from '../../lib/formatBDT';
 import type { Purchase, PurchaseDraft } from '../../types/purchase';
 import { PURCHASE_STATUS_BG, PURCHASE_STATUS_COLORS, PURCHASE_STATUS_LABELS } from '../../types/purchase';
 
@@ -67,8 +67,8 @@ export function PurchaseNumber({ label, value, onChange, money = false, hint, in
   return <div className="input-group">
     <label className="input-label" htmlFor={id}>{label}</label>
     <input id={id} className="input-field purchase-number" type="text" aria-invalid={invalid} aria-describedby={hint ? `${id}-hint` : undefined} inputMode={money ? 'decimal' : 'numeric'}
-      autoComplete="off" placeholder={money ? '0.00' : '0'} value={text ?? (value === null ? '' : money ? formatBDNumber(value) : formatBDQty(value))}
-      onFocus={event => event.currentTarget.select()}
+      autoComplete="off" placeholder={money ? '0.00' : '0'} value={text ?? (value === null ? '' : money ? value.toFixed(2) : formatBDQty(value))}
+      onFocus={money ? undefined : event => event.currentTarget.select()}
       onBlur={() => setText(null)} onChange={event => {
         const next = event.target.value.replaceAll(',', '');
         if ((money ? /^\d*(\.\d{0,2})?$/ : /^\d*$/).test(next)) {

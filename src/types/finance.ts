@@ -11,7 +11,8 @@ export interface SalePayment {
 export interface PaymentInput { wallet_id: string; amount: number; reference?: string }
 export interface PaymentDraft { id: string; wallet_id: string; amount: string; reference: string }
 export interface SaleSettlement {
-  sale_id: string; tracking: boolean; total: number; paid: number; due: number;
+  original_total?: number; additional_charges?: number;
+  sale_id: string; unattributed_paid: number; total: number; paid: number; due: number;
   paid_at_checkout: number; checkout_payments: SalePayment[]; payment_count: number;
   payments: SalePayment[]; receipt_payments: Pick<SalePayment, 'wallet_name' | 'method' | 'amount' | 'phase'>[];
 }

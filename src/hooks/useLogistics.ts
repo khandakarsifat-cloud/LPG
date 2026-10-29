@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { readAllRows } from '../lib/queryPages';
 import type { AdditionalCost, Transit, Truck, CreateTruckPayload, UpdateTruckPayload, TruckStatus, Wallet } from '../types/logistics';
 
 // ── Query Keys ────────────────────────────────────────────────────────────────
@@ -19,13 +20,9 @@ export const logisticsKeys = {
 export const useTrucks = () =>
   useQuery<Truck[]>({
     queryKey: logisticsKeys.trucks,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('list_trucks', {
-        p_active_only: false,
-      });
-      if (error) throw error;
-      return (data ?? []) as Truck[];
-    },
+    queryFn: ({ signal }) => readAllRows<Truck>((from, to) => supabase.rpc('list_trucks', {
+      p_active_only: false,
+    }).order('created_at', { ascending: false }).order('truck_id').range(from, to).abortSignal(signal)),
   });
 
 /** Wallets for current tenant */
@@ -44,12 +41,7 @@ export const useWallets = () =>
 export const useTransits = () =>
   useQuery<Transit[]>({
     queryKey: logisticsKeys.transits,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('list_transits');
-      
-      if (error) throw error;
-      return (data ?? []) as Transit[];
-    },
+    queryFn: ({ signal }) => readAllRows<Transit>((from, to) => supabase.rpc('list_transits').range(from, to).abortSignal(signal)),
   });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -24,8 +24,7 @@ select 'a7100000-0000-4000-8000-000000000001',('a7400000-0000-4000-8000-'||lpad(
 insert into public.customers(tenant_id,customer_id,name,phone,tier) values
  ('a7100000-0000-4000-8000-000000000002','a7400000-0000-4000-8000-000000000001','Other tenant','01700000001','wholesale'),
  ('a7100000-0000-4000-8000-000000000002','a7400000-0000-4000-8000-000000000099','Foreign only','01700000099','retail');
-insert into public.items(tenant_id,item_id,brand,size_kg,filled_quantity,empty_quantity)
-select t,('a7500000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'Test brand',12,100,100
+insert into public.items(tenant_id,item_id,brand_id,size_kg,filled_quantity,empty_quantity) select t,('a7500000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,pg_temp.fixture_brand(t,'Test brand'),12,100,100
 from (values('a7100000-0000-4000-8000-000000000001'::uuid),('a7100000-0000-4000-8000-000000000002'::uuid)) x(t) cross join generate_series(1,2) n;
 insert into public.sales(tenant_id,sale_id,customer_id,status,sale_tier,subtotal,total_amount,created_by,created_at)
 select t,('a7600000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'a7400000-0000-4000-8000-000000000001','completed','wholesale',1000,1000,
@@ -95,20 +94,20 @@ select 'a7100000-0000-4000-8000-000000000001',('a7400000-0000-4000-8000-'||lpad(
   'Unified '||case n when 91 then 'Alpha' when 92 then 'Beta' when 93 then 'Gamma' else 'Never' end,
   '018'||lpad(n::text,8,'0'),case when n=91 then 'wholesale' else 'retail' end,case when n=91 then 'Unified Alpha shop' end
 from generate_series(91,94) n;
-insert into public.sales(tenant_id,sale_id,customer_id,status,sale_tier,subtotal,total_amount,payment_tracking,paid_amount,created_by,created_at)
+insert into public.sales(tenant_id,sale_id,customer_id,status,sale_tier,subtotal,total_amount,paid_amount,created_by,created_at)
 select 'a7100000-0000-4000-8000-000000000001',('a7600000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
-  ('a7400000-0000-4000-8000-'||lpad(c::text,12,'0'))::uuid,status::public.sale_status,'retail',amount,amount,tracking,paid,
+  ('a7400000-0000-4000-8000-'||lpad(c::text,12,'0'))::uuid,status::public.sale_status,'retail',amount,amount,paid,
   'a7200000-0000-4000-8000-000000000001',day::timestamptz
 from (values
-  (101,91,'completed',1200,true,200,'2026-10-02 00:00:00+06'),
-  (102,91,'completed',9000,true,0,'2026-10-01 23:59:59.999999+06'),
-  (103,91,'completed',7000,true,0,'2026-10-03 00:00:00+06'),
-  (104,91,'completed',500,true,500,'2026-10-02 23:59:59.999999+06'),
-  (105,91,'voided',90000,true,0,'2026-10-02 22:00:00+06'),
-  (106,92,'completed',2000,true,1000,'2026-10-02 10:00:00+06'),
-  (107,91,'completed',300,false,0,'2026-10-02 12:00:00+06'),
-  (108,93,'completed',600,true,0,'2026-10-02 09:00:00+06')
-) x(n,c,status,amount,tracking,paid,day);
+  (101,91,'completed',1200,200,'2026-10-02 00:00:00+06'),
+  (102,91,'completed',9000,0,'2026-10-01 23:59:59.999999+06'),
+  (103,91,'completed',7000,0,'2026-10-03 00:00:00+06'),
+  (104,91,'completed',500,500,'2026-10-02 23:59:59.999999+06'),
+  (105,91,'voided',90000,0,'2026-10-02 22:00:00+06'),
+  (106,92,'completed',2000,1000,'2026-10-02 10:00:00+06'),
+  (107,91,'completed',300,300,'2026-10-02 12:00:00+06'),
+  (108,93,'completed',600,0,'2026-10-02 09:00:00+06')
+) x(n,c,status,amount,paid,day);
 insert into public.sale_items(tenant_id,sale_id,item_id,type,quantity,unit_price,line_total)
 select 'a7100000-0000-4000-8000-000000000001',('a7600000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   ('a7500000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,kind::public.sale_item_type,q,100,100*q

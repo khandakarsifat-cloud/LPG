@@ -20,9 +20,7 @@ export function inventoryMovementSource(movement: Pick<InventoryMovement, 'refer
     return { kind: 'sale', id: movement.reference_type === 'sale' ? movement.reference_id : null };
   }
   if (movement.reference_type?.startsWith('purchase_')) return { kind: 'purchase', id: movement.reference_id };
-  const legacy = movement.notes?.match(/^(?:Empty bottles sent for refill \(Purchase ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\)|Received goods from Purchase ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|Quantity adjustment for Purchase ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))$/i);
-  const id = legacy?.slice(1).find(Boolean) ?? null;
-  if (id || ['purchase', 'refill', 'purchase_adjustment'].includes(movement.movement_type)) return { kind: 'purchase', id };
+  if (['purchase', 'refill', 'purchase_adjustment'].includes(movement.movement_type)) return { kind: 'purchase', id: null };
   return { kind: null, id: null };
 }
 

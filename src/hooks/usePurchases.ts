@@ -39,8 +39,8 @@ export const usePurchaseDetails = (id: string | null) => useQuery<Purchase>({
   staleTime: 0, refetchInterval: 30_000,
 });
 
-export const usePurchaseDirectory = (filters: PurchaseFilters, page: number, pageSize: number) => useBatchedDirectory<Purchase>(
-  [...purchaseKeys.all, 'directory', filters], page, pageSize, async (offset, limit, signal) => {
+export const usePurchaseDirectory = (filters: PurchaseFilters, pageSize: number) => useBatchedDirectory<Purchase>(
+  [...purchaseKeys.all, 'directory', filters], pageSize, async (offset, limit, signal) => {
     const { data, error } = await supabase.rpc('get_purchase_directory', { p_filters: filters, p_offset: offset, p_limit: limit }).abortSignal(signal);
     if (error) throw error;
     return data as { entries: Purchase[]; total: number };
@@ -57,8 +57,10 @@ export const usePurchaseOverview = () => useQuery<{ total: number; created: numb
 
 export const PURCHASE_ACTIVITY_PAGE_SIZE = 6;
 
-export const usePurchaseActivity = (purchaseId: string, page: number) => useQuery({
+export const usePurchaseActivity = (purchaseId: string, page: number) => useQuery<{ page: number; entries: PurchaseActivity[]; hasMore: boolean }>({
   queryKey: [...purchaseKeys.activity(purchaseId), page],
+  refetchInterval: 30_000,
+  placeholderData: (previous, query) => query?.queryKey[2] === purchaseId ? previous : undefined,
   queryFn: async ({ signal }) => {
     // Keep the RPC's chronological order. One extra row tells us whether there
     // is another page without a separate count or downloading the full history.
@@ -67,7 +69,7 @@ export const usePurchaseActivity = (purchaseId: string, page: number) => useQuer
       .range(start, start + PURCHASE_ACTIVITY_PAGE_SIZE).abortSignal(signal);
     if (error) throw error;
     const rows = (data ?? []) as PurchaseActivity[];
-    return { entries: rows.slice(0, PURCHASE_ACTIVITY_PAGE_SIZE), hasMore: rows.length > PURCHASE_ACTIVITY_PAGE_SIZE };
+    return { page, entries: rows.slice(0, PURCHASE_ACTIVITY_PAGE_SIZE), hasMore: rows.length > PURCHASE_ACTIVITY_PAGE_SIZE };
   },
 });
 

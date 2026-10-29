@@ -1,7 +1,7 @@
 import { useListPage } from '../../hooks/useListPage';
 import { Pagination } from '../ui/Pagination';
 import { Plus, Trash2, Package } from 'lucide-react';
-import { useItems } from '../../hooks/useInventory';
+import { useInventoryBalances } from '../../hooks/useInventory';
 import { useTrucks } from '../../hooks/useLogistics';
 import { PurchaseNumber, PurchaseSelect, PurchaseFinancials } from './PurchaseControls';
 import { purchaseTotals } from '../../lib/purchase';
@@ -22,7 +22,7 @@ export function PurchaseShipment({ draft, onChange }: { draft: PurchaseDraft; on
 export function PurchaseForm({ draft, onChange, companyId, purchase, showShipment = true }: {
   draft: PurchaseDraft; onChange: (draft: PurchaseDraft) => void; companyId: string | null; purchase?: Purchase; showShipment?: boolean;
 }) {
-  const itemsQuery = useItems();
+  const itemsQuery = useInventoryBalances();
   const paging = useListPage(draft.items, 6, companyId ?? "");
   const items = (itemsQuery.data ?? []).filter(item => item.brand_id === companyId);
   const productsEditable = !purchase || purchase.status === 'created';
@@ -57,7 +57,7 @@ export function PurchaseForm({ draft, onChange, companyId, purchase, showShipmen
         return <article className={`purchase-line${productsEditable ? ' purchase-line-editable' : ''}`} key={line.purchase_item_id ?? index}>
             {productsEditable ? <PurchaseSelect label={`Product ${index + 1}`} value={line.item_id} onChange={id => updateLine(index, { item_id: id })}
               options={items.filter(item => !draft.items.some((other, i) => i !== index && other.item_id === item.item_id && other.type === line.type))
-                .map(item => ({ value: item.item_id, label: `${item.lpg_brands?.brand_name ?? item.brand} ${item.size_kg} kg${item.mouth_size ? ` · ${item.mouth_size}` : ''}`,
+                .map(item => ({ value: item.item_id, label: `${item.lpg_brands?.brand_name ?? 'Product unavailable'} ${item.size_kg} kg${item.mouth_size ? ` · ${item.mouth_size}` : ''}`,
                   description: `${item.empty_quantity} empty cylinders available` }))} />
               : <strong>{saved?.brand_name} {saved?.size_kg} kg {saved?.mouth_size}</strong>}
             {productsEditable && <fieldset className="purchase-kind"><legend className="input-label">Purchase type</legend>

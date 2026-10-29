@@ -46,9 +46,10 @@ export function validatePrintRequest(value: unknown): { request_id: string; conf
   if (receipt.customer_phone !== '') text(receipt.customer_phone);
   if (receipt.notes) text(receipt.notes, 4000);
   for (const key of ['subtotal', 'discount_amount', 'exchange_fee', 'total_amount']) number(receipt[key], -1e12);
-  if (receipt.paid_amount !== undefined || receipt.due_amount !== undefined || receipt.payments !== undefined) {
+  const additional = receipt.additional_charges === undefined ? 0 : number(receipt.additional_charges);
+  {
     const paid = number(receipt.paid_amount); const due = number(receipt.due_amount);
-    if (Math.abs(paid + due - Number(receipt.total_amount)) > 0.005) throw new PrintError('INVALID_REQUEST', 'Receipt payment totals do not match.');
+    if (Math.abs(paid + due - Number(receipt.total_amount) - additional) > 0.005) throw new PrintError('INVALID_REQUEST', 'Receipt payment totals do not match.');
     if (!Array.isArray(receipt.payments) || receipt.payments.length > 200) throw new PrintError('INVALID_REQUEST', 'Invalid receipt payments.');
     let sum = 0;
     for (const entry of receipt.payments) {
@@ -56,7 +57,21 @@ export function validatePrintRequest(value: unknown): { request_id: string; conf
       sum += number(payment.amount);
       if (payment.phase !== undefined && !['checkout', 'collection'].includes(String(payment.phase))) throw new PrintError('INVALID_REQUEST', 'Invalid payment phase.');
     }
-    if (receipt.payment_tracking !== false && Math.abs(sum - paid) > 0.005) throw new PrintError('INVALID_REQUEST', 'Receipt payment entries do not match total paid.');
+    if (Math.abs(sum + number(receipt.unattributed_paid) - paid) > 0.005) throw new PrintError('INVALID_REQUEST', 'Receipt payment entries do not match total paid.');
+  }
+  if (receipt.bottles !== undefined) {
+    const bottles = object(receipt.bottles);
+    if (!Array.isArray(bottles.actual) || !Array.isArray(bottles.obligations) || bottles.actual.length > 4000 || bottles.obligations.length > 2000) throw new PrintError('INVALID_REQUEST', 'Invalid bottle settlement.');
+    for (const key of ['expected', 'received', 'outstanding']) if (!Number.isSafeInteger(number(bottles[key]))) throw new PrintError('INVALID_REQUEST', 'Bottle counts must be whole numbers.');
+    if (Number(bottles.outstanding) !== Math.max(0, Number(bottles.expected) - Number(bottles.received))) throw new PrintError('INVALID_REQUEST', 'Bottle settlement does not reconcile.');
+    let received = 0; let expected = 0;
+    for (const entry of bottles.actual) {
+      const line = object(entry); text(line.name);
+      if (!['checkout','collection'].includes(String(line.phase)) || !Number.isSafeInteger(number(line.quantity))) throw new PrintError('INVALID_REQUEST', 'Invalid received bottle.');
+      received += Number(line.quantity);
+    }
+    for (const entry of bottles.obligations) { const line = object(entry); text(line.name); if (!Number.isSafeInteger(number(line.expected))) throw new PrintError('INVALID_REQUEST', 'Invalid expected bottle.'); expected += Number(line.expected); }
+    if (received !== Number(bottles.received) || expected !== Number(bottles.expected)) throw new PrintError('INVALID_REQUEST', 'Bottle products do not reconcile.');
   }
   if (!Array.isArray(receipt.items) || !receipt.items.length || receipt.items.length > 200) throw new PrintError('INVALID_REQUEST', 'Receipt must contain between 1 and 200 items.');
   for (const entry of receipt.items) {

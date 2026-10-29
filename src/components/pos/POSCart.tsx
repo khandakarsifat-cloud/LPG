@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import type { POSSalePayload } from '../../hooks/usePOS';
 import { useInventoryBalances } from '../../hooks/useInventory';
 import { formatBDNumber } from '../../lib/formatBDT';
+import { useLPGBrands } from '../../hooks/useBrands';
+import { groupInventoryByBrand, orderSaleLines } from '../../lib/inventoryGroups';
 
 interface POSCartProps {
   items: POSSalePayload['items'];
@@ -27,6 +29,8 @@ export const POSCart = ({
   onChangeNotes,
 }: POSCartProps) => {
   const { data: inventoryItems } = useInventoryBalances();
+  const { data: brands } = useLPGBrands();
+  const orderedItems = orderSaleLines(items, groupInventoryByBrand(inventoryItems ?? [], brands ?? []).flatMap(group => group.items.map(item => item.item_id)));
 
   const subtotal = items.reduce((acc, curr) => acc + (curr.quantity * Number(curr.unit_price || 0)), 0);
   const total = subtotal - Number(discount || 0) + Number(exchangeFee || 0);
@@ -70,7 +74,7 @@ export const POSCart = ({
             <p style={{ margin: 0 }}>Cart is empty</p>
           </div>
         ) : (
-          items.map((item, index) => {
+          orderedItems.map((item, index) => {
             const invItem = inventoryItems?.find(i => i.item_id === item.item_id);
             const name = invItem ? `${invItem.lpg_brands?.brand_name} ${invItem.size_kg}kg` : 'Unknown';
 
@@ -120,7 +124,7 @@ export const POSCart = ({
 
       <div className="pos-cart-fields">
         <PurchaseNumber label="Discount (Tk)" money value={discount} onChange={value => onChangeDiscount(value ?? 0)} />
-        <PurchaseNumber label="Exchange Fee (Tk)" money value={exchangeFee} onChange={value => onChangeExchangeFee(value ?? 0)} />
+        <PurchaseNumber label="Exchange Cost (Tk)" money value={exchangeFee} onChange={value => onChangeExchangeFee(value ?? 0)} />
         <label className="pos-cart-field pos-cart-notes">
           <span>Notes</span>
           <textarea
