@@ -142,7 +142,7 @@ export const AddGasPlantModal = ({ open, onClose, editingPlant }: AddGasPlantMod
         {/* Header */}
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="modal-icon" style={{ background: 'rgba(59,130,246,0.12)', color: 'var(--primary)' }}>
+            <div className="modal-icon" style={{ background: 'var(--primary-weak)', color: 'var(--primary)' }}>
               <Factory size={18} />
             </div>
             <div>

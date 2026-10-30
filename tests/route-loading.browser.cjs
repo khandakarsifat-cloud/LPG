@@ -54,9 +54,9 @@ async page => {
   check(await page.locator('.sidebar[data-route-loading-test=stable]').isVisible(), 'Navigation unmounted during a delayed route load');
   check(await page.locator('.topbar').isVisible(), 'Header disappeared during a delayed route load');
   release();
-  await page.locator('.employees-page').waitFor();
+  await page.locator('.employee-page').waitFor();
   const routes = [['/', '.dashboard-workspace'], ['/inventory', '.inv-overview-toolbar'], ['/customers', '.customers-page'],
-    ['/employees', '.employees-page'], ['/finance', '.finance-page'], ['/purchases', '.purchases-page'], ['/sales', '.sales-page'],
+    ['/employees', '.employee-page'], ['/finance', '.finance-page'], ['/purchases', '.purchases-page'], ['/sales', '.sales-page'],
     ['/logistics', '.inv-tabs'], ['/gas-plants', '.inv-stats-row'], ['/settings', '.settings-tabs'], ['/pos', '.pos-workspace']];
   for (const [path, selector] of routes) {
     await page.goto(origin + '/#' + path);

@@ -7,7 +7,9 @@
 .purchase-dialog .modal-close { flex-shrink: 0; }
 .purchase-dialog .modal-subtitle { color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); font-size: .8125rem; }
 .purchase-dialog form { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-.purchase-dialog .modal-body { padding: 0 1rem; }
+.purchase-dialog .modal-body { padding: .75rem 1rem; }
+.purchase-dialog .modal-body > .purchase-section:first-child { padding-top: 0; }
+.purchase-dialog .modal-body > .purchase-section:last-child { padding-bottom: 0; }
 .purchase-dialog .modal-footer .btn { width: auto; }
 .purchase-destination-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; }
 .purchase-dialog .modal-footer { padding: .75rem 1rem; gap: .625rem; }
@@ -71,7 +73,7 @@
 .purchase-summary-table th { color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); font-weight: 500; background: var(--surface-muted); }
 .purchase-summary-table small { display: block; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); }
 .purchase-activity { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .625rem; list-style: none; padding: 0; margin: 0; }
-.purchase-activity > li { min-width: 0; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: .75rem; background: var(--surface-muted); font-size: .8125rem; overflow-wrap: anywhere; }
+.purchase-activity > li { font-size: .8125rem; }
 .purchase-activity-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem .75rem; }
 .purchase-activity time, .purchase-activity-actor { color: var(--text-muted); font-size: .75rem; }
 .purchase-activity-actor { display: block; margin-top: .2rem; }
@@ -183,7 +185,6 @@
   .purchase-summary-table td[data-label]::before { content: attr(data-label); display: block; font-size: .75rem; color: color-mix(in srgb, var(--text-main) 20%, var(--text-muted)); margin-bottom: .25rem; }
 }
 /* Shipment blue, completion teal, warning amber: color follows the workflow. */
-.purchase-dialog .modal-header { border-top: 4px solid var(--primary); background: color-mix(in srgb, var(--primary-weak) 38%, var(--surface)); }
 .purchase-dialog .purchase-section > h3, .purchase-dialog .purchase-section-heading h3 { color: var(--primary); }
 .purchase-dialog .purchase-total { padding: .75rem; background: var(--primary-weak); border-radius: var(--radius-md); }
 .purchase-dialog .purchase-meta { padding: .75rem; background: var(--surface-muted); border-radius: var(--radius-md); }

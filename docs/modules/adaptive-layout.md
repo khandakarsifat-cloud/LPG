@@ -36,6 +36,8 @@ Sales and Purchases use `record-card.css`: matching 19rem transaction cards rese
 
 `Pagination` handles exact totals, and `PageNavigation` handles look-ahead APIs. Both disable navigation while fetching, expose accessible page state and share touch/focus styling. Fixed history/editor limits are intentional; resizing them would add requests or disturb editing without improving card utilization.
 
+Dialog visual treatment is shared without changing capacity: headers and footers remain outside the body scroller, bodies retain vertical breathing room, and `.dialog-form` owns form gaps independently of route CSS. `history.css` gives employee, sale, purchase and payment records individual borders and consistent metadata. Record actions wrap within their own separated row; adding a history surface must not change directory tracks or backend batch sizes. Customer profile figures retain four desktop columns and use two on phones so monetary digits remain readable.
+
 ## Verification boundaries
 
 `tests/pagination.test.ts` covers anchors, count clamping, capacity and brand-aware page packing. `tests/batched-directory.browser.cjs` covers all three directories, delayed batch transitions, aligned ranges, count shrink/growth, nonzero-anchor resizing, cache reuse, retry, direct jumps, long names, uniform geometry and product fades. `tests/bottle-layouts.browser.cjs` verifies brand row starts, Settings order, picker anchors/selections, natural payment cursor editing and 320–1440px dialogs. `tests/purchase-history.browser.cjs` covers the unified financial timeline. The responsive, compact-layout, Customers, Inventory-history and Purchases suites cover shared regressions with intercepted APIs.

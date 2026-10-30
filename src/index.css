@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import './components/ui/controls.css';
+@import './components/ui/history.css';
 
 :root {
   color-scheme: light;
@@ -41,8 +42,8 @@
 
   --text-main: #172033;
   --text-primary: #172033;
-  --text-muted: #667085;
-  --text-soft: #98a2b3;
+  --text-muted: #526077;
+  --text-soft: #606d80;
   --text-inverse: #f8fafc;
 
   --primary: #255fb8;
@@ -143,8 +144,8 @@
 
   --text-main: #e7ebf1;
   --text-primary: #e7ebf1;
-  --text-muted: #a7b0bf;
-  --text-soft: #788393;
+  --text-muted: #b3bece;
+  --text-soft: #a1adbd;
   --text-inverse: #f8fafc;
 
   --primary: #93b8f4;
@@ -238,7 +239,7 @@ table {
 }
 
 :focus-visible {
-  outline: 3px solid var(--border-focus);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
@@ -810,6 +811,10 @@ table {
   transform: translateY(1px);
 }
 
+.btn:disabled:hover {
+  transform: none;
+}
+
 .btn:disabled,
 button:disabled {
   cursor: not-allowed;
@@ -822,7 +827,7 @@ button:disabled {
   border-color: var(--primary);
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
   color: var(--primary-contrast);
@@ -835,8 +840,8 @@ button:disabled {
   border-color: var(--border-subtle);
 }
 
-.btn-secondary:hover,
-.btn-ghost:hover {
+.btn-secondary:hover:not(:disabled),
+.btn-ghost:hover:not(:disabled) {
   background: var(--surface-subtle);
   border-color: var(--border-strong);
   color: var(--text-main);
@@ -856,9 +861,9 @@ button:disabled {
 }
 
 .input-label {
-  color: var(--text-muted);
+  color: var(--text-main);
   font-size: var(--font-xs);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .input-field,
@@ -866,7 +871,7 @@ button:disabled {
   width: 100%;
   min-height: 2.375rem;
   padding: 0.5rem 0.625rem;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   background: var(--input-bg);
   color: var(--text-main);
@@ -1733,7 +1738,9 @@ textarea.input-field {
 }
 
 .modal-header {
+  border-top: 4px solid var(--primary);
   border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--primary-weak) 38%, var(--surface));
 }
 
 .modal-footer {
@@ -1748,7 +1755,20 @@ textarea.input-field {
   overflow-y: auto;
   min-height: 0;
   overscroll-behavior: contain;
+  scroll-padding-block: .75rem;
 }
+
+/* Available before any route stylesheet loads (collections also open from Dashboard). */
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: .8rem;
+}
+.dialog-form > .input-group { margin-bottom: 0; }
+.dialog-form > p { margin-bottom: 0; }
+.dialog-form > .btn { align-self: flex-start; max-width: 100%; white-space: normal; }
+.modal-footer > small { color: var(--text-muted); font-size: var(--font-xs); }
+.modal-footer > .btn { max-width: 100%; white-space: normal; }
 
 .modal-content > form { display: flex; flex-direction: column; min-height: 0; }
 .modal-header > :first-child { min-width: 0; overflow-wrap: anywhere; }
@@ -1763,6 +1783,9 @@ textarea.input-field {
 
 .modal-subtitle {
   margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.5;
 }
 
 .auth-root {

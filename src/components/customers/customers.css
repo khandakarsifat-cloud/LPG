@@ -564,7 +564,7 @@
   justify-content:space-between
 }
 .customer-detail-dialog .modal-footer small{
-  font-size:.6875rem;
+  font-size:.75rem;
   color:var(--text-muted)
 }
 .customer-identity{
@@ -604,7 +604,7 @@
   margin-top:.375rem
 }
 .customer-identity .btn{
-  font-size:.6875rem;
+  font-size:.75rem;
   flex-shrink:0
 }
 .customer-profile-contact{
@@ -631,7 +631,7 @@
   flex-wrap:wrap;
   padding-top:.75rem;
   border-top:1px solid var(--border-color);
-  font-size:.625rem;
+  font-size:.75rem;
   color:var(--text-muted)
 }
 .customer-profile-stats{
@@ -652,7 +652,7 @@
   border:0
 }
 .customer-profile-stats span{
-  font-size:.625rem;
+  font-size:.75rem;
   color:var(--text-muted)
 }
 .customer-profile-stats strong{
@@ -666,17 +666,22 @@
   color:var(--primary)
 }
 .customer-history-heading{
+  margin-top:.875rem;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:1rem
+}
+.customer-detail-dialog .customer-notice{
+  font-size:.75rem;
+  line-height:1.5
 }
 .customer-history-heading h3{
   font-size:.8125rem;
   margin:0
 }
 .customer-history-heading small{
-  font-size:.625rem;
+  font-size:.75rem;
   color:var(--text-muted)
 }
 .customer-history-toolbar{
@@ -692,7 +697,7 @@
   min-height:2.25rem
 }
 .customer-history-toolbar .btn{
-  font-size:.6875rem;
+  font-size:.75rem;
   min-height:2.25rem
 }
 .customer-transactions{
@@ -734,14 +739,14 @@
   font-size:.75rem
 }
 .customer-transaction-description>time{
-  font-size:.625rem;
+  font-size:.75rem;
   color:var(--text-muted);
   margin-left:.4375rem;
   display:inline
 }
 .customer-transaction-description>span{
   display:block;
-  font-size:.6875rem;
+  font-size:.75rem;
   color:var(--text-muted);
   margin-top:.25rem;
   overflow-wrap:anywhere
@@ -989,30 +994,39 @@
     font-size:1.0625rem
   }
   .customer-identity .btn{
-    font-size:.625rem;
+    font-size:.75rem;
     padding:.4375rem
   }
   .customer-profile-contact{
     flex-direction:column;
     gap:.4375rem;
-    font-size:.6875rem
+    font-size:.75rem
   }
   .customer-profile-dates{
     gap:.75rem;
-    font-size:.6875rem
+    font-size:.75rem
   }
   .customer-profile-stats{
+    grid-template-columns:repeat(2,minmax(0,1fr));
     margin:1.0625rem 0 1.1875rem;
     padding:.6875rem 0
   }
   .customer-profile-stats>div{
     padding:0 .5rem
   }
+  .customer-profile-stats>div:nth-child(2n){
+    border-right:0
+  }
+  .customer-profile-stats>div:nth-child(n+3){
+    border-top:1px solid var(--border-color);
+    margin-top:.625rem;
+    padding-top:.625rem
+  }
   .customer-profile-stats span{
-    font-size:.6875rem
+    font-size:.75rem
   }
   .customer-profile-stats strong{
-    font-size:1.3125rem
+    font-size:1.125rem
   }
   .customer-history-toolbar{
     flex-wrap:wrap
@@ -1029,25 +1043,25 @@
     display:none
   }
   .customer-transaction-description>strong{
-    font-size:.6875rem
+    font-size:.75rem
   }
   .customer-transaction-description>time{
     display:block;
-    font-size:.6875rem;
+    font-size:.75rem;
     margin:.25rem 0 0
   }
   .customer-transaction-description>span{
-    font-size:.625rem
+    font-size:.75rem
   }
   .customer-transaction-amount>strong{
     font-size:.75rem
   }
   .customer-transaction-amount .customer-badge{
-    font-size:.6875rem;
+    font-size:.75rem;
     padding:.125rem .375rem
   }
   .customer-detail-dialog .modal-footer small{
-    font-size:.625rem
+    font-size:.75rem
   }
   .customer-history-heading small{
     max-width:50%;
@@ -1066,6 +1080,6 @@
     font-size:.9375rem
   }
   .customer-profile-dates{
-    font-size:.6875rem
+    font-size:.75rem
   }
 }

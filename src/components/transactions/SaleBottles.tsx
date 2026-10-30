@@ -69,11 +69,11 @@ export function SaleBottles({ saleId }: { saleId: string }) {
       })}
      </ul>{receivedProducts.size === 0 && <p className="payment-hint">No bottles received yet.</p>}</section>
     </div>
-    <p className="payment-hint">{data.outstanding === 0 ? 'Bottle settled. ' : ''}Product differences are shown for reference; settlement uses the total count.</p>
+    <p className="payment-hint">{data.outstanding === 0 ? 'Bottle settled. ' : ''}Settlement uses the total count; product differences are for reference.</p>
    </>
    <h3>Transaction history</h3>
-   <div className="bottle-history">{data.events.map(event => <article className="bottle-event" key={event.id}>
-    <header><strong>{event.kind === 'sale' ? 'Original sale' : event.kind === 'payment' ? 'Payment received' : event.phase === 'checkout' ? 'Bottles at checkout' : 'Bottle collection'}</strong>{event.amount > 0 && <strong>{event.kind === 'bottles' ? 'Additional Settlement Cost ' : ''}{formatBDT(event.amount)}</strong>}</header>
+   <div className="bottle-history history-list">{data.events.map(event => <article className="bottle-event history-card" key={event.id}>
+    <header className="history-heading"><strong>{event.kind === 'sale' ? 'Original sale' : event.kind === 'payment' ? 'Payment received' : event.phase === 'checkout' ? 'Bottles at checkout' : 'Bottle collection'}</strong>{event.amount > 0 && <strong>{event.kind === 'bottles' ? 'Additional Settlement Cost ' : ''}{formatBDT(event.amount)}</strong>}</header>
     <small>{new Date(event.created_at).toLocaleString('en-BD',{ timeZone: 'Asia/Dhaka' })} · {event.actor} · {event.phase === 'checkout' ? 'Checkout' : 'After sale'}</small>
     {event.lines.map((line,index) => <p key={index}>{line.quantity} × {line.received_name}{line.acknowledged ? ' · Product / quantity difference acknowledged' : ''}</p>)}
     {event.expense > 0 && <p>Business expense: {formatBDT(event.expense)} · {event.expense_wallet_name}</p>}

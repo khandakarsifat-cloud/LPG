@@ -165,6 +165,25 @@ async page => {
   check(await left.locator('ul').evaluate(element=>element.scrollHeight>element.clientHeight),'Long expected list is not scrollable');
   await left.getByRole('listitem').last().scrollIntoViewIfNeeded();
  }
+ // Collections open from Sales/Dashboard before the Finance route's CSS loads.
+ settlement.due=100; settlement.paid=200;
+ await page.reload(); await page.locator('.sale-card').first().click();
+ await detail.getByRole('button',{name:'Collect payment',exact:true}).click();
+ const payment=page.getByRole('dialog',{name:/Collect payment/});
+ await payment.getByRole('button',{name:/Pay remaining/}).waitFor();
+ for(const theme of ['light','dark'])for(const width of [320,390,768,1440]){
+  await page.setViewportSize({width,height:800});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+  await fits(payment,`Collection spacing ${theme} ${width}`);
+  check(await payment.locator('.modal-body').evaluate(el=>{
+   const css=getComputedStyle(el),body=el.getBoundingClientRect();
+   const action=el.querySelector(':scope > .btn').getBoundingClientRect();
+   const editor=el.querySelector('.payment-editor').getBoundingClientRect();
+   return parseFloat(css.paddingTop)>=8&&parseFloat(css.paddingBottom)>=8&&action.top-editor.bottom>=8&&body.bottom-action.bottom>=8;
+  }),'Collection actions touch the content or footer before Finance loads');
+ }
+ await payment.getByRole('button',{name:/Pay remaining/}).click();
+ await payment.getByLabel('Payment 1 amount',{exact:true}).waitFor();
+ await fits(payment,'Filled collection');
  check(errors.length===0,errors.join(';'));
  return {catalog:30,widths:[320,390,768,1024,1440],receiptWidths:[58,80],selection:'persists across search and pages',errors};
 }

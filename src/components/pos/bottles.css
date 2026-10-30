@@ -20,8 +20,8 @@
 .bottle-comparison strong{font-weight:500;overflow-wrap:anywhere}
 .bottle-comparison small{display:block;font-size:var(--font-xs);color:var(--text-muted);margin-top:.15rem}
 .bottle-comparison b{flex-shrink:0}
-.bottle-history{display:grid;gap:.5rem}.bottle-event{border-left:2px solid var(--border-color);padding:.3rem 0 .3rem .65rem;overflow-wrap:anywhere;font-size:var(--font-sm)}
-.bottle-event header{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.3rem}.bottle-event small{display:block;color:var(--text-muted);margin:.2rem 0}.bottle-event p{margin:.25rem 0;white-space:pre-wrap}
+.bottle-event{font-size:var(--font-sm)}
+.bottle-event small{display:block;color:var(--text-muted);margin:.2rem 0}.bottle-event p{margin:.25rem 0;white-space:pre-wrap}
 .bottle-settlement h3{font-size:var(--font-md);margin:0}.bottle-settlement{padding-top:.65rem}.bottle-settlement .settlement-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem}
 .purchase-dialog.bottle-collection-dialog{width:min(820px,calc(100vw - 1.5rem))}.bottle-expense{display:grid;gap:.5rem;border-top:1px solid var(--border-color);padding-top:.6rem}.bottle-expense .input-field{width:100%}
 

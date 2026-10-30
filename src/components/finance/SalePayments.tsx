@@ -14,7 +14,7 @@ export function CollectPaymentDialog({ saleId, due, onClose }: { saleId: string;
   const wallets = usePaymentWallets(); const operation = useFinanceOperation(); const [entries, setEntries] = useState<PaymentDraft[]>([]);
   const validation = validatePayments(entries, due, wallets.data ?? []);
   return <PurchaseDialog title={`Collect payment · #${saleId.slice(0, 8).toUpperCase()}`} subtitle="Only the received amount is credited to the selected wallets." compact onClose={onClose} busy={operation.isPending}>
-    <div className="modal-body finance-form">
+    <div className="modal-body dialog-form">
       {wallets.isPending && <p role="status">Loading wallets…</p>}{wallets.error && <p role="alert" className="payment-error">Wallets could not be loaded. <button className="btn btn-secondary" onClick={() => void wallets.refetch()}>Retry</button></p>}
       {wallets.data && <><PaymentEntries wallets={wallets.data} total={due} entries={entries} onChange={setEntries} disabled={operation.isPending || operation.hasPending} />{!entries.length && <button className="btn btn-secondary" disabled={operation.isPending || operation.hasPending} onClick={() => setEntries([paymentDraft(wallets.data, due)])}>Pay remaining {formatBDT(due)}</button>}</>}
       {operation.hasPending && <div className="finance-recovery" role="alert">A previous financial transaction needs confirmation.<button className="btn btn-secondary" disabled={operation.isPending} onClick={async () => { try { await operation.mutateAsync(undefined); toast.success('Previous transaction confirmed'); onClose(); } catch { /* inline */ } }}>Recover transaction</button></div>}
@@ -32,7 +32,7 @@ export function SalePayments({ saleId, showHistory = true }: { saleId: string; s
     {data && <><dl className="payment-totals"><div><dt>Sale total</dt><dd>{formatBDT(data.total)}</dd></div><div><dt>Total paid</dt><dd>{formatBDT(data.paid)}</dd></div><div className={data.due > 0 ? 'payment-due' : ''}><dt>{data.due > 0 ? 'Remaining due' : 'Fully paid'}</dt><dd>{formatBDT(data.due)}</dd></div></dl>
       {data.unattributed_paid > 0 && <p className="payment-hint">{formatBDT(data.unattributed_paid)} paid without recorded payment methods.</p>}
       {(data.additional_charges ?? 0)>0 && <p className="payment-hint">Original invoice {formatBDT(data.original_total ?? 0)} + Additional Settlement Cost {formatBDT(data.additional_charges ?? 0)}</p>}
-      {showHistory && data.payments.map(p => <div className="settlement-row" key={p.payment_id}><span>{p.wallet_name}<small>{new Date(p.created_at).toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' })} · {p.phase === 'checkout' ? 'At checkout' : 'Collection'}{p.reference && ` · ${p.reference}`}</small></span><strong>{formatBDT(p.amount)}</strong></div>)}
+      {showHistory && data.payments.map(p => <div className="settlement-row history-card" key={p.payment_id}><span>{p.wallet_name}<small>{new Date(p.created_at).toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' })} · {p.phase === 'checkout' ? 'At checkout' : 'Collection'}{p.reference && ` · ${p.reference}`}</small></span><strong>{formatBDT(p.amount)}</strong></div>)}
       {showHistory && <Pagination page={page} pageSize={10} total={data.payment_count} onChange={setPage} label="payments" busy={query.isFetching} />}
       {collect && <CollectPaymentDialog saleId={saleId} due={data.due} onClose={() => setCollect(false)} />}
     </>}

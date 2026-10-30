@@ -76,7 +76,7 @@ export const AreaOfficerModal = ({ open, onClose, plant }: AreaOfficerModalProps
         {/* Header */}
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="modal-icon" style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--accent)' }}>
+            <div className="modal-icon" style={{ background: 'var(--accent-weak)', color: 'var(--accent)' }}>
               <UserCheck size={18} />
             </div>
             <div>
@@ -154,7 +154,6 @@ export const AreaOfficerModal = ({ open, onClose, plant }: AreaOfficerModalProps
             <button
               type="submit"
               className="btn btn-primary"
-              style={{ background: 'var(--accent)', boxShadow: '0 2px 10px rgba(16,185,129,0.3)' }}
               disabled={isPending || !form.officer_name.trim()}
             >
               {isPending ? (

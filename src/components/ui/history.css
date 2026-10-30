@@ -1,0 +1,53 @@
+/* Shared record surfaces: quiet boundaries, readable metadata and no nested shadows. */
+.history-list {
+  display: grid;
+  gap: .5rem;
+  min-width: 0;
+}
+
+.history-card {
+  min-width: 0;
+  padding: .75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-card small,
+.history-meta {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+}
+
+.history-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .375rem .75rem;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .5rem .75rem;
+  margin-top: .625rem;
+  padding-top: .5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.history-card details > summary {
+  cursor: pointer;
+  color: var(--primary);
+  font-size: var(--font-xs);
+  padding-block: .25rem;
+}
+
+.history-card details[open] > summary {
+  margin-bottom: .375rem;
+}

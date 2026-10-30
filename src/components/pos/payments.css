@@ -14,13 +14,17 @@
 .payment-due dd { color: var(--warning); }
 .payment-error { color: var(--danger); margin: 0; }
 .payment-hint { color: var(--text-muted); margin: 0; }
+.finance-recovery { display: flex; gap: .65rem; align-items: center; flex-wrap: wrap; padding: .75rem; border: 1px solid var(--warning-border-muted); border-radius: var(--radius-md); background: var(--warning-weak); font-size: var(--font-sm); }
 .advanced-payments { border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: .8rem; padding: .65rem; }
 .advanced-payments > button { width: 100%; justify-content: space-between; }
 .advanced-payments .payment-editor { margin-top: .7rem; }
 .settlement-panel { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: .8rem; display: grid; gap: .7rem; }
 .settlement-heading { display: flex; justify-content: space-between; gap: .5rem; align-items: center; flex-wrap: wrap; }
 .settlement-heading h3 { margin: 0; font-size: var(--font-md); }
-.settlement-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .5rem; padding: .45rem 0; border-bottom: 1px solid var(--border-subtle); }
+.settlement-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .5rem; align-items: baseline; }
 .settlement-row small { display: block; color: var(--text-muted); overflow-wrap: anywhere; }
 .settlement-row strong { font-variant-numeric: tabular-nums; }
 @media(max-width:400px) { .payment-entry { grid-template-columns: minmax(0,1fr) 6rem auto; } .payment-totals { font-size: .75rem; } }
+
+.settlement-row > strong { overflow-wrap: anywhere; text-align: right; }
+.purchase-dialog .purchase-section.settlement-panel { padding: .8rem; margin-block: .75rem; border: 1px solid var(--border-strong); }

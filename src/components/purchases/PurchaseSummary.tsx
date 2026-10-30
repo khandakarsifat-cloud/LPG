@@ -63,7 +63,7 @@ export function PurchaseHistory({ purchase }: { purchase: Purchase }) {
     {!query.isError && <ol className="purchase-activity">{entries.map((activity, index) => {
       const previous = entries.slice(0, index).reverse().find(entry => Array.isArray(entry.details?.items));
       const summary = describePurchaseActivity(activity, purchase, previous?.details.items);
-      return <li key={activity.activity_id} data-activity-id={activity.activity_id}>
+      return <li className="history-card" key={activity.activity_id} data-activity-id={activity.activity_id}>
         <div className="purchase-activity-heading"><strong>{summary.title}</strong><time dateTime={activity.created_at}>{purchaseDate(activity.created_at)}</time></div>
         <span className="purchase-activity-actor">{activity.actor_name}</span>
         {activity.wallet_entries?.map(entry => <div className="purchase-activity-wallet" key={entry.transaction_id} data-transaction-id={entry.transaction_id}>

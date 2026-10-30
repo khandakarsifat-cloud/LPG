@@ -34,7 +34,7 @@ export function PurchasePaymentDialog({ purchase, settlement, refund, operation,
     } catch { /* Keep the form and original request available for recovery. */ }
   }
   return <PurchaseDialog title={refund ? 'Record purchase refund' : 'Pay purchase'} subtitle={`#${purchase.purchase_id.slice(0, 8).toUpperCase()} · ${purchase.plant_name}`} compact onClose={onClose} busy={busy}>
-    <div className="modal-body finance-form">
+    <div className="modal-body dialog-form">
       {refund && <label className="input-group"><span className="input-label">Refund obligation</span><select className="input-field" value={obligationId} disabled={busy || operation.hasPending} onChange={e => { setObligationId(e.target.value); setEntries([]); }}>
         {pending.map(o => <option key={o.obligation_id} value={o.obligation_id}>{purchaseComponentLabel[o.component] ?? o.component} · {formatBDT(o.remaining)}</option>)}
       </select></label>}
@@ -63,7 +63,7 @@ export function PurchaseSettlementSummary({ purchase }: { purchase: Purchase }) 
     {query.error && <p role="alert" className="purchase-error">Settlement could not be loaded. <button type="button" className="btn btn-secondary" onClick={() => void query.refetch()}>Retry settlement</button></p>}
     {data && <><dl className="payment-totals"><div><dt>Total payable</dt><dd>{formatBDT(data.total)}</dd></div><div><dt>Amount paid</dt><dd>{formatBDT(data.paid)}</dd></div><div className="payment-due"><dt>{purchase.status === 'cancelled' ? 'Refund remaining' : 'Outstanding'}</dt><dd>{formatBDT(purchase.status === 'cancelled' ? data.refund_due : data.due)}</dd></div></dl>
       {purchase.status === 'cancelled' && <p className="purchase-alert">{data.financial_closed_at ? 'Financially closed: all recorded refund obligations are settled.' : 'Pending refund: normal purchase operations are locked.'} Refunded / reversed: {formatBDT(data.refunded)}. Transit operating costs close separately in Logistics.</p>}
-      {data.obligations.map(o => <div key={o.obligation_id}><div className="settlement-row"><span>{purchaseComponentLabel[o.component] ?? o.component}<small>{formatBDT(o.refunded)} refunded / reversed · {o.credit_business ? 'Return to purchasing business' : 'Logistics reversal only'}</small></span><strong>{formatBDT(o.remaining)} due</strong></div>
+      {data.obligations.map(o => <div key={o.obligation_id}><div className="settlement-row history-card"><span>{purchaseComponentLabel[o.component] ?? o.component}<small>{formatBDT(o.refunded)} refunded / reversed · {o.credit_business ? 'Return to purchasing business' : 'Logistics reversal only'}</small></span><strong>{formatBDT(o.remaining)} due</strong></div>
         <details><summary>Original payment references ({o.sources.length})</summary>{o.sources.map(s => <p className="purchase-hint" key={s.transaction_id}>{s.wallet_name} · {formatBDT(Math.abs(s.amount))}<br />Ledger: {s.transaction_id}{s.payment_id && ` · Payment: ${s.payment_id}`}<br />{s.description}</p>)}</details>
       </div>)}
     </>}

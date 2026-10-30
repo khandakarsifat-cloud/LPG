@@ -16,7 +16,7 @@
 .list-page-buttons,.list-page-number{
   display:flex;
   align-items:center;
-  gap:.25rem
+  gap:.375rem
 }
 .list-page-buttons{min-width:0;max-width:100%;flex-wrap:wrap;justify-content:flex-end}
 .list-page-buttons button{
@@ -28,9 +28,14 @@
   border:1px solid var(--border-color);
   border-radius:.3125rem;
   background:var(--surface);
-  color:var(--text-muted);
-  font-size:.6875rem;
+  color:var(--text-main);
+  font-size:.75rem;
   cursor:pointer
+}
+.list-page-buttons button:hover:not(:disabled){
+  border-color:var(--primary);
+  background:var(--primary-weak);
+  color:var(--primary)
 }
 .list-page-buttons button[aria-current=page]{
   border-color:var(--primary-border-muted);

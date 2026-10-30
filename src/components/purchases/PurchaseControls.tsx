@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { formatBDQty, formatBDT } from '../../lib/formatBDT';
 import type { Purchase, PurchaseDraft } from '../../types/purchase';
 import { PURCHASE_STATUS_BG, PURCHASE_STATUS_COLORS, PURCHASE_STATUS_LABELS } from '../../types/purchase';
+import './purchases.css';
 
 export function PurchaseDialog({ title, subtitle, children, onClose, busy = false, compact = false, className = '' }: {
   title: string; subtitle?: string; children: ReactNode; onClose: () => void; busy?: boolean; compact?: boolean;
@@ -19,9 +20,9 @@ export function PurchaseDialog({ title, subtitle, children, onClose, busy = fals
     return () => { dialog?.close(); document.body.style.overflow = previous; };
   }, []);
   return createPortal(<dialog ref={ref} className={`purchase-dialog${compact ? ' purchase-dialog-compact' : ''} ${className}`}
-    aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
+    aria-labelledby={titleId} aria-describedby={subtitle ? `${titleId}-description` : undefined} onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
     <div className="modal-header">
-      <div><h2 id={titleId} className="modal-title">{title}</h2>{subtitle && <p className="modal-subtitle">{subtitle}</p>}</div>
+      <div><h2 id={titleId} className="modal-title">{title}</h2>{subtitle && <p id={`${titleId}-description`} className="modal-subtitle">{subtitle}</p>}</div>
       <button type="button" className="modal-close" aria-label="Close dialog" onClick={onClose} disabled={busy}><X size={20} /></button>
     </div>
     {children}

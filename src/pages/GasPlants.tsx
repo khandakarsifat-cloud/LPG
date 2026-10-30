@@ -328,7 +328,7 @@ const PlantCard = ({ plant, onEdit, onOfficer, onToggleActive, isToggling }: Pla
                   alignItems: 'center',
                   gap: '0.45rem',
                   fontSize: '0.82rem',
-                  color: '#25D366',
+                  color: 'var(--accent)',
                   textDecoration: 'none',
                 }}
               >

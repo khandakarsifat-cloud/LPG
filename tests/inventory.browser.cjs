@@ -198,9 +198,11 @@ async page => {
   // Verify saved price feeds POS, independently of MRP.
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(origin + '/#/pos');
-  await page.getByRole('button', { name: 'Increase Refill quantity', exact: true }).first().click();
-  check(await page.locator('.pos-option-price').first().textContent() === 'Tk 1,300', 'POS uses selling price');
-  check(!await page.locator('.pos-option-price').first().textContent().then(text => text.includes('1,700')), 'POS excludes MRP');
+  // The 5kg product sorts first but has no fixture prices. Inspect the saved 12kg SKU.
+  const pricedCard = page.locator('.pos-product-card').filter({ has: page.getByRole('heading', { name: 'Beximco LPG 12kg', exact: true }) });
+  await pricedCard.getByRole('button', { name: 'Increase Refill quantity', exact: true }).click();
+  check(await pricedCard.locator('.pos-option-price').first().textContent() === 'Tk 1,300', 'POS uses selling price');
+  check(!await pricedCard.locator('.pos-option-price').first().textContent().then(text => text.includes('1,700')), 'POS excludes MRP');
 
   // Settings persists the order and inventory starts each brand on a separate row.
   await page.goto(origin+'/#/settings');

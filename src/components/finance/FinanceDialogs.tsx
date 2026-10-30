@@ -12,7 +12,7 @@ export function WalletDialog({ wallet, onClose }: { wallet?: FinanceWallet; onCl
   const [active, setActive] = useState(wallet?.is_active ?? true);
   return <PurchaseDialog title={wallet ? 'Manage wallet' : 'Add wallet'} onClose={onClose} busy={save.isPending} compact>
     <form onSubmit={async e => { e.preventDefault(); try { await save.mutateAsync({ wallet_id: wallet?.wallet_id, revision: wallet?.revision, name, kind, details, is_active: active }); toast.success('Wallet saved'); onClose(); } catch { /* inline error */ } }}>
-      <div className="modal-body finance-form">
+      <div className="modal-body dialog-form">
         <label className="input-group"><span className="input-label">Wallet name</span><input className="input-field" required maxLength={80} value={name} onChange={e => setName(e.target.value)} disabled={save.isPending} /></label>
         <label className="input-group"><span className="input-label">Category</span><select aria-label="Category" className="input-field" value={kind} onChange={e => setKind(e.target.value as WalletKind)} disabled={Boolean(wallet) || save.isPending}>{Object.entries(paymentMethodLabel).filter(([value]) => value !== 'logistics' || wallet?.kind === 'logistics').map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label className="input-group"><span className="input-label">Details (optional)</span><textarea className="input-field" maxLength={500} placeholder="Bank or account details for your team" value={details} onChange={e => setDetails(e.target.value)} disabled={save.isPending} /></label>
@@ -34,7 +34,7 @@ export function MoneyDialog({ action, wallets, initialWallet, onClose }: { actio
   const recover = async () => { try { await operation.mutateAsync(undefined); toast.success('Previous transaction confirmed'); onClose(); } catch { /* inline */ } };
   return <PurchaseDialog title={action === 'transfer' ? 'Transfer between wallets' : 'Adjust wallet balance'} onClose={onClose} busy={operation.isPending} compact>
     <form onSubmit={async e => { e.preventDefault(); try { await operation.mutateAsync({ action, wallet_id: walletId, ...(action === 'transfer' ? { destination_id: destination } : {}), amount: Number(amount) * (action === 'adjustment' && direction === 'subtract' ? -1 : 1), reason: reason.trim() }); toast.success(action === 'transfer' ? 'Transfer recorded' : 'Adjustment recorded'); onClose(); } catch { /* inline */ } }}>
-      <div className="modal-body finance-form">
+      <div className="modal-body dialog-form">
         {operation.hasPending && <div className="finance-recovery" role="alert">An earlier transaction needs confirmation.<button type="button" className="btn btn-secondary" disabled={operation.isPending} onClick={() => void recover()}>Recover transaction</button></div>}
         <label className="input-group"><span className="input-label">{action === 'transfer' ? 'From wallet' : 'Wallet'}</span><select aria-label={action === 'transfer' ? 'From wallet' : 'Wallet'} className="input-field" value={walletId} disabled={operation.isPending} onChange={e => setWalletId(e.target.value)}>{active.map(w => <option key={w.wallet_id} value={w.wallet_id}>{w.name}</option>)}</select></label>
         <p className="finance-note">Current balance: {formatBDT(Number(source?.balance ?? 0))}</p>

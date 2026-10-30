@@ -197,6 +197,14 @@ async page => {
       await card().first().click(); detail = page.getByRole('dialog', { name: 'Customer details', exact: true });
       await detail.locator('.customer-transaction-row').first().waitFor();
       check(await detail.evaluate(el => el.scrollWidth <= el.clientWidth + 1), `Customer details overflow at ${width}`);
+      check(await detail.locator('.customer-profile-stats > div:nth-child(2) strong').evaluate(el => {
+        const text = el.firstChild;
+        if (!text || text.nodeType !== Node.TEXT_NODE) return false;
+        const range = document.createRange();
+        range.setStart(text, text.textContent.indexOf(' ') + 1);
+        range.setEnd(text, text.textContent.length);
+        return range.getClientRects().length === 1;
+      }), `Customer total splits its digits at ${width}`);
       await page.screenshot({ path: `${artifacts}/details-${width}-${theme}.png` });
       await detail.locator('.customer-transaction-row').first().click();
       transaction = page.locator('.transaction-detail-dialog'); await transaction.locator('.transaction-line').first().waitFor();
