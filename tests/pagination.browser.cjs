@@ -40,6 +40,8 @@ async page => {
     const req=route.request(),url=new URL(req.url()),name=url.pathname.split('/').pop(),args=req.method()==='POST'?req.postDataJSON():{};
     calls.push({name,args});let data=[];
     if(name==='user_profiles')data=[{tenant_id:tenant,full_name:'Page Operator',email:user.email,tenants:{business_name:'Pagination verification'}}];
+    else if(name==='get_my_preferences')data={theme:null};
+    else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
     else if(name==='get_my_permissions')data=['dashboard:view','pos:sell','sales:view','receipts:print','purchases:view','purchases:manage','inventory:view','inventory:manage','employees:view','employees:manage','payroll:view','payroll:pay','logistics:view','logistics:manage','settings:manage','gas_plants:view','gas_plants:manage'];
     else if(name==='wallets')data=[{type:'dealership',balance:10000}];
     else if(name==='items')data=items;

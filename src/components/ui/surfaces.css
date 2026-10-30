@@ -1,0 +1,74 @@
+/* Shared visual hierarchy. Layout dimensions stay in the owning module. */
+.page-content :is(.card,.glass-panel,.employee-card,.customer-card,.finance-wallet,.brand-card) {
+ box-shadow:var(--shadow-sm);
+}
+.page-content :is(.card-title,.stat-label,.inv-stat-label,.purchase-list-summary dt,.customer-metric>span,.inventory-overview dt) {
+ color:var(--primary);font-weight:650;
+}
+.page-content :is(.card,.glass-panel,.finance-wallet,.customer-card,.employee-card) :is(h2,h3) {
+ color:var(--text-main);
+}
+.page-content .stat-card { border-block-start:3px solid var(--primary); }
+.page-content .stat-card:first-child { border-block-start-color:var(--accent); }
+.page-content .stat-card:nth-child(2) { border-block-start-color:var(--warning); }
+.page-content .stat-label { color:var(--primary); }
+.page-content :is(.finance-wallet,.customer-metric,.inv-stat,.purchase-list-summary>div) { box-shadow:var(--shadow-sm); }
+.page-content .finance-wallet.selected { border-color:var(--primary); }
+.page-content .finance-wallet-main>strong { color:var(--primary); }
+.page-content .finance-wallet-main>strong.finance-negative { color:var(--danger); }
+.page-content :is(.customer-card-heading,.employee-card-heading,.purchase-card-header) strong { color:var(--primary); }
+.page-content :is(.customer-card-heading,.employee-card-heading,.purchase-card-header) small { color:var(--text-main); }
+.page-content :is(.inv-brand-header,.pos-brand-header) { border-color:var(--primary-border-muted); }
+.page-content :is(.inv-brand-header,.pos-brand-header) :is(h2,h3) { color:var(--primary); }
+
+/* Both native dialogs and existing modal overlays use the same surface stack. */
+:is(.purchase-dialog,.modal-content,.product-dialog) { border-color:var(--border-strong); }
+:is(.purchase-dialog,.modal-content)>.modal-header,.product-dialog .product-dialog-header {
+ background:var(--primary-weak);border-bottom-color:var(--primary-border-muted);
+}
+:is(.purchase-dialog,.modal-content) .modal-title { color:var(--text-main);font-weight:750; }
+:is(.purchase-dialog,.modal-content)>.modal-footer { background:var(--surface-subtle);border-top-color:var(--border-subtle); }
+:is(.purchase-dialog,.modal-content) .input-label { color:var(--primary);font-weight:650; }
+:is(.purchase-dialog,.modal-content,.product-dialog) .input-field { background-color:var(--input-bg); }
+.purchase-dialog .purchase-section,.product-dialog .product-section {
+ border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface);padding:.625rem;margin:.625rem 0;
+}
+.purchase-dialog .modal-body>.purchase-section:first-child { padding-top:.625rem;margin-top:0; }
+.purchase-dialog .modal-body>.purchase-section:last-child { padding-bottom:.625rem;margin-bottom:0;border-bottom:1px solid var(--border-subtle); }
+.product-dialog .product-section:last-child { padding-bottom:.625rem; }
+.product-dialog .product-section.product-history { padding-inline:0;border-inline:0; }
+.purchase-dialog .purchase-section>h3,.purchase-dialog .purchase-section-heading,.product-dialog .product-section-heading {
+ color:var(--primary);background:var(--primary-weak);border-bottom:1px solid var(--primary-border-muted);border-radius:var(--radius-sm);
+ padding:.375rem .5rem;margin-bottom:.625rem;
+}
+.purchase-dialog .purchase-section-heading h3,.product-dialog .product-section-heading h3 { color:var(--primary);margin:0; }
+.purchase-dialog :is(.purchase-meta,.purchase-totals,.purchase-line-quantities) dt,
+.transaction-detail-dialog :is(.transaction-info-grid section>span,.transaction-totals dt),
+.modal-content :is(.customer-profile-stats>div>span,.customer-profile-details dt) { color:var(--primary);font-weight:600; }
+:is(.page-content,.purchase-dialog,.modal-content,.product-dialog) thead th {
+ background:var(--primary-weak);color:var(--primary);border-bottom-color:var(--border-strong);font-weight:650;
+}
+.history-card { background:var(--surface);border-color:var(--border-subtle); }
+.history-card :is(.history-meta,small) { color:var(--text-muted); }
+.page-content .finance-ledger-totals { background:var(--primary-weak);border-color:var(--primary-border-muted); }
+.page-content .finance-tabs { border-bottom-color:var(--border-strong); }
+.page-content .finance-tabs [aria-selected="true"] { background:var(--primary-weak); }
+
+/* Dashboard headers form bands inside the existing compact card geometry. */
+.dashboard-workspace>.card>.card-header {
+ background:var(--primary-weak);border-bottom:1px solid var(--primary-border-muted);
+ margin:calc(-1 * var(--space-lg)) calc(-1 * var(--space-lg)) var(--space-md);padding:10px var(--space-lg);
+ border-start-start-radius:var(--radius-lg);border-start-end-radius:var(--radius-lg);
+}
+.dashboard-workspace>.card>.card-header .card-title { color:var(--primary); }
+.settings-page { display:flex;flex-direction:column;gap:var(--space-md); }
+.settings-page .settings-header { display:flex;align-items:center;gap:12px; }
+.settings-page .settings-header p { margin:0;color:var(--text-muted);font-size:var(--font-sm); }
+.settings-page-icon { display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:var(--radius-md);background:var(--primary-weak);color:var(--primary);border:1px solid var(--primary-border-muted);flex-shrink:0; }
+.settings-tabs .settings-tab { display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:7px 10px;border:1px solid transparent;border-bottom:3px solid transparent;background:transparent;color:var(--text-main);font:inherit;font-size:var(--font-sm);cursor:pointer; }
+.settings-tabs .settings-tab[aria-pressed="true"] { background:var(--primary-weak);color:var(--primary);border-bottom-color:var(--primary);font-weight:700; }
+.settings-tabs .settings-tab:hover { background:var(--surface-subtle); }
+.settings-tabs .settings-tab:focus-visible { outline:2px solid var(--primary);outline-offset:2px; }
+.settings-page .settings-placeholder { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px; }
+.settings-page .settings-placeholder>svg { color:var(--primary); }
+.settings-page .settings-placeholder h3,.settings-page .settings-placeholder p { margin:0; }

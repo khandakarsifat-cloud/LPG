@@ -74,19 +74,20 @@ from authorization_context c cross join lateral (values(c.tenant_a,'Item A'),(c.
 insert into public.customers(tenant_id,customer_id,name,phone,tier)
 select t, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',label,'01700000000','retail'
 from authorization_context c cross join lateral (values(c.tenant_a,'Customer A'),(c.tenant_b,'Customer B')) x(t,label);
-insert into public.trucks(tenant_id,truck_id,name,serial_no,capacity,size)
-select t, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',label,label,100,'medium'
-from authorization_context c cross join lateral (values(c.tenant_a,'Truck A'),(c.tenant_b,'Truck B')) x(t,label);
+insert into public.vehicles(tenant_id,vehicle_id,name,serial_no,capacity)
+select t, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',label,label,100
+from authorization_context c cross join lateral (values(c.tenant_a,'Vehicle A'),(c.tenant_b,'Vehicle B')) x(t,label);
+select pg_temp.fixture_vehicle_crew(v.tenant_id,v.vehicle_id) from public.vehicles v cross join authorization_context c where v.tenant_id in (c.tenant_a,c.tenant_b);
 insert into public.gas_plants(tenant_id,plant_id,brand_id,plant_name)
 select t, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc',label
 from authorization_context c cross join lateral (values(c.tenant_a,'Plant A'),(c.tenant_b,'Plant B')) x(t,label);
-insert into public.purchases(tenant_id,purchase_id,truck_id,plant_id,status)
+insert into public.purchases(tenant_id,purchase_id,vehicle_id,plant_id,status)
 select t,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','in_transit'
 from authorization_context c cross join lateral (values(c.tenant_a),(c.tenant_b)) x(t);
 insert into public.purchase_items(tenant_id,purchase_item_id,purchase_id,item_id,type,quantity,empty_dispatched,billed_quantity,unit_price,line_total)
 select t,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','refill',q,q,q,100,q*100
 from authorization_context c cross join lateral (values(c.tenant_a,1),(c.tenant_b,7)) x(t,q);
-insert into public.transits(tenant_id,transit_id,truck_id,purchase_id,status)
+insert into public.transits(tenant_id,transit_id,vehicle_id,purchase_id,status)
 select t,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','cccccccc-cccc-4ccc-8ccc-cccccccccccc','active'
 from authorization_context c cross join lateral (values(c.tenant_a),(c.tenant_b)) x(t);
 update public.wallets w set wallet_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc',balance=10000
@@ -111,7 +112,7 @@ select name, row_data from authorization_context c cross join lateral (
  select 'items' name, to_jsonb(i) row_data from public.items i where i.tenant_id=c.tenant_b
  union all select 'wallets',to_jsonb(w) from public.wallets w where w.tenant_id=c.tenant_b
  union all select 'transits',to_jsonb(t) from public.transits t where t.tenant_id=c.tenant_b
- union all select 'trucks',to_jsonb(t) from public.trucks t where t.tenant_id=c.tenant_b
+ union all select 'vehicles',to_jsonb(t) from public.vehicles t where t.tenant_id=c.tenant_b
  union all select 'purchases',to_jsonb(p) from public.purchases p where p.tenant_id=c.tenant_b
  union all select 'purchase_items',to_jsonb(p) from public.purchase_items p where p.tenant_id=c.tenant_b
  union all select 'sales',to_jsonb(s) from public.sales s where s.tenant_id=c.tenant_b
@@ -133,7 +134,7 @@ select pg_temp.expect_denied($s$insert into public.permissions values('escalated
 do $$
 declare t text;
 begin
- foreach t in array array['sales','sale_items','inventory_movements','purchases','purchase_items','transits','trucks','wallets','customer_transactions','wallet_transactions','employees','employee_payments','employee_phone_numbers','employee_types','employee_terms','employee_salary_months','employee_payment_entries','employee_activity','lpg_brands','gas_plants','area_officers','audit_logs']
+ foreach t in array array['sales','sale_items','inventory_movements','purchases','purchase_items','transits','vehicles','wallets','customer_transactions','wallet_transactions','employees','employee_payments','employee_phone_numbers','employee_types','employee_terms','employee_salary_months','employee_payment_entries','employee_activity','lpg_brands','gas_plants','area_officers','audit_logs']
  loop
    perform pg_temp.expect_denied(format('insert into public.%I default values',t));
    perform pg_temp.expect_denied(format('update public.%I set tenant_id=tenant_id',t));
@@ -150,7 +151,7 @@ select pg_temp.expect_denied($s$select app_private.employee_summary((select tena
 select pg_temp.expect_denied($s$select app_private.resolve_employee_type((select tenant_b from authorization_context),'Escalated')$s$);
 select pg_temp.expect_denied($s$select app_private.record_inventory_movement('cccccccc-cccc-4ccc-8ccc-cccccccccccc','adjust_gain',999,0,null)$s$);
 select pg_temp.expect_denied($s$select app_private.require_permission('pos:sell')$s$);
-select pg_temp.expect_denied($s$select app_private.audit_trucks()$s$);
+select pg_temp.expect_denied($s$select app_private.audit_vehicles()$s$);
 
 -- Existing registry/customer writes and printer upsert still work.
 insert into public.items(tenant_id,brand_id,size_kg) select tenant_a,pg_temp.fixture_brand(tenant_a,'New registry'),5 from authorization_context;
@@ -162,12 +163,12 @@ select tenant_a,'{"transport":"windows_usb","queue_id":"test","host_id":"test","
 on conflict(tenant_id) do update set paper_width_mm=excluded.paper_width_mm,printable_width_dots=excluded.printable_width_dots;
 select pg_temp.expect_denied($s$update public.receipt_printers set tenant_id=(select tenant_b from authorization_context)$s$);
 
--- The purchase read must never join B's reused purchase/truck/plant/item/brand IDs.
+-- The purchase read must never join B's reused purchase/vehicle/plant/item/brand IDs.
 do $$
 declare r jsonb;
 begin
  select value into strict r from public.get_purchases_by_ids(array['cccccccc-cccc-4ccc-8ccc-cccccccccccc'::uuid]) value where value->>'purchase_id'='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
- perform pg_temp.assert_true(r->>'truck_name'='Truck A' and r->>'plant_name'='Plant A','tenant-qualified purchase parents');
+ perform pg_temp.assert_true(r->>'vehicle_name'='Vehicle A' and r->>'plant_name'='Plant A','tenant-qualified purchase parents');
  perform pg_temp.assert_true(jsonb_array_length(r->'items')=1 and r->'items'->0->>'brand_name'='Brand A'
    and (r->'items'->0->>'quantity')::int=1,'tenant-qualified purchase lines');
 end $$;
@@ -176,13 +177,13 @@ select public.update_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc','{"transpor
 select public.receive_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc',2);
 select pg_temp.pay_current_purchase('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
 update authorization_context set purchase_id=(public.create_purchase(
- '{"plant_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","request_id":"a1111111-1111-4111-8111-111111111111","transport_cost":10,"labour_cost":5,"items":[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"empty_dispatched":1,"unit_price":100}]}'
+ '{"plant_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","vehicle_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","request_id":"a1111111-1111-4111-8111-111111111111","transport_cost":10,"labour_cost":5,"items":[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"empty_dispatched":1,"unit_price":100}]}'
  )->>'purchase_id')::uuid;
 select public.dispatch_purchase(purchase_id,1) from authorization_context;
 select public.receive_purchase(c.purchase_id,2)
  from authorization_context c join public.get_purchases_by_ids(array[c.purchase_id]) p(value) on (p.value->>'purchase_id')::uuid=c.purchase_id;
 select pg_temp.pay_current_purchase(purchase_id) from authorization_context;
-select public.create_custom_transit('{"truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","fee":25,"client_name":"Test client"}');
+select public.create_custom_transit('{"vehicle_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","fee":25,"client_name":"Test client","destination":"Fixture destination"}',gen_random_uuid());
 select public.transition_transit(transit_id,'complete',revision) from public.transits where purchase_id is null and status='active';
 select public.create_lpg_brand('New brand','Test');
 select public.update_lpg_brand('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Brand A updated',null,true);
@@ -191,13 +192,13 @@ select public.update_gas_plant('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Plant A u
 select public.create_area_officer('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Officer A',null,null);
 select public.update_area_officer(officer_id,'Officer edited',null,null) from public.list_gas_plants()
  where officer_name='Officer A';
-select public.create_truck('New truck','new-truck',100,'medium',null);
-select public.update_truck('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Truck A updated',null,null,null,'idle',null);
+select public.save_vehicle('{"name":"New vehicle","serial_no":"new-vehicle","capacity":100}',gen_random_uuid());
+select public.save_vehicle(public.get_vehicle('cccccccc-cccc-4ccc-8ccc-cccccccccccc')||'{"name":"Vehicle A updated"}'::jsonb,gen_random_uuid());
 select public.create_inventory_movement('cccccccc-cccc-4ccc-8ccc-cccccccccccc','adjust_gain',1,1,'Manual');
 update authorization_context set employee_id=(public.save_employee(jsonb_build_object('name','Employee A','phones','[{"phone":"01700000009","is_primary":true}]'::jsonb,
  'employee_type_name','Driver','business_unit','gas_business','terms',jsonb_build_object('monthly_salary',1000,'is_active',true,'effective_from',date_trunc('month',current_date)::date)),gen_random_uuid())->>'employee_id')::uuid;
 select public.get_employee_salary_month(employee_id,date_trunc('month',current_date)::date) from authorization_context;
-select pg_temp.assert_true((public.get_employee_directory()->>'total')::integer=1,'employee read');
+select pg_temp.assert_true((public.get_employee_directory()->>'total')::integer=3,'employee read');
 select pg_temp.assert_true((public.get_employee_salary_history((select employee_id from authorization_context))->>'total')::integer=1,'payroll read');
 -- Same membership, no role-name branch: removing a permission immediately closes its RPC.
 reset role;
@@ -215,7 +216,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','a2222222-2222-4222-8222-222222222223',true);
 select pg_temp.assert_true(cardinality(public.get_my_permissions())=(select count(*) from authorization_catalog),'MANAGER full catalog');
 select public.create_lpg_brand('Manager brand',null);
-select pg_temp.assert_true((public.get_employee_directory()->>'total')::integer=1,'MANAGER employee access');
+select pg_temp.assert_true((public.get_employee_directory()->>'total')::integer=3,'MANAGER employee access');
 select public.get_dashboard_stats(date_trunc('day',now()));
 -- Remove inventory:manage from MANAGER only: other permissions keep working.
 reset role;
@@ -226,7 +227,7 @@ set local role authenticated;
 select pg_temp.expect_denied($s$select public.create_inventory_movement('cccccccc-cccc-4ccc-8ccc-cccccccccccc','adjust_gain',1,0,null)$s$);
 -- Purchases need their own capability, not the public inventory-adjustment capability.
 update authorization_context set purchase_id=(public.create_purchase(
- '{"plant_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","truck_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","request_id":"a1111111-1111-4111-8111-111111111112","items":[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"empty_dispatched":1,"unit_price":100}]}'
+ '{"plant_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","vehicle_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","request_id":"a1111111-1111-4111-8111-111111111112","items":[{"item_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","type":"refill","quantity":1,"empty_dispatched":1,"unit_price":100}]}'
  )->>'purchase_id')::uuid;
 select public.dispatch_purchase(purchase_id,1) from authorization_context;
 select public.receive_purchase(c.purchase_id,2)
@@ -235,8 +236,8 @@ select pg_temp.pay_current_purchase(purchase_id) from authorization_context;
 
 -- SALESMAN supporting reads, customer creation, real checkout and receipt readback.
 select set_config('request.jwt.claim.sub','a2222222-2222-4222-8222-222222222224',true);
-select pg_temp.assert_true(public.get_my_permissions() @> array['dashboard:view','pos:sell','sales:view','receipts:print']
- and cardinality(public.get_my_permissions())=4,'SALESMAN minimal catalog');
+select pg_temp.assert_true(public.get_my_permissions() @> array['dashboard:view','pos:sell','sales:view','receipts:print','preferences:manage']
+ and cardinality(public.get_my_permissions())=5,'SALESMAN minimal catalog');
 select pg_temp.assert_true((select count(*) from public.items)>0,'POS product lookup');
 select pg_temp.assert_true((select count(*) from public.price_books)=1,'POS price lookup');
 select pg_temp.assert_true((select count(*) from public.receipt_printers)=1,'receipt config read');
@@ -259,7 +260,7 @@ do $$
 declare statement text;
 begin
  foreach statement in array array[
-  $s$select public.get_purchases_by_ids(array['cccccccc-cccc-4ccc-8ccc-cccccccccccc'::uuid])$s$, $s$select public.list_trucks(false)$s$,
+  $s$select public.get_purchases_by_ids(array['cccccccc-cccc-4ccc-8ccc-cccccccccccc'::uuid])$s$, $s$select public.list_vehicles()$s$,
   $s$select public.list_gas_plants(false)$s$, $s$select public.get_employee_directory()$s$,
   $s$select public.get_employee_overview()$s$,
   $s$select public.get_employee_activity()$s$,
@@ -293,7 +294,7 @@ reset role;
 update public.roles set name='CUSTOM CASHIER'
 where tenant_id=(select tenant_a from authorization_context) and name='SALESMAN';
 set local role authenticated;
-select pg_temp.assert_true(cardinality(public.get_my_permissions())=4,'role names do not control authorization');
+select pg_temp.assert_true(cardinality(public.get_my_permissions())=5,'role names do not control authorization');
 select public.get_dashboard_stats(date_trunc('day',now()));
 reset role;
 update public.user_profiles set is_active=false where user_id='a2222222-2222-4222-8222-222222222224';
@@ -352,7 +353,7 @@ with current_b as (
  select 'items' name,to_jsonb(i) row_data from public.items i where i.tenant_id=c.tenant_b
  union all select 'wallets',to_jsonb(w) from public.wallets w where w.tenant_id=c.tenant_b
  union all select 'transits',to_jsonb(t) from public.transits t where t.tenant_id=c.tenant_b
- union all select 'trucks',to_jsonb(t) from public.trucks t where t.tenant_id=c.tenant_b
+ union all select 'vehicles',to_jsonb(t) from public.vehicles t where t.tenant_id=c.tenant_b
  union all select 'purchases',to_jsonb(p) from public.purchases p where p.tenant_id=c.tenant_b
  union all select 'purchase_items',to_jsonb(p) from public.purchase_items p where p.tenant_id=c.tenant_b
  union all select 'sales',to_jsonb(s) from public.sales s where s.tenant_id=c.tenant_b

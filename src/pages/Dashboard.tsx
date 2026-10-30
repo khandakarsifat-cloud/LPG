@@ -1,3 +1,4 @@
+import { SpendingDialog } from '../components/finance/Spending';
 import { Link } from 'react-router-dom';
 import { DollarSign, Package, Printer, ShoppingBag, TrendingUp, Users } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -10,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 export const Dashboard = () => {
   const { can } = useAuth();
   const { data: stats, isLoading } = useDashboardStats();
+  const [spendingOpen,setSpendingOpen]=useState(false);
   const [printerOpen, setPrinterOpen] = useState(false);
   const closePrinter = useCallback(() => setPrinterOpen(false), []);
 
@@ -20,6 +22,7 @@ export const Dashboard = () => {
           <p className="page-subtitle">Daily sales, stock activity, and customer coverage.</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {can('finance:manage') && <button className="btn btn-secondary" onClick={()=>setSpendingOpen(true)}>Spending / withdrawal</button>}
           {can('printers:manage') && <button className="btn btn-secondary" onClick={() => setPrinterOpen(true)}><Printer size={16} /> Receipt Printer</button>}
           {can('pos:sell') && <Link to="/pos" className="btn btn-primary">
             <ShoppingBag size={16} />
@@ -27,6 +30,7 @@ export const Dashboard = () => {
           </Link>}
         </div>
       </div>
+      {spendingOpen && <SpendingDialog onClose={()=>setSpendingOpen(false)}/>}
       {printerOpen && <PrinterConfigModal onClose={closePrinter} />}
 
       <div className="stats-grid">
@@ -78,7 +82,7 @@ export const Dashboard = () => {
 
       <div className="dashboard-workspace">
         <section className="glass-panel card">
-          <div className="card-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-md)' }}>
+          <div className="card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
               <ShoppingBag size={20} style={{ color: 'var(--primary)' }} />
               <h2 className="card-title">Today's Sales</h2>
@@ -93,7 +97,7 @@ export const Dashboard = () => {
         </section>
 
         <section className="glass-panel card">
-          <div className="card-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-md)' }}>
+          <div className="card-header">
             <h2 className="card-title">Stock Exceptions</h2>
           </div>
           <div className="empty-state">

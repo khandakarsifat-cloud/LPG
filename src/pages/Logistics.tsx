@@ -1,79 +1,18 @@
 import { useState } from 'react';
-import { Plus, Truck } from 'lucide-react';
-import { AddTruckModal } from '../components/logistics/AddTruckModal';
+import { Route, Truck } from 'lucide-react';
+import { useLogisticsOperation, useLogisticsSummary, useWallets } from '../hooks/useLogistics';
+import { VehicleFleet } from '../components/logistics/VehicleFleet';
+import { LogisticsOperationNotice } from '../components/logistics/LogisticsControls';
 import { TransitsView } from '../components/logistics/TransitsView';
-import { TrucksGrid } from '../components/logistics/TrucksGrid';
-import { useWallets } from '../hooks/useLogistics';
-
-type Tab = 'trucks' | 'transits';
+import { formatBDT } from '../lib/formatBDT';
+import '../components/logistics/logistics.css';
 
 export const LogisticsPage = () => {
-  const { data: wallets = [] } = useWallets();
-  const [tab, setTab] = useState<Tab>('trucks');
-  const [addTruckOpen, setAddTruckOpen] = useState(false);
-
-  const logisticsWallet = wallets?.find((w) => w.type === 'logistics');
-
-  return (
-    <div className="inventory-page">
-      {/* ── Page Header ── */}
-      <div className="page-header logistics-header">
-        <div>
-          <p className="page-subtitle">
-            Manage your fleet and track delivery operations.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {logisticsWallet && (
-            <div className="logistics-wallet" style={{
-              background: 'rgba(16,185,129,0.1)', 
-              color: 'var(--accent)', 
-              padding: '0.5rem 1rem', 
-              borderRadius: '0.5rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              border: '1px solid rgba(16,185,129,0.2)'
-            }}>
-              <span>Wallet:</span>
-              <span style={{ fontSize: '1.25rem' }}>Tk {Number(logisticsWallet.balance).toLocaleString()}</span>
-            </div>
-          )}
-          {tab === 'trucks' && (
-            <button className="btn btn-primary page-add-button" aria-label="Add Truck" onClick={() => setAddTruckOpen(true)}>
-              <Plus size={16} />
-              <span>Add Truck</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Tabs ── */}
-      <div className="inv-tabs">
-        {([
-          { key: 'trucks', label: 'Fleet Management', icon: Truck },
-          { key: 'transits', label: 'Transits & Trips', icon: Truck },
-        ] as { key: Tab; label: string; icon: React.ElementType }[]).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            className={`inv-tab ${tab === key ? 'inv-tab-active' : ''}`}
-            onClick={() => setTab(key)}
-          >
-            <Icon size={15} />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Tab Content ── */}
-      <div className="inv-tab-content">
-        {tab === 'trucks' && <TrucksGrid />}
-        {tab === 'transits' && <TransitsView />}
-      </div>
-
-      {/* ── Dialogs ── */}
-      <AddTruckModal open={addTruckOpen} onClose={() => setAddTruckOpen(false)} />
-    </div>
-  );
+ const [tab, setTab] = useState<'vehicles' | 'transits'>('vehicles'); const summary = useLogisticsSummary(); const wallets = useWallets(); const operation = useLogisticsOperation();
+ const wallet = wallets.data?.find(w => w.kind === 'logistics');
+ return <div className="logistics-page"><p className="page-subtitle">Vehicles, journeys and employee transit earnings.</p><div className="logistics-overview" aria-label="Logistics overview">
+  <div><span>Vehicles at Home</span><strong>{summary.data ? `${summary.data.home} / ${summary.data.vehicles}` : '—'}</strong></div><div><span>In transit</span><strong>{summary.data?.active ?? '—'}</strong></div><div><span>Outstanding crew earnings</span><strong>{summary.data ? formatBDT(summary.data.outstanding) : '—'}</strong></div><div><span>Logistics wallet</span><strong>{wallet ? formatBDT(Number(wallet.balance)) : '—'}</strong></div>
+ </div>{summary.isError && <p role="alert" className="purchase-error">Summary unavailable. <button className="btn btn-ghost" onClick={() => void summary.refetch()}>Retry</button></p>}<LogisticsOperationNotice operation={operation} />
+ <nav className="logistics-tabs" aria-label="Logistics sections"><button aria-current={tab === 'vehicles' ? 'page' : undefined} onClick={() => setTab('vehicles')}><Truck size={16} />Vehicles</button><button aria-current={tab === 'transits' ? 'page' : undefined} onClick={() => setTab('transits')}><Route size={16} />Transits</button></nav>
+ {tab === 'vehicles' ? <VehicleFleet operation={operation} /> : <TransitsView operation={operation} />}</div>;
 };

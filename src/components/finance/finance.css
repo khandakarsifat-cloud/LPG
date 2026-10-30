@@ -60,3 +60,15 @@
   .finance-table td[data-label]::before { content: attr(data-label); display: block; font-size: .7rem; font-weight: 400; color: var(--text-muted); }
   .finance-table td:last-child { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: .75rem; }
 }
+
+.spending-fields {border:0;padding:0;margin:0;display:grid;gap:.85rem;min-width:0;}
+.spending-history {display:grid;gap:1rem;min-width:0;}
+.spending-filters {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;align-items:end;}
+.spending-filters .input-group {min-width:0;margin:0;}
+.spending-entries {display:grid;gap:.6rem;}
+.spending-entries article {padding:.85rem;border-bottom:1px solid var(--border);}
+.spending-entries header,.spending-category {display:flex;justify-content:space-between;gap:.75rem;align-items:center;}
+.spending-entries p,.spending-category p {margin:.35rem 0;color:var(--text-muted);}
+.spending-entries small {color:var(--text-muted);}
+.spending-confirm dd {margin:.2rem 0 .75rem;font-weight:600;overflow-wrap:anywhere;}
+@media(max-width:640px){.spending-filters {grid-template-columns:repeat(2,minmax(0,1fr));}.spending-entries header,.spending-category {flex-wrap:wrap;}.finance-tabs {flex-wrap:wrap;}}

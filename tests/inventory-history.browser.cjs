@@ -35,6 +35,8 @@ async page => {
     const url=new URL(route.request().url());const name=url.pathname.split('/').pop();let data=[];
     switch(name){
       case 'user_profiles':data=[{tenant_id:tenant,full_name:'History verification',email:user.email,tenants:{business_name:'History verification'}}];break;
+      case 'get_my_preferences': data={theme:null}; break;
+      case 'get_business_catalogs': data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))}; break;
       case 'get_my_permissions':data=['inventory:view',...(!viewer?['inventory:manage','sales:view','purchases:view','purchases:manage']:[])];break;
       case 'list_lpg_brands':data=brands;break;
       case 'items':data=items;break;

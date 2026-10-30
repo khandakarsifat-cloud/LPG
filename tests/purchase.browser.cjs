@@ -61,6 +61,8 @@ async page => {
     let data=[];
     switch(path) {
       case 'user_profiles': data=[{tenant_id:tenant,email:user.email,full_name:'Purchase Operator',tenants:{business_name:'Purchase UI Verification'}}]; break;
+      case 'get_my_preferences': data={theme:null}; break;
+      case 'get_business_catalogs': data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))}; break;
       case 'get_my_permissions': data=role==='manage'?['purchases:view','purchases:manage','logistics:view','logistics:manage','inventory:view','dashboard:view']:['purchases:view']; break;
       case 'wallets': data=[{type:'dealership',balance:-1703906}]; break;
       case 'list_purchases': throw Error('Unbounded purchase read');

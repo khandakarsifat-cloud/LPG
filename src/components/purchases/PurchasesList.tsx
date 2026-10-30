@@ -60,7 +60,7 @@ export function PurchasesList({ totalPurchases }: { totalPurchases?: number }) {
       <div className="purchase-card-header"><div><strong>{purchase.company_name ?? 'Historical purchase'}</strong><small>{purchase.plant_name}</small></div></div>
       <div className="record-statuses"><PurchaseStatuses purchase={purchase} /></div>
       <div className="purchase-card-meta"><div className="purchase-info-row"><Calendar size={14} /><span>{new Date(purchase.created_at).toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
-        <div className="purchase-info-row"><Truck size={14} /><span>{purchase.truck_name ?? 'Truck not assigned'}</span></div></div>
+        <div className="purchase-info-row"><Truck size={14} /><span>{purchase.vehicle_name ?? 'Vehicle not assigned'}</span></div></div>
       <CardProductPreview label="Purchased products">
         {purchase.items.map(item => <div key={item.purchase_item_id} className="purchase-item-pill">
           <span className="pill-qty">{purchase.status === 'received' ? item.received_quantity ?? item.quantity : item.quantity}×</span>

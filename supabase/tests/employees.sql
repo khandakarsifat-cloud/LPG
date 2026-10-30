@@ -68,22 +68,24 @@ begin
  body:=(public.get_employee_profile(e)->'employee')||jsonb_build_object('terms',jsonb_build_object('effective_from',today,'monthly_salary',22000,'is_active',true,'reason','Same-day correction'));
  perform public.save_employee(body,gen_random_uuid());
  perform pg_temp.employee_assert((public.get_employee_profile(e)->'employee'->>'is_active')::boolean,'same-day reactivation appends revision');
- body:=(public.get_employee_profile(e)->'employee')||jsonb_build_object('terms',jsonb_build_object('effective_from',today,'monthly_salary',23000,'is_active',true,'reason','Same-day salary correction'));
+ body:=(public.get_employee_profile(e)->'employee')||jsonb_build_object('terms',jsonb_build_object('effective_from',case when extract(day from today)=1 then today else (month+interval '1 month')::date end,'monthly_salary',23000,'is_active',true,'reason','Same-day salary correction'));
  perform public.save_employee(body,gen_random_uuid());
- perform pg_temp.employee_assert((public.get_employee_profile(e)->'employee'->>'current_salary')::numeric=23000,'salary editable on joining or revision day');
+ perform pg_temp.employee_assert((public.get_employee_profile(e)->'terms'->0->>'monthly_salary')::numeric=23000,'salary revision follows a monthly boundary');
  -- Past month full settlement needs no preparation.
  body:=jsonb_build_object('action','pay','items',jsonb_build_array(jsonb_build_object('employee_id',e,'kind','salary','period','2025-02-01','payment_date',today,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',20000)))));
  perform public.employee_payment_operation(body,gen_random_uuid());
  perform pg_temp.employee_assert((public.get_employee_salary_month(e,'2025-02-01')->>'outstanding')::numeric=0,'past full payment');
  -- Trips remain part of saved Logistics cost, charged once.
- truck:=(public.create_truck('Employee SQL truck','EMPLOYEE-SQL',10,'small',null)->>'truck_id')::uuid;
- tr:=(public.create_custom_transit(jsonb_build_object('truck_id',truck,'fee',0,'client_name','Employee SQL trip'))->>'transit_id')::uuid;
- perform public.save_transit_costs(tr,'{"driver_cost":500,"helper_cost":100,"oil_cost":50,"others_cost":0}',1);
+ truck:=(public.save_vehicle(jsonb_build_object('name','Employee SQL vehicle','serial_no','EMPLOYEE-SQL','capacity',10,'driver_employee_id',e),gen_random_uuid())->>'vehicle_id')::uuid;
+ tr:=(public.create_custom_transit(jsonb_build_object('vehicle_id',truck,'fee',0,'client_name','Employee SQL trip','destination','Dhaka'),gen_random_uuid())->>'transit_id')::uuid;
+ perform public.save_transit_costs(tr,'{"driver_cost":500,"helper_cost":0,"oil_cost":50,"others_cost":0}',1);
  body:=jsonb_build_object('action','pay','items',jsonb_build_array(jsonb_build_object('employee_id',e,'kind','trips','trip_count',1,'transit_id',tr,'trip_role','driver','payment_date',today,'description','Driver trip','payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',300)))));
  perform public.employee_payment_operation(body,gen_random_uuid());
- perform pg_temp.employee_reject(format('select public.save_transit_costs(%L,%L,3)',tr,'{"driver_cost":200,"helper_cost":100,"oil_cost":50,"others_cost":0}'),'below employee payments');
- perform public.transition_transit(tr,'complete',3); perform public.transition_transit(tr,'close',4);
- perform pg_temp.employee_assert((public.get_transit_payroll(tr)->>'driver_paid')::numeric=300,'Logistics allocation retained');
+ perform pg_temp.employee_reject(format('select public.save_transit_costs(%L,%L,3)',tr,'{"driver_cost":200,"helper_cost":0,"oil_cost":50,"others_cost":0}'),'below employee payments');
+ perform pg_temp.employee_reject(format('select public.transition_transit(%L,%L,3)',tr,'complete'),'outstanding');
+ body:=jsonb_set(body,'{items,0,payments}',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',200))); perform public.employee_payment_operation(body,gen_random_uuid());
+ perform public.transition_transit(tr,'complete',4);
+ perform pg_temp.employee_assert((public.get_transit_payroll(tr)->>'driver_paid')::numeric=500,'Logistics allocation retained');
  perform pg_temp.employee_reject(format('select public.employee_payment_operation(%L,%L)',body,gen_random_uuid()),'open operating costs');
  perform set_config('request.jwt.claim.sub','f2222222-2222-4222-8222-222222222222',true);
  perform pg_temp.employee_reject(format('select public.get_employee_profile(%L)',e),'not found');

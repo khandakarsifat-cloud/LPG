@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "attendance:db:test": "node supabase/tests/run-attendance.mjs --vps",
+    "attendance:api:test": "node supabase/tests/attendance-api.mjs --vps --browser",
+    "attendance:test": "node --test attendance-receiver/*.test.mjs",
     "dashboard:credentials": "node deploy/dashboard-credentials.mjs",
     "deploy:backend": "node deploy/deploy.mjs backend",
     "deploy:frontend": "node deploy/deploy.mjs frontend",

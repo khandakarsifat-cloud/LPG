@@ -1,47 +1,37 @@
-import { useListPage, useGridPageSize } from '../../hooks/useListPage';
-import { Pagination } from '../ui/Pagination';
 import { useState } from 'react';
-import { Plus, Route } from 'lucide-react';
+import { Plus, Route, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTransits } from '../../hooks/useLogistics';
+import { useTransitDirectory, useTransit } from '../../hooks/useLogistics';
+import { useGridPageSize } from '../../hooks/useListPage';
+import { Pagination } from '../ui/Pagination';
+import { DatePicker } from '../ui/DatePicker';
+import { PurchaseSelect } from '../purchases/PurchaseControls';
 import { formatBDT } from '../../lib/formatBDT';
+import { transitStatus, type LogisticsFilters } from '../../types/logistics';
 import { TransitCostsModal } from './TransitCostsModal';
 import { CreateCustomTransitModal } from './CreateCustomTransitModal';
-import '../purchases/purchases.css';
-
-export function TransitsView() {
-  const query = useTransits();
-  const { can } = useAuth();
-  const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const transits = query.data ?? [];
-  const selected = transits.find(t => t.transit_id === selectedId);
-  const filtered = transits.filter(t => [t.truck_name, t.transit_id, t.client_name, t.destination, t.description].join(' ').toLowerCase().includes(search.toLowerCase()));
-  const activeGrid = useGridPageSize();
-  const finishedGrid = useGridPageSize();
-  const activePages = useListPage(filtered.filter(t => t.status === 'active'), activeGrid.pageSize, search);
-  const finishedPages = useListPage(filtered.filter(t => t.status !== 'active'), finishedGrid.pageSize, search);
-  if (query.isLoading) return <p className="purchase-hint">Loading transits…</p>;
-  if (query.isError) return <p role="alert" className="purchase-error">Transits could not be loaded. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></p>;
-  return <div className="transits-view">
-    <div className="purchase-section-heading"><label className="input-group transit-search"><span className="input-label">Search transits</span><input className="input-field" placeholder="Truck, client, destination or ID…" value={search} onChange={e => setSearch(e.target.value)} /></label>
-      {can('logistics:manage') && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} /> Add custom transit</button>}</div>
-    {(['active', 'finished'] as const).map(group => {
-      const paging = group === 'active' ? activePages : finishedPages;
-      const rows = paging.entries;
-      return <section key={group}><h3 className="transit-group-title">{group === 'active' ? 'Active transits' : 'Completed & cancelled'} <span>{paging.total}</span></h3>
-        {!rows.length ? <p className="purchase-hint">No {group === 'active' ? 'active' : 'completed or cancelled'} transits.</p> : <div className="transit-grid adaptive-grid adaptive-grid--transits" ref={group === 'active' ? activeGrid.grid : finishedGrid.grid}>{rows.map(t => <button key={t.transit_id} className="glass-panel transit-card" onClick={() => setSelectedId(t.transit_id)}>
-          <div className="purchase-section-heading"><strong><Route size={18} /><span title={t.truck_name}>{t.truck_name}</span></strong><span className="purchase-badge transit-cost-state">{t.purchase_id ? 'Purchase' : 'Custom'}</span></div>
-          <div className="purchase-statuses"><span className={`purchase-badge ${t.status === 'cancelled' ? 'transit-cancelled' : t.status === 'active' ? 'payment-unpaid' : 'payment-paid'}`}>{t.status === 'active' ? 'In transit' : t.status === 'cancelled' ? 'Cancelled' : 'Completed'}</span><span className="purchase-badge transit-cost-state">{t.closed_at ? 'Costs closed' : 'Costs open'}</span></div>
-          <p>{t.client_name || 'Client not recorded'}{t.destination ? ` · ${t.destination}` : ''}</p>
-          <div className="transit-card-total"><span>Operating costs</span><strong>{formatBDT(Number(t.total_cost))}</strong></div>
-          <small>{new Date(t.created_at).toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka' })} · {t.transit_id.slice(0, 8)}</small>
-        </button>)}</div>}
-        <Pagination {...paging} onChange={paging.setPage} label={`${group} transits`} />
-      </section>;
-    })}
-    {selected && <TransitCostsModal open transit={selected} onClose={() => setSelectedId(null)} />}
-    <CreateCustomTransitModal open={creating} onClose={() => setCreating(false)} />
-  </div>;
+import type { LogisticsOperationHandle } from './LogisticsControls';
+import './logistics.css';
+export function TransitsView({ vehicleId, employeeId, operation }: { vehicleId?: string; employeeId?: string; operation?: LogisticsOperationHandle }) {
+ const history = !!(vehicleId || employeeId); const [showFilters, setShowFilters] = useState(false);
+ const { can } = useAuth(); const [filters, setFilters] = useState<LogisticsFilters>({ search: '', status: 'all', type: 'all', from: '', to: '', sort: 'date_desc' });
+ const { grid, pageSize } = useGridPageSize(); const query = useTransitDirectory({ ...filters, vehicle_id: vehicleId, employee_id: employeeId }, history ? 8 : pageSize);
+ const [selectedId, setSelectedId] = useState<string | null>(null); const selected = useTransit(selectedId); const [creating, setCreating] = useState(false);
+ return <section className={`transits-workspace${history ? ' transit-history' : ''}`}><div className="logistics-toolbar"><label className="input-group logistics-search"><span className="input-label">Search transits</span><input className="input-field" placeholder="Vehicle, client, destination, crew or ID…" value={filters.search} onChange={e => setFilters({ ...filters, search: e.target.value })} /></label>
+ {history && <button type="button" className="btn btn-secondary" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}><SlidersHorizontal size={14} />Filters</button>}
+ {(!history || showFilters) && <>
+ <PurchaseSelect label="Status" value={filters.status ?? 'all'} onChange={v => setFilters({ ...filters, status: v })} options={[{ value: 'all', label: 'All statuses' }, { value: 'active', label: 'In transit' }, { value: 'returned', label: 'Returned · awaiting completion' }, { value: 'outstanding', label: 'Crew earnings outstanding' }, { value: 'completed', label: 'Completed / settled' }, { value: 'cancelled', label: 'Cancelled' }]} />
+ <PurchaseSelect label="Journey" value={filters.type ?? 'all'} onChange={v => setFilters({ ...filters, type: v })} options={[{ value: 'all', label: 'All journeys' }, { value: 'purchase', label: 'Purchase' }, { value: 'custom', label: 'Custom' }]} />
+ <label className="input-group"><span className="input-label">From</span><DatePicker label="Transit from" value={filters.from ?? ''} onChange={v => setFilters({ ...filters, from: v })} /></label><label className="input-group"><span className="input-label">To</span><DatePicker label="Transit to" value={filters.to ?? ''} onChange={v => setFilters({ ...filters, to: v })} /></label>
+ <PurchaseSelect label="Sort" value={filters.sort ?? 'date_desc'} onChange={v => setFilters({ ...filters, sort: v })} options={[{ value: 'date_desc', label: 'Newest first' }, { value: 'date_asc', label: 'Oldest first' }]} />
+ </>}
+ {operation && can('logistics:manage') && <button className="btn btn-primary" disabled={operation.hasPending} onClick={() => setCreating(true)}><Plus size={16} />Custom transit</button>}</div>
+ {query.isPending && <p role="status">Loading transits…</p>}{query.isError && <p role="alert" className="purchase-error">Transits unavailable. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></p>}
+ {query.data && <><div className={history ? "transit-history-list" : "transit-grid adaptive-grid adaptive-grid--transits"} ref={history ? undefined : grid}>{query.data.entries.map(t => history ? <button type="button" key={t.transit_id} className="transit-history-entry" disabled={!can('logistics:view') && !can('logistics:manage')} onClick={() => setSelectedId(t.transit_id)}>
+ <span className="transit-history-date">{new Date(t.created_at).toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric' })}<span>{t.purchase_id ? 'Purchase' : 'Custom'} · {t.transit_id.slice(0, 8)}</span></span>
+ <span className="transit-history-description"><strong>{t.client_name || 'Client not recorded'}{t.destination ? ` · ${t.destination}` : ''}</strong><span>{transitStatus(t)}{t.driver_name ? ` · ${t.driver_name}` : ''}{t.helper_name ? ` · ${t.helper_name}` : ''}</span></span>
+ <span className="transit-history-amount"><strong>{formatBDT(Number(t.driver_cost) + Number(t.helper_cost))}</strong><span>{Number(t.outstanding) > 0 ? `${formatBDT(Number(t.outstanding))} outstanding` : 'No earnings due'}</span></span><ChevronRight size={16} aria-hidden="true" />
+ </button> : <button key={t.transit_id} className="transit-card glass-panel" disabled={!can('logistics:view') && !can('logistics:manage')} onClick={() => setSelectedId(t.transit_id)}><div className="purchase-section-heading"><strong><Route size={17} /><span>{t.vehicle_name}</span></strong><span className="purchase-badge">{t.purchase_id ? 'Purchase' : 'Custom'}</span></div><div className="purchase-statuses"><span className={`purchase-badge ${t.closed_at ? 'payment-paid' : t.status === 'cancelled' ? 'transit-cancelled' : 'payment-unpaid'}`}>{transitStatus(t)}</span></div><p>{t.client_name || 'Client not recorded'} · {t.destination || 'Destination not recorded'}</p><small>{t.driver_name || 'Driver not recorded'}{t.helper_name ? ` · ${t.helper_name}` : ''}</small><dl className="transit-card-financials"><div><dt>Crew earnings</dt><dd>{formatBDT(Number(t.driver_cost) + Number(t.helper_cost))}</dd></div><div><dt>Outstanding</dt><dd>{formatBDT(Number(t.outstanding))}</dd></div></dl><small>{new Date(t.created_at).toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka' })} · {t.transit_id.slice(0, 8)}</small></button>)}</div>{!query.data.total && <p className="empty-state">No transits match these filters.</p>}<Pagination {...query.data} onChange={query.setPage} busy={query.isFetching} label="transits" /></>}
+ {selectedId && selected.isPending && <p role="status">Loading transit details…</p>}{selected.isError && <p role="alert" className="purchase-error">Transit unavailable. <button className="btn btn-secondary" onClick={() => void selected.refetch()}>Retry</button></p>}{selected.data && selectedId && <TransitCostsModal open transit={selected.data} onClose={() => setSelectedId(null)} />}
+ {creating && operation && <CreateCustomTransitModal operation={operation} onClose={() => setCreating(false)} />}</section>;
 }

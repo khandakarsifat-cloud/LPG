@@ -21,8 +21,8 @@ export interface PurchaseItem {
 
 export interface Purchase {
   purchase_id: string;
-  truck_id: string | null;
-  truck_name: string | null;
+  vehicle_id: string | null;
+  vehicle_name: string | null;
   plant_id: string;
   plant_name: string;
   brand_id: string | null;
@@ -82,7 +82,7 @@ export interface PurchaseLinePayload {
 }
 
 export interface PurchaseDraft {
-  truck_id: string | null;
+  vehicle_id: string | null;
   transport_cost: number;
   labour_cost: number;
   commission: number;

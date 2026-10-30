@@ -42,6 +42,8 @@ async page => {
     const name = new URL(route.request().url()).pathname.split('/').pop();
     let data = [];
     if (name === 'user_profiles') data = [{ tenant_id: 'be000000-0000-4000-8000-000000000002', full_name: 'PWA Operator', email: user.email, tenants: { business_name: 'PWA fixture' } }];
+    else if(name==='get_my_preferences')data={theme:null};
+    else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
     else if (name === 'get_my_permissions') data = ['dashboard:view', 'pos:sell', 'sales:view', 'inventory:view', 'customers:view', 'purchases:view', 'employees:view', 'logistics:view', 'gas_plants:view', 'settings:manage', 'finance:view'];
     else if (name === 'get_dashboard_stats') data = { todayRevenue: 0, todayMovements: 0, totalCustomers: 0 };
     else if (['get_customer_directory', 'get_sales_directory', 'get_purchase_directory', 'get_wallet_ledger'].includes(name)) data = { entries: [], total: 0, received: 0, paid_out: 0 };

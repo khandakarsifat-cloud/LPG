@@ -9,7 +9,7 @@
 | Surface | Width policy | Pagination policy |
 | --- | --- | --- |
 | Customers, Purchases, Sales | 15rem minimum, 22rem maximum | Three rows; containers at most 600px show at least ten records, rounded to whole rows |
-| Gas plants, Settings brands, each transit group | Minimum 21.25/18.75/19rem, bounded cards | Same measured directory policy; transit groups navigate independently |
+| Gas plants, Settings brands, transit directory | Minimum 21.25/18.75/19rem, bounded cards | Same measured directory policy; transits filter and paginate on the server |
 | POS | 14rem minimum, 17.5rem maximum; phone cards can use the compact workspace width | Full catalog scrolls; cart has no pagination |
 | Inventory catalog | 8rem minimum, 13rem maximum | Full catalog scrolls |
 | Inventory/Customer product picker | Inventory tracks | Two to four rows according to viewport height; body scrolls when necessary |
@@ -32,11 +32,15 @@ Sales and Purchases use `record-card.css`: matching 19rem transaction cards rese
 
 `usePagePosition` stores an absolute record offset plus filter key. A capacity change reframes the page containing that offset, and a resize round trip restores the original page. Explicit navigation replaces the offset. Filters/sorts reset it. `useListPage` also clamps shrinking local lists; `useBatchedDirectory` clamps server pages after an exact-count refresh. Resizing preserves the record anchor, not an exact physical scroll position.
 
-`useBatchedDirectory` owns one navigation anchor for Customers, Purchases and Sales and caches server batches of 25 by filter/sort scope. Display capacity is absent from batch query keys. Only intersecting batches and the count-bearing first batch are fetched. Cards, total, displayed page and page size commit together after every required batch succeeds. During navigation/refresh the previous complete view remains visible and navigation is busy; another filter never inherits its results. Count reductions permanently clamp the anchor, including after counts grow again. One 30-second scope invalidation refreshes active batches together and marks inactive batches stale; old scopes also refresh on remount. Brand, plant, employee, fleet and transit catalogs use `readAllRows` to avoid silently ending at the API row limit, with deterministic ordering and cancellation.
+`useBatchedDirectory` owns one navigation anchor for Customers, Purchases and Sales and caches server batches of 25 by filter/sort scope. Display capacity is absent from batch query keys. Only intersecting batches and the count-bearing first batch are fetched. Cards, total, displayed page and page size commit together after every required batch succeeds. During navigation/refresh the previous complete view remains visible and navigation is busy; another filter never inherits its results. Count reductions permanently clamp the anchor, including after counts grow again. One 30-second scope invalidation refreshes active batches together and marks inactive batches stale; old scopes also refresh on remount. Brand, plant and vehicle selector catalogs use `readAllRows` to avoid silently ending at the API row limit, with deterministic ordering and cancellation.
 
 `Pagination` handles exact totals, and `PageNavigation` handles look-ahead APIs. Both disable navigation while fetching, expose accessible page state and share touch/focus styling. Fixed history/editor limits are intentional; resizing them would add requests or disturb editing without improving card utilization.
 
 Dialog visual treatment is shared without changing capacity: headers and footers remain outside the body scroller, bodies retain vertical breathing room, and `.dialog-form` owns form gaps independently of route CSS. `history.css` gives employee, sale, purchase and payment records individual borders and consistent metadata. Record actions wrap within their own separated row; adding a history surface must not change directory tracks or backend batch sizes. Customer profile figures retain four desktop columns and use two on phones so monetary digits remain readable.
+
+## Visual hierarchy
+
+`src/index.css` owns the existing blue/green palette, readable ink and supporting text, canvas/surface separation and control boundaries. `src/components/ui/surfaces.css` applies shared card, table-header, form-label and dialog-section treatment. Use pale blue header bands and clear section edges to group related controls; preserve module-owned dimensions, grid capacity, spacing and navigation anchors. State colours retain their meaning: green for settled/received, amber for remaining/warnings and red for failures/returns. The employee profile's identity, today/salary summary and single activity timeline use this same hierarchy. Screenshots and text/control contrast checks live in `tests/sitewide-contrast.mjs`; page/modal checks use normal authenticated reads without submitting forms.
 
 ## Verification boundaries
 

@@ -63,7 +63,7 @@ function CreatePurchase({ onClose }: { onClose: () => void }) {
     </PurchaseDialog>
     {confirm && <PurchaseConfirmation title="Create this purchase?" action="Create purchase" busy={create.isPending} onCancel={() => setConfirm(false)} onConfirm={() => void submit()}>
       <p>Create a purchase for <strong>{plant?.plant_name}</strong> ({plant?.brand_name}). The plant and company cannot be changed afterward.</p>
-      <p>No inventory or wallet changes occur. Products, truck and costs can be added or edited before dispatch.</p>
+      <p>No inventory or wallet changes occur. Products, vehicle and costs can be added or edited before dispatch.</p>
     </PurchaseConfirmation>}
   </>;
 }

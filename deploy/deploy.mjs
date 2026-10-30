@@ -6,7 +6,7 @@ import { parseEnv } from 'node:util';
 import { validatePWA } from './pwa.mjs';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const services = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'caddy'];
+export const services = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'attendance-receiver', 'caddy'];
 export const workerURL = 'https://floral-dew-443b.khandakarsifat.workers.dev';
 const backendNames = ['VPS_HOST', 'VPS_USER', 'VPS_PORT', 'VPS_SSH_KEY', 'VPS_PROJECT_DIR', 'VPS_COMPOSE_PROJECT', 'PRODUCTION_API_URL'];
 const frontendNames = ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
@@ -80,7 +80,7 @@ export function config(kind) {
 
 export function validateGraph(model) {
   const enabled = Object.entries(model.services).filter(([, service]) => !service.profiles?.length).map(([name]) => name);
-  if (enabled.length !== services.length || enabled.some(name => !services.includes(name))) throw new Error('VPS Compose must enable exactly the ten production services, including Studio/meta.');
+  if (enabled.length !== services.length || enabled.some(name => !services.includes(name))) throw new Error('VPS Compose must enable exactly the reviewed backend services.');
   for (const name of services) {
     for (const dependency of Object.keys(model.services[name].depends_on ?? {})) {
       if (!services.includes(dependency)) throw new Error(`${name} pulls in excluded service ${dependency}.`);
@@ -106,7 +106,7 @@ export function backendFiles(bootstrap = false) {
     if (!match || versions.has(match[1])) throw new Error(`Invalid or duplicate migration version: ${name}`);
     versions.add(match[1]);
   }
-  const files = ['compose.yml', 'compose.vps.yml', 'deploy/Caddyfile', 'deploy/backend.py', 'deploy/backup.py', 'deploy/restore-check.py',
+  const files = ['compose.yml', 'compose.vps.yml', 'deploy/Caddyfile', 'deploy/backend.py', 'deploy/backup.py', 'deploy/restore-check.py', 'attendance-receiver/server.mjs',
     ...readdirSync(resolve(root, 'supabase/docker/volumes/api/envoy')).filter(name => /\.(yaml|sh)$/.test(name)).map(name => `supabase/docker/volumes/api/envoy/${name}`),
     ...migrations.map(name => `supabase/migrations/${name}`),
     ...(bootstrap ? ['.env.example', 'deploy/bootstrap.py', 'deploy/docker-firewall.sh',
@@ -123,7 +123,7 @@ function checkBackend() {
       env: { ...cleanEnv(), API_DOMAIN: 'api.lpg.144.79.249.4.sslip.io' }, quiet: true,
     });
     validateGraph(JSON.parse(output));
-    console.log('VPS Compose validated: ten production services, safe dependencies and external data volumes.');
+    console.log('VPS Compose validated: reviewed backend services, safe dependencies and external data volumes.');
   } catch (error) {
     if (error.message?.includes('Cannot run docker: ENOENT')) {
       console.log('Local docker CLI not found; Compose validation will be enforced remotely by the VPS updater.');

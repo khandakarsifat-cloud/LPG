@@ -23,6 +23,8 @@ async page => {
     const args=route.request().method()==='POST'?route.request().postDataJSON():{};
     let data=[];
     if(name==='user_profiles')data=[{tenant_id:tenant,full_name:'Page Operator',email:user.email,tenants:{business_name:'Responsive verification'}}];
+    else if(name==='get_my_preferences')data={theme:null};
+    else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
     else if(name==='get_my_permissions')data=['customers:view','customers:manage','finance:view','dashboard:view','pos:sell','sales:view','receipts:print','printers:manage','purchases:view','purchases:manage','inventory:view','inventory:manage','employees:view','employees:manage','payroll:view','payroll:pay','logistics:view','logistics:manage','settings:manage','gas_plants:view','gas_plants:manage'];
     else if(name==='receipt_printers')data=[{tenant_id:tenant,printer:{queue_id:'fixture-queue',host_id:'fixture-host',queue_name:'Fixture Thermal',port_name:'USB001',driver_name:'Fixture',transport:'windows_usb',device:null},paper_width_mm:80,printable_width_dots:576,auto_cut:false}];
     else if(name==='wallets')data=[{type:'dealership',balance:-2354943},{type:'logistics',balance:500000}];

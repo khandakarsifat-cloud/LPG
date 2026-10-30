@@ -12,7 +12,7 @@ import sys
 import tempfile
 import time
 
-from backend import SERVICES, content, digest, require, run, sql_literal, validate_model, validate_proxy, validate_sql, verify_health
+from backend import SERVICES, content, digest, require, run, sql_literal, validate_model, validate_proxy, validate_sql, verify_health, configure_attendance_token
 
 API = 'https://api.lpg.144.79.249.4.sslip.io'
 WORKER = 'https://floral-dew-443b.khandakarsifat.workers.dev'
@@ -141,12 +141,12 @@ def install(root, stage, project, api, approval):
         validate_model(model)
         for name in ['lpg_db_data', 'lpg_storage_data', 'lpg_db-config']:
             run(['docker', 'volume', 'create', name], 'Create persistent volume')
-        print('Pulling the ten pinned backend images; secrets generated privately on the VPS.', flush=True)
+        print('Pulling the pinned backend images; secrets generated privately on the VPS.', flush=True)
         run(cmd + ['pull', *SERVICES], 'Pinned backend image pull')
         validate_proxy(model, root)
         # Platform migrations run before application migrations. No public proxy
         # is started until the complete application schema is in place.
-        run(cmd + ['up', '-d', '--wait', '--wait-timeout', '240', *[s for s in SERVICES if s not in {'caddy', 'api-gw'}]], 'Platform initialization')
+        run(cmd + ['up', '-d', '--wait', '--wait-timeout', '240', *[s for s in SERVICES if s not in {'caddy', 'api-gw', 'attendance-receiver'}]], 'Platform initialization')
         psql = cmd + ['exec', '-T', 'db', 'psql', '-X', '-U', 'supabase_admin', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-qAt']
         run(psql + ['-c', 'CREATE SCHEMA IF NOT EXISTS supabase_migrations; CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations(version text PRIMARY KEY, statements text[], name text);'], 'Migration history initialization')
         applied = run(psql + ['-c', 'select version from supabase_migrations.schema_migrations order by version'], 'Bootstrap history').split()
@@ -173,6 +173,7 @@ def install(root, stage, project, api, approval):
         run([str(guard)], 'Narrow Caddy firewall exceptions')
         for port in ['80/tcp', '443/tcp']:
             run(['ufw', 'allow', port], 'Allow public HTTPS proxy')
+        configure_attendance_token(root, model)
         run(cmd + ['up', '-d', '--wait', '--wait-timeout', '240', *SERVICES], 'Backend startup')
         for attempt in range(24):
             try:

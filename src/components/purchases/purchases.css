@@ -198,26 +198,20 @@
 .transit-cost-fields { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .transit-additional-row { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) auto; align-items: end; }
 .transit-additional-row .input-group { min-width: 0; }
-.transit-create-fields { display: grid; gap: .875rem; }
 .transit-cost-state { color: var(--primary); background: var(--primary-weak); }
 .transit-cancelled { color: var(--danger); background: var(--danger-weak); }
 .transit-settlement { border-left: 3px solid var(--accent); background: var(--accent-weak); border-radius: var(--radius-md); padding: .875rem; }
 .transit-settlement > div { display: flex; justify-content: space-between; gap: .75rem; }
 .transit-settlement dt { font-size: .8125rem; }
 .transit-settlement dd { margin: 0; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.transits-view { display: grid; gap: 1.5rem; }
-.transit-search { flex: 1; max-width: 24rem; }
 .transit-card { color: var(--text-main); padding: 1rem; text-align: left; cursor: pointer; display: grid; gap: .875rem; border-top: 3px solid var(--accent); max-width: 26rem; }
 .transit-card .purchase-section-heading { margin: 0; }
 .transit-card strong { display: inline-flex; align-items: center; gap: .5rem; }
 .transit-card p, .transit-card small { color: var(--text-muted); margin: 0; font-size: .8125rem; overflow-wrap: anywhere; }
 .transit-card-total { display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: .75rem; font-size: .875rem; }
-.transit-group-title { margin: 0 0 .875rem; font-size: 1rem; }
-.transit-group-title span { color: var(--text-muted); margin-left: .5rem; }
 @media (max-width: 600px) {
   .transit-card { padding: 10px; gap: 8px; }
   .transit-card-total { flex-wrap: wrap; gap: 4px; }
-  .transit-search { max-width: none; }
 }
 @media (max-width: 480px) {
   .transit-cost-fields { gap: .625rem; }

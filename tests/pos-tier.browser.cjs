@@ -43,6 +43,8 @@ async page => {
     let data = [];
     switch (name) {
       case 'user_profiles': data = [{ tenant_id: tenant, full_name: 'Tier Operator', email: user.email, tenants: { business_name: 'Tier verification' } }]; break;
+      case 'get_my_preferences': data={theme:null}; break;
+      case 'get_business_catalogs': data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))}; break;
       case 'get_my_permissions': data = ['dashboard:view', 'sales:view', 'receipts:print', 'pos:sell']; break;
       case 'get_dashboard_stats': data = { todayRevenue: 0, todayMovements: 0, totalCustomers: 1 }; break;
       case 'get_sale_settlement': data = { total: sales[0]?.total_amount ?? 0, paid: sales[0]?.total_amount ?? 0, due: 0, payments: [], payment_count: 0 }; break;

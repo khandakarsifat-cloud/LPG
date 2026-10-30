@@ -18,6 +18,8 @@ async page => {
     const req=route.request(),name=new URL(req.url()).pathname.split('/').pop(),args=req.method()==='POST'?req.postDataJSON():{};
     let data=[];
     if(name==='user_profiles')data=[{tenant_id:id(1),full_name:'Batch operator',email:user.email,tenants:{business_name:'Batch verification'}}];
+    else if(name==='get_my_preferences')data={theme:null};
+    else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
     else if(name==='get_my_permissions')data=['customers:view','customers:manage','purchases:view','purchases:manage','sales:view'];
     else if(name==='get_customer_overview')data={wholesale:0,retail:76,new_wholesale:0,new_retail:0,inactive_wholesale:0,inactive_retail:0,week_start:'2026-10-17',inactive_since:'2026-08-20'};
     else if(name==='get_purchase_overview')data={total:76,created:0,in_transit:0,unpaid:0,company_payable:0};

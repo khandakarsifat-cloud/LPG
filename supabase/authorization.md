@@ -12,9 +12,9 @@ writes additionally require trusted OWNER membership; the UI uses the server-ret
 
 | Role | Initial capabilities |
 | --- | --- |
-| OWNER | All 24 current tenant capabilities |
+| OWNER | All current tenant capabilities |
 | MANAGER | The same complete set, in its own role mapping |
-| SALESMAN | `dashboard:view`, `pos:sell`, `sales:view`, `receipts:print` |
+| SALESMAN | `dashboard:view`, `pos:sell`, `sales:view`, `receipts:print`, `preferences:manage` |
 
 The original view/manage pairs for inventory, customers, purchases, logistics,
 gas plants and finance remain, together with `settings:manage` and `pos:sell`.
@@ -24,7 +24,7 @@ employees, payroll and audit reading. There is no platform ADMIN implementation.
 Changing a trusted RBAC mapping immediately changes database access, including
 for existing access tokens. Adding a capability to the catalog also requires
 deliberately mapping it to existing roles. New-business setup copies the current
-catalog to OWNER/MANAGER and the four supported capabilities to SALESMAN.
+catalog to OWNER/MANAGER and the five supported capabilities to SALESMAN.
 The browser refreshes effective permissions and its profile every 30 seconds
 and on query focus; the database remains authoritative between UI refreshes.
 
@@ -171,3 +171,5 @@ Purchase cancellation additionally checks trusted OWNER membership and exact `CA
 ## Canonical development contracts
 
 `20261026070000_canonical_development_model.sql` removes retired RPC overloads and the duplicated bottle-obligation table without adding browser grants. Expected returns now come from immutable `sale_items`; actual receipt lines retain their composite tenant/sale/receipt/product relationships. Brand identity is required and tenant-qualified. Existing permission gates, unexposed helpers, money/stock recorders and request locks remain authoritative. See the [audit](../docs/reports/2026-10-26-canonical-development-audit.md) for verification and retained accounting evidence.
+
+Personal appearance uses `preferences:manage` for Settings navigation, mapped to existing roles and seeded for SALESMAN at new-business setup. Personal preference RPCs derive the Auth identity and never accept another user's ID. Business settings retain `settings:manage`. Employee job-title management is a separate tenant catalog and cannot change RBAC assignments. Manual attendance correction additionally verifies trusted OWNER/MANAGER membership plus `employees:manage`; raw events and adjustment audits have no direct browser grants.

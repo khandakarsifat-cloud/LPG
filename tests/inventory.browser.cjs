@@ -46,6 +46,8 @@ async page => {
     let data = [];
     switch (name) {
       case 'user_profiles': data = [{ tenant_id: tenant, full_name: 'Operator', email: user.email, tenants: { business_name: 'Inventory verification' } }]; break;
+      case 'get_my_preferences': data={theme:null}; break;
+      case 'get_business_catalogs': data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))}; break;
       case 'get_my_permissions': data = ['inventory:view', 'pos:sell', 'customers:view', ...(!viewer ? ['inventory:manage','settings:manage'] : [])]; break;
       case 'items': data = items; break;
       case 'list_lpg_brands': data = brands; break;

@@ -7,7 +7,7 @@ import { describePurchaseActivity } from '../src/lib/purchaseActivity.ts';
 
 const purchase: Purchase = {
   purchase_id: 'purchase', plant_id: 'plant', plant_name: 'Plant', brand_id: 'brand', company_name: 'Company',
-  truck_id: 'truck', truck_name: 'Truck', status: 'created', payment_status: 'unpaid', commission: 50,
+  vehicle_id: 'vehicle', vehicle_name: 'Vehicle', status: 'created', payment_status: 'unpaid', commission: 50,
   subtotal: 800, company_payable: 750, transport_cost: 20, labour_cost: 10, total_cost: 780, notes: '', receipt_notes: null,
   created_at: '2026-10-14T00:00:00Z', dispatched_at: null, received_at: null, paid_at: null, revision: 1,
   items: [
@@ -16,12 +16,12 @@ const purchase: Purchase = {
   ],
 };
 
-test('activity describes financial, note and truck changes without substituting current amounts', () => {
+test('activity describes financial, note and vehicle changes without substituting current amounts', () => {
   const summary = describePurchaseActivity({ activity_id: 'a', action: 'updated', actor_name: 'Operator', created_at: '', details: {
-    before: { commission: '10', notes: 'old', truck_id: null },
-    after: { commission: 20, notes: 'Bring refills', truck_id: 'truck' },
+    before: { commission: '10', notes: 'old', vehicle_id: null },
+    after: { commission: 20, notes: 'Bring refills', vehicle_id: 'vehicle' },
   } }, purchase);
-  assert.deepEqual(summary.changes, ['Commission: Tk 10.00 → Tk 20.00', 'Truck assigned: Truck', 'Notes updated: Bring refills']);
+  assert.deepEqual(summary.changes, ['Commission: Tk 10.00 → Tk 20.00', 'Vehicle assigned: Vehicle', 'Notes updated: Bring refills']);
   assert.ok(!summary.changes.join(' ').includes('Tk 50.00'));
 });
 

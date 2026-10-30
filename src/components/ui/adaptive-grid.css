@@ -36,7 +36,7 @@
 .bottle-picker-brand { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
 .adaptive-grid--pos .pos-product-heading { block-size: 4.5rem; }
 .adaptive-grid--pos .pos-product-title { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.adaptive-grid--transits > .transit-card { block-size: 15rem; grid-template-rows: 2.5rem 2.25rem minmax(0,1fr) 2.5rem 1rem; gap: .5rem; padding: .75rem; }
+.adaptive-grid--transits > .transit-card { min-block-size: 15rem; block-size: auto; grid-template-rows: auto auto minmax(2rem,1fr) auto auto auto; gap: .5rem; padding: .75rem; }
 .adaptive-grid--transits .transit-card p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .adaptive-grid--transits .transit-card .purchase-section-heading > strong { min-width: 0; overflow-wrap: anywhere; font-size: .875rem; }
 .transit-card .purchase-section-heading > strong > svg { flex-shrink: 0; }

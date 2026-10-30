@@ -5,12 +5,12 @@ export const purchaseDate = (date: string | null) => date ? new Date(date).toLoc
 }) : 'Pending';
 
 export const emptyPurchaseDraft = (): PurchaseDraft => ({
-  truck_id: null, transport_cost: 0, labour_cost: 0, commission: 0, notes: '', items: [],
+  vehicle_id: null, transport_cost: 0, labour_cost: 0, commission: 0, notes: '', items: [],
 });
 
 export function purchaseDraft(purchase: Purchase): PurchaseDraft {
   return {
-    truck_id: purchase.truck_id, transport_cost: Number(purchase.transport_cost),
+    vehicle_id: purchase.vehicle_id, transport_cost: Number(purchase.transport_cost),
     labour_cost: Number(purchase.labour_cost), commission: Number(purchase.commission), notes: purchase.notes ?? '',
     items: purchase.items.map(item => ({
       purchase_item_id: item.purchase_item_id, item_id: item.item_id, type: item.type,

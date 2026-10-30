@@ -145,7 +145,6 @@ export const MOVEMENT_TYPE_COLORS: Record<MovementType, string> = {
   adjust_loss: '#f97316', // orange
 };
 
-export const CYLINDER_SIZES_KG = [5, 12, 25, 35];
 
 export const MOUTH_SIZE_OPTIONS: MouthSize[] = ['20mm', '22mm'];
 

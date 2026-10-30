@@ -1,0 +1,94 @@
+.logistics-page,.fleet-workspace,.transits-workspace { display:grid; gap:1rem; min-width:0; }
+.logistics-overview { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); padding:.4rem 0 1rem; border-bottom:1px solid var(--border); gap:1rem; }
+.logistics-overview>div { display:grid; gap:.35rem; padding-left:1rem; border-left:2px solid var(--border); }
+.logistics-overview>div:first-child { padding-left:0; border-left:0; }
+.logistics-overview span,.logistics-facts dt { font-size:.75rem; color:var(--text-muted); }
+.logistics-overview strong { font-size:clamp(1rem,1.7vw,1.45rem); font-variant-numeric:tabular-nums; line-height:1.3; }
+.logistics-tabs { display:flex; flex-wrap:wrap; gap:.25rem; border-bottom:1px solid var(--border); margin-bottom:.4rem; }
+.logistics-tabs button { display:flex; align-items:center; gap:.4rem; border:0; border-bottom:2px solid transparent; color:var(--text-muted); background:transparent; padding:.7rem .9rem; font-weight:600; cursor:pointer; }
+.logistics-tabs button[aria-current] { color:var(--primary); border-bottom-color:var(--primary); background:var(--primary-weak); }
+.logistics-tabs button:hover { background:var(--surface-subtle); }
+.logistics-toolbar { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; margin-bottom:.8rem; }
+.logistics-toolbar .input-group { min-width:8rem; flex:1; }
+.logistics-toolbar .logistics-search { flex:2; min-width:12rem; }
+.logistics-toolbar>.btn { margin-bottom:0; min-height:2.5rem; }
+.vehicle-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,19rem),1fr)); gap:.8rem; }
+.vehicle-card { display:grid; gap:.85rem; padding:1rem; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); color:var(--text-main); text-align:left; cursor:pointer; min-width:0; }
+.vehicle-card:hover { border-color:var(--primary); background:var(--surface-subtle); }
+.vehicle-card-heading { display:flex; align-items:center; gap:.7rem; min-width:0; }
+.vehicle-card-heading>div { flex:1; min-width:0; }
+.vehicle-card h3 { margin:0 0 .1rem; font-size:1rem; overflow-wrap:anywhere; }
+.vehicle-card-heading>div>span,.vehicle-card footer,.vehicle-card-crew>span { font-size:.75rem; color:var(--text-muted); }
+.vehicle-icon { width:2.5rem; height:2.5rem; display:grid; place-items:center; color:var(--primary); background:var(--primary-weak); border-radius:.65rem; flex:none; }
+.vehicle-location { display:flex; align-items:center; gap:.4rem; margin:0; font-size:.85rem; overflow-wrap:anywhere; }
+.vehicle-card-crew { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; padding:.7rem 0; border-block:1px solid var(--border); }
+.vehicle-card-crew strong { display:block; margin-top:.25rem; color:var(--text-main); font-size:.85rem; font-weight:600; overflow-wrap:anywhere; }
+.vehicle-card footer { display:flex; gap:.5rem; justify-content:space-between; }
+.vehicle-form-fields { border:0; padding:0; margin:0; display:grid; gap:1rem; min-width:0; }
+.vehicle-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.85rem; }
+.vehicle-form-grid .input-group { min-width:0; }
+.crew-picker { display:grid; align-content:start; gap:.6rem; min-width:0; }
+.logistics-details-body { display:grid; gap:1rem; }
+.logistics-facts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem 1rem; margin:.8rem 0; }
+.logistics-facts>div { min-width:0; }
+.logistics-facts dd { margin:.25rem 0 0; font-size:.95rem; font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.vehicle-back { padding:.5rem 1rem 0; }
+.logistics-summary { padding:.25rem .8rem; background:var(--surface-subtle); border:1px solid var(--border); border-radius:var(--radius-md); }
+.assignment-history { display:grid; gap:.6rem; }
+.assignment-history article,.transit-payment-record { padding:.8rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--surface-subtle); }
+.assignment-history article>div,.transit-payment-record>div { display:flex; align-items:center; flex-wrap:wrap; gap:.6rem; justify-content:space-between; }
+.assignment-history p,.transit-payment-record p { margin:.4rem 0 0; color:var(--text-muted); font-size:.75rem; }
+.transit-payment-record { margin-top:.6rem; }
+.transit-payment-record small { display:block; margin-top:.3rem; color:var(--text-muted); }
+.transit-card-financials { display:grid; grid-template-columns:1fr 1fr; gap:.65rem; padding-top:.65rem; border-top:1px solid var(--border); margin:0; }
+.transit-card-financials dt { font-size:.75rem; color:var(--text-muted); }
+.transit-card-financials dd { margin:.3rem 0 0; font-weight:600; font-variant-numeric:tabular-nums; }
+.logistics-payment-actions { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.8rem; }
+.employee-transit-work .employee-panel-content { display:grid; gap:1rem; }
+.gas-plant-settings .inv-stat,.gas-plant-settings .app-screen-scroll { min-height:0; }
+@media(max-width:640px) {
+ .logistics-overview { grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem .6rem; }
+ .logistics-overview>div { border:0; padding:0; }
+ .logistics-toolbar { gap:.6rem; }
+ .logistics-toolbar .logistics-search { flex-basis:100%; min-width:0; }
+ .logistics-toolbar .input-group { min-width:0; flex-basis:calc(50% - .6rem); }
+ .vehicle-form-grid { grid-template-columns:1fr; }
+ .logistics-facts { gap:.8rem .5rem; }
+ .logistics-tabs button { min-height:2.75rem; padding:.65rem .7rem; }
+}
+
+.settings-plant { display:grid; gap:.75rem; min-width:0; }
+.settings-plant h3 { font-size:.95rem; margin:0; overflow-wrap:anywhere; }
+.settings-plant>p,.settings-plant a { display:flex; align-items:center; gap:.4rem; font-size:.8rem; margin:0; color:var(--text-muted); overflow-wrap:anywhere; }
+.settings-plant section { display:grid; gap:.4rem; padding-top:.65rem; border-top:1px solid var(--border); }
+.settings-plant footer { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:auto; }
+
+.transit-settlement>div { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:baseline; gap:.75rem; margin:.35rem 0; }
+.transit-settlement dd { white-space:nowrap; }
+@media(max-width:640px) { .transit-settlement dd { font-size:1rem; } .transit-settlement dt { font-size:.75rem; } }
+
+/* Modal histories use compact timeline rows, independently of page card geometry. */
+.transit-history .logistics-toolbar { margin-bottom:0; }
+.transit-history-list { display:flex; flex-direction:column; min-width:0; }
+.transit-history-entry { display:grid; grid-template-columns:8rem minmax(0,1fr) auto 1rem; gap:.8rem; align-items:center; width:100%; padding:.85rem .25rem; border:0; border-bottom:1px solid var(--border); border-radius:0; background:transparent; color:var(--text-main); text-align:left; cursor:pointer; }
+.transit-history-entry:hover { background:var(--surface-subtle); }
+.transit-history-entry:focus-visible { outline:2px solid var(--primary); outline-offset:-2px; }
+.transit-history-entry>span { display:flex; flex-direction:column; gap:.3rem; min-width:0; }
+.transit-history-entry strong { font-size:.85rem; font-weight:600; overflow-wrap:anywhere; }
+.transit-history-entry span span { font-size:.75rem; color:var(--text-muted); overflow-wrap:anywhere; }
+.transit-history-date { font-size:.75rem; color:var(--text-muted); }
+.transit-history-amount { text-align:right; font-variant-numeric:tabular-nums; }
+@media(max-width:640px) {
+ .transit-history-entry { grid-template-columns:minmax(0,1fr) auto 1rem; gap:.45rem .7rem; padding:.8rem .1rem; }
+ .transit-history-date { grid-column:1 / -1; flex-direction:row !important; flex-wrap:wrap; justify-content:space-between; }
+ .transit-history-entry strong { font-size:.8125rem; }
+ .transit-history-amount { max-width:8rem; }
+}
+
+.logistics-toolbar { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); align-items:end; }
+.logistics-toolbar>.input-group,.logistics-toolbar>.purchase-select { min-width:0; width:100%; margin:0; }
+.logistics-toolbar .input-field { width:100%; min-width:0; }
+.transit-history .logistics-toolbar { grid-template-columns:minmax(0,1fr) auto; }
+.transit-history .logistics-toolbar:has([aria-expanded=true]) { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.transit-history .logistics-toolbar>.logistics-search { grid-column:1; }
+@media(max-width:640px) { .logistics-toolbar {grid-template-columns:repeat(2,minmax(0,1fr));} .logistics-toolbar>.logistics-search {grid-column:1/-1;} .transit-history .logistics-toolbar>.logistics-search {grid-column:1;} }

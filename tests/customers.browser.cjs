@@ -28,6 +28,8 @@ async page => {
     calls.push({ name, args, method: req.method() });
     let data = [];
     if (name === 'user_profiles') data = [{ tenant_id: tenant, email: user.email, full_name: 'Customer Operator', tenants: { business_name: 'Customer UI verification' } }];
+    else if(name==='get_my_preferences')data={theme:null};
+    else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
     else if (name === 'get_my_permissions') data = permissions;
     else if (name === 'wallets') data = [{ type: 'dealership', balance: 248650 }];
     else if (name === 'get_customer_overview') data = { wholesale: 11, retail: 20, new_wholesale: 2, new_retail: 4, inactive_wholesale: 1, inactive_retail: 3, week_start: '2026-10-17', inactive_since: '2026-08-19' };
@@ -184,8 +186,7 @@ async page => {
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: width < 600 ? 844 : 1000 });
     for (const theme of ['light', 'dark']) {
-      const toggle = page.getByRole('button', { name: theme === 'light' ? 'Switch to light theme' : 'Switch to dark theme', exact: true });
-      if (await toggle.count()) await toggle.click();
+      await page.evaluate(theme => { document.documentElement.dataset.theme=theme; document.documentElement.style.colorScheme=theme; },theme);
       await page.waitForFunction(theme => document.documentElement.dataset.theme === theme && document.documentElement.style.colorScheme === theme, theme);
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Customer page overflows at ${width}`);
       await page.screenshot({ path: `${artifacts}/customers-${width}-${theme}.png`, fullPage: true, animations: 'disabled' });

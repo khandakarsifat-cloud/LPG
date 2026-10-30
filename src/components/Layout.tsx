@@ -4,16 +4,13 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
-  Factory,
   LayoutDashboard,
   LogOut,
   Menu,
-  Moon,
   Package,
   Settings,
   ShoppingCart,
   ReceiptText,
-  Sun,
   Truck,
   UserCircle,
   UserRound,
@@ -24,7 +21,7 @@ import {
 import { Suspense, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { hasAnyPermission, routePermissions } from '../lib/authorization';
-import { applyTheme, getPreferredTheme, getStoredTheme, persistTheme, type AppTheme } from '../lib/theme';
+import { useAppearance } from '../hooks/useAppearance';
 import { useWallets } from '../hooks/useLogistics';
 import { formatBDT } from '../lib/formatBDT';
 
@@ -38,7 +35,6 @@ const navItems = [
   { path: '/employees', label: 'Employees', icon: UserRound },
   { path: '/finance', label: 'Finance', icon: CreditCard },
   { path: '/logistics', label: 'Logistics', icon: Truck },
-  { path: '/gas-plants', label: 'Gas Plants', icon: Factory },
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -64,7 +60,7 @@ export const Layout = () => {
   const { pathname } = useLocation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme() ?? getPreferredTheme());
+  useAppearance();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getStoredSidebarCollapsed);
   const currentPage = navItems.find(item => item.path === pathname);
 
@@ -73,11 +69,6 @@ export const Layout = () => {
     setPrevPathname(pathname);
     setMobileMenuOpen(false);
   }
-
-  useEffect(() => {
-    applyTheme(theme);
-    persistTheme(theme);
-  }, [theme]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -237,15 +228,6 @@ export const Layout = () => {
 
           <div className="topbar-actions">
             {hasAnyPermission(permissions, ['logistics:view', 'logistics:manage', 'finance:view', 'finance:manage']) && <DealershipWallet />}
-            <button
-              className="topbar-icon-btn"
-              type="button"
-              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              onClick={() => setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))}
-            >
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
           </div>
         </header>
 

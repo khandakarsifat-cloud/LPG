@@ -2,20 +2,20 @@ import { useListPage } from '../../hooks/useListPage';
 import { Pagination } from '../ui/Pagination';
 import { Plus, Trash2, Package } from 'lucide-react';
 import { useInventoryBalances } from '../../hooks/useInventory';
-import { useTrucks } from '../../hooks/useLogistics';
+import { useVehicles } from '../../hooks/useLogistics';
 import { PurchaseNumber, PurchaseSelect, PurchaseFinancials } from './PurchaseControls';
 import { purchaseTotals } from '../../lib/purchase';
 import { formatBDT } from '../../lib/formatBDT';
 import type { Purchase, PurchaseDraft, PurchaseLinePayload } from '../../types/purchase';
 
 export function PurchaseShipment({ draft, onChange }: { draft: PurchaseDraft; onChange: (draft: PurchaseDraft) => void }) {
-  const trucksQuery = useTrucks();
-  const trucks = (trucksQuery.data ?? []).filter(truck => truck.status === 'idle' || truck.truck_id === draft.truck_id);
+  const vehiclesQuery = useVehicles();
+  const vehicles = (vehiclesQuery.data ?? []).filter(vehicle => vehicle.status === 'idle' || vehicle.vehicle_id === draft.vehicle_id);
   return <div>
-    <PurchaseSelect label="Truck (optional until dispatch)" value={draft.truck_id ?? ''} onChange={id => onChange({ ...draft, truck_id: id || null })}
-      placeholder={trucksQuery.isLoading ? 'Loading trucks…' : 'Assign an idle truck'}
-      options={[{ value: '', label: 'Assign later' }, ...trucks.map(truck => ({ value: truck.truck_id, label: truck.name, description: truck.serial_no }))]} />
-    {trucksQuery.isError && <p role="alert" className="purchase-error">Trucks could not be loaded. <button type="button" className="btn btn-ghost" onClick={() => void trucksQuery.refetch()}>Retry</button></p>}
+    <PurchaseSelect label="Vehicle (optional until dispatch)" value={draft.vehicle_id ?? ''} onChange={id => onChange({ ...draft, vehicle_id: id || null })}
+      placeholder={vehiclesQuery.isLoading ? 'Loading vehicles…' : 'Assign an idle vehicle'}
+      options={[{ value: '', label: 'Assign later' }, ...vehicles.map(vehicle => ({ value: vehicle.vehicle_id, label: vehicle.name, description: `${vehicle.serial_no} · ${vehicle.driver_name || "Needs Driver assignment"}` }))]} />
+    {vehiclesQuery.isError && <p role="alert" className="purchase-error">Vehicles could not be loaded. <button type="button" className="btn btn-ghost" onClick={() => void vehiclesQuery.refetch()}>Retry</button></p>}
   </div>;
 }
 

@@ -7,9 +7,8 @@ export const routePermissions: Record<string, readonly string[]> = {
   '/customers': ['customers:view', 'customers:manage'],
   '/purchases': ['purchases:view', 'purchases:manage'],
   '/logistics': ['logistics:view', 'logistics:manage'],
-  '/gas-plants': ['gas_plants:view', 'gas_plants:manage'],
   '/employees': ['employees:view', 'employees:manage', 'payroll:view', 'payroll:pay'],
-  '/settings': ['settings:manage'],
+  '/settings': ['settings:manage', 'preferences:manage', 'gas_plants:view', 'gas_plants:manage'],
   '/finance': ['finance:view', 'finance:manage'],
 };
 

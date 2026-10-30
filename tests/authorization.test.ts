@@ -23,3 +23,14 @@ test('changing effective permissions changes access without role-name rules', ()
   assert.deepEqual(accessible([]), []);
   assert.deepEqual(accessible(['OWNER', 'MANAGER', 'SALESMAN']), []);
 });
+
+test('personal settings access does not grant business administration', () => {
+  assert.deepEqual(accessible(['preferences:manage']), ['/settings']);
+  assert.equal(hasAnyPermission(['preferences:manage'], ['settings:manage']), false);
+});
+
+test('plant-only capabilities can reach their section in Settings', () => {
+ assert.deepEqual(accessible(['gas_plants:view']), ['/settings']);
+ assert.deepEqual(accessible(['gas_plants:manage']), ['/settings']);
+ assert.equal(hasAnyPermission(['gas_plants:view'], ['settings:manage']), false);
+});

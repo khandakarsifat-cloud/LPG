@@ -20,7 +20,7 @@ export function PurchaseDialog({ title, subtitle, children, onClose, busy = fals
     return () => { dialog?.close(); document.body.style.overflow = previous; };
   }, []);
   return createPortal(<dialog ref={ref} className={`purchase-dialog${compact ? ' purchase-dialog-compact' : ''} ${className}`}
-    aria-labelledby={titleId} aria-describedby={subtitle ? `${titleId}-description` : undefined} onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
+    aria-labelledby={titleId} aria-describedby={subtitle ? `${titleId}-description` : undefined} onCancel={event => { event.preventDefault(); event.stopPropagation(); if (!busy) onClose(); }}>
     <div className="modal-header">
       <div><h2 id={titleId} className="modal-title">{title}</h2>{subtitle && <p id={`${titleId}-description`} className="modal-subtitle">{subtitle}</p>}</div>
       <button type="button" className="modal-close" aria-label="Close dialog" onClick={onClose} disabled={busy}><X size={20} /></button>

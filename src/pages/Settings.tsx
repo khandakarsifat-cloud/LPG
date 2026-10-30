@@ -1,78 +1,40 @@
 import { useState } from 'react';
-import { Settings as SettingsIcon, Building2 } from 'lucide-react';
+import { Building2, Factory, Tags, Users, Weight, Palette, Moon, Sun } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useAppearance } from '../hooks/useAppearance';
+import { useSaveBusinessProfile } from '../hooks/useBusinessSettings';
 import { BrandManagement } from '../components/business/BrandManagement';
+import { AttendanceSettings } from '../components/business/AttendanceSettings';
+import { CatalogSettings } from '../components/business/CatalogSettings';
+import '../components/business/settings.css';
+import { SpendingCategories } from '../components/business/SpendingCategories';
+import { GasPlantSettings } from '../components/business/GasPlantSettings';
 
+type Section = 'business' | 'spending' | 'plants' | 'brands' | 'roles' | 'weights' | 'appearance';
+const sections = [{id:'spending',label:'Spending categories',icon:Tags}, { id: 'plants', label: 'Gas plants', icon: Factory }, { id: 'business', label: 'Business profile', icon: Building2 }, { id: 'brands', label: 'LPG brands', icon: Tags }, { id: 'roles', label: 'Employee roles', icon: Users }, { id: 'weights', label: 'Cylinder weights', icon: Weight }, { id: 'appearance', label: 'Appearance', icon: Palette }] as const;
 export const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState<'business' | 'brands'>('business');
-
-  return (
-    <div className="app-screen" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-      {/* Page Header */}
-      <div className="app-screen-header settings-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <div style={{ backgroundColor: 'var(--primary)', padding: '0.75rem', borderRadius: '0.5rem' }}>
-          <SettingsIcon size={24} color="white" />
-        </div>
-        <div>
-          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            Manage your business profile and preferences
-          </p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="settings-tabs">
-        <button
-          onClick={() => setActiveTab('business')}
-          style={{
-            padding: '0.625rem 0.75rem',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'business' ? '3px solid var(--primary)' : 'none',
-            cursor: 'pointer',
-            fontWeight: activeTab === 'business' ? 600 : 500,
-            color: activeTab === 'business' ? 'var(--text-primary)' : 'var(--text-muted)',
-            fontSize: '0.95rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-          }}
-        >
-          <Building2 size={18} />
-          Business Profile
-        </button>
-        <button
-          onClick={() => setActiveTab('brands')}
-          style={{
-            padding: '0.625rem 0.75rem',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'brands' ? '3px solid var(--primary)' : 'none',
-            cursor: 'pointer',
-            fontWeight: activeTab === 'brands' ? 600 : 500,
-            color: activeTab === 'brands' ? 'var(--text-primary)' : 'var(--text-muted)',
-            fontSize: '0.95rem',
-          }}
-        >
-          🏷️ LPG Brands
-        </button>
-      </div>
-
-      {/* Tab Content */}
-      <div className="app-screen-scroll">
-        {activeTab === 'business' && (
-          <div className="card settings-placeholder">
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-              <div className="settings-placeholder-icon">🏢</div>
-              <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>Business Profile</h3>
-              <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>
-                Business profile management coming soon
-              </p>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'brands' && <BrandManagement />}
-      </div>
-    </div>
-  );
+ const { can } = useAuth(); const manage = can('settings:manage'); const plants = can('gas_plants:view') || can('gas_plants:manage');
+ const available = sections.filter(item => item.id === 'plants' ? plants : item.id === 'appearance' ? can('preferences:manage') : manage);
+ const [section, setSection] = useState<Section>(manage ? 'business' : plants ? 'plants' : 'appearance');
+ const selected = available.some(item => item.id === section) ? section : available[0]?.id;
+ return <div className="settings-workspace"><p className="page-subtitle">Business configuration and your personal preferences.</p>
+  <div className="settings-layout"><nav className="settings-navigation" aria-label="Settings sections">{available.map(item => <button key={item.id} aria-current={selected === item.id ? 'page' : undefined} onClick={() => setSection(item.id)}><item.icon size={16} aria-hidden="true" />{item.label}</button>)}</nav>
+   <div className="settings-content" key={selected}>
+    {selected === 'business' && <><BusinessProfile /><AttendanceSettings /></>}
+    {selected === 'spending' && <SpendingCategories/>}
+    {selected === 'plants' && <GasPlantSettings />}
+    {selected === 'brands' && <section className="settings-section"><header className="settings-section-heading"><div><h2>LPG brands</h2><p>Your brand catalog and display order across inventory, sales and purchases.</p></div></header><BrandManagement /></section>}
+    {selected === 'roles' && <CatalogSettings kind="role" />}{selected === 'weights' && <CatalogSettings kind="weight" />}
+    {selected === 'appearance' && <Appearance />}
+   </div>
+  </div>
+ </div>;
 };
+function BusinessProfile() {
+ const { profile } = useAuth(); const [name, setName] = useState(profile?.business_name ?? ''); const save = useSaveBusinessProfile();
+ return <section className="settings-section"><header className="settings-section-heading"><div><h2>Business profile</h2><p>Details shared with your team and shown on receipts.</p></div></header><form className="settings-card settings-profile-form" onSubmit={event => { event.preventDefault(); save.mutate(name); }}><label className="input-group"><span className="input-label">Business name</span><input className="input-field" required maxLength={255} value={name} onChange={event => setName(event.target.value)} /></label><button className="btn btn-primary" disabled={save.isPending || name.trim() === profile?.business_name}>Save profile</button>{save.isError && <p className="purchase-error" role="alert">{save.error.message}</p>}{save.isSuccess && <p role="status">Business profile saved.</p>}</form></section>;
+}
+function Appearance() {
+ const { theme, query, save } = useAppearance();
+ return <section className="settings-section"><header className="settings-section-heading"><div><h2>Appearance</h2><p>Your preference follows your account across devices.</p></div></header><div className="settings-card"><div className="settings-appearance-options" role="group" aria-label="Color theme">{([{ value: 'light', icon: Sun, label: 'Light' }, { value: 'dark', icon: Moon, label: 'Dark' }] as const).map(item => <button key={item.value} className="settings-theme-option" aria-pressed={theme === item.value} disabled={save.isPending || query.isPending} onClick={() => save.mutate(item.value)}><item.icon size={20} aria-hidden="true" /><strong>{item.label}</strong></button>)}</div>{(save.isError || query.isError) && <p role="alert" className="purchase-error">{save.error?.message ?? 'Appearance preferences unavailable.'}</p>}{save.isSuccess && <p role="status">Appearance saved.</p>}</div></section>;
+}

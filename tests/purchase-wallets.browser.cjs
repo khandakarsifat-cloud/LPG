@@ -13,6 +13,8 @@ async page => {
   const req=route.request(),name=new URL(req.url()).pathname.split('/').pop(),a=req.method()==='POST'?req.postDataJSON():{};let data=[];
   const p=purchases.find(p=>p.purchase_id===a.p_purchase_id);
   if(name==='user_profiles')data=[{tenant_id:tenant,email:user.email,full_name:'UI owner',tenants:{business_name:'Purchase fixture'}}];
+  else if(name==='get_my_preferences')data={theme:null};
+  else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
   else if(name==='get_my_permissions')data=['purchases:view','purchases:manage','inventory:view','logistics:view','finance:view'];
   else if(name==='get_payment_wallets')data=wallets;
   else if(name==='wallets')data=wallets.map(w=>({...w,balance:0}));

@@ -15,7 +15,7 @@ export function useTripPaymentWallets(id?: string) {
  return useQuery<PaymentWallet[]>({ queryKey: [...employeeKeys, 'trip-wallets', id], enabled: !!id,
   queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_trip_payment_wallets', { p_transit_id: id }).abortSignal(signal); if (error) throw error; return data; } });
 }
-export interface TransitPayroll { driver_paid: number; helper_paid: number; paid: number; payments: { payment_id: string; name: string; role: string; amount: number; date: string }[] }
+export interface TransitPayroll { driver_paid: number; helper_paid: number; paid: number }
 export function useTransitPayroll(id: string) {
  return useQuery<TransitPayroll>({ queryKey: [...employeeKeys, 'transit', id], refetchInterval: 30_000,
   queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_transit_payroll', { p_transit_id: id }).abortSignal(signal); if (error) throw error; return data; } });
@@ -31,19 +31,15 @@ export function useEmployeeOverview() {
   queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_overview').abortSignal(signal); if (error) throw error; return data; } });
 }
 export function useEmployeeProfile(id: string) {
- return useQuery<EmployeeProfile>({ queryKey: [...employeeKeys, 'profile', id], refetchInterval: 30_000,
+ return useQuery<EmployeeProfile>({ queryKey: [...employeeKeys, 'profile', id], enabled: !!id, refetchInterval: 30_000,
   queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_profile', { p_employee_id: id }).abortSignal(signal); if (error) throw error; return data; } });
 }
 export function useEmployeeSalaryMonth(id: string, period: string, enabled = true) {
  return useQuery<EmployeeSalaryMonth>({ queryKey: [...employeeKeys, 'salary-month', id, period], enabled,
   queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_salary_month', { p_employee_id: id, p_period: period }).abortSignal(signal); if (error) throw error; return data; } });
 }
-export function useEmployeeSalaryHistory(id: string, page: number, enabled: boolean) {
- return useQuery<EmployeeResult<EmployeeSalaryMonth>>({ queryKey: [...employeeKeys, 'periods', id, page], enabled,
-  queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_salary_history', { p_employee_id: id, p_offset: page * 6, p_limit: 6 }).abortSignal(signal); if (error) throw error; return data; } });
-}
 export function useEmployeeActivity(filters: ActivityFilters, page: number, enabled = true) {
- return useQuery<EmployeeResult<EmployeeActivity>>({ queryKey: [...employeeKeys, 'activity', filters, page], enabled,
+ return useQuery<EmployeeResult<EmployeeActivity>>({ queryKey: [...employeeKeys, 'activity', filters, page], enabled, refetchInterval: 30_000,
   queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_employee_activity', { p_filters: filters, p_offset: page * 12, p_limit: 12 }).abortSignal(signal); if (error) throw error; return data; } });
 }
 /** One recoverable write across the directory and every employee dialog. */
@@ -60,7 +56,7 @@ export function useEmployeeOperation() {
    if (!error || isDefiniteRejection(error.code)) finishRequest(key, request.id);
    if (error) throw new Error(error.message); return data;
   },
-  onSuccess: () => Promise.all([employeeKeys, ['finance'], ['logistics'], ['purchases']].map(queryKey => qc.invalidateQueries({ queryKey }))),
+  onSuccess: () => Promise.all([employeeKeys, ['attendance'], ['finance'], ['logistics'], ['purchases']].map(queryKey => qc.invalidateQueries({ queryKey }))),
  });
  return { ...mutation, hasPending: hasPendingRequest(key) };
 }

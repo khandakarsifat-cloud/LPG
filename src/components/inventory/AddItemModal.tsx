@@ -2,8 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { X, Package, Loader2 } from 'lucide-react';
 import { useCreateItem, useInventoryBalances } from '../../hooks/useInventory';
 import { useLPGBrands } from '../../hooks/useBrands';
+import { useBusinessCatalogs } from '../../hooks/useBusinessSettings';
 import type { CreateItemPayload, MouthSize } from '../../types/inventory';
-import { CYLINDER_SIZES_KG, MOUTH_SIZE_OPTIONS } from '../../types/inventory';
+import { MOUTH_SIZE_OPTIONS } from '../../types/inventory';
 
 interface AddItemModalProps {
   open: boolean;
@@ -14,12 +15,14 @@ type FormState = CreateItemPayload;
 
 export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
   const createItem = useCreateItem();
+  const catalogs = useBusinessCatalogs();
+  const weights = catalogs.data?.weights.filter(weight => weight.active).map(weight => weight.size_kg) ?? [];
   const { data: brands = [] } = useLPGBrands();
   const { data: items = [] } = useInventoryBalances();
 
   const [form, setForm] = useState<FormState>({
     brand_id: '',
-    size_kg: 5,
+    size_kg: 0,
     mouth_size: '22mm',  // default
   });
 
@@ -39,6 +42,8 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
       setDuplicateError('Please select a mouth size');
       return;
     }
+
+    if (!weights.includes(form.size_kg)) { setDuplicateError('Select an available weight from Settings'); return; }
 
     // Check for duplicate: brand_id + size_kg + mouth_size (all three must match)
     const exists = items.some(
@@ -61,7 +66,7 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
       });
 
       onClose();
-      setForm({ brand_id: '', size_kg: 5, mouth_size: '22mm' });
+      setForm({ brand_id: '', size_kg: 0, mouth_size: '22mm' });
     } catch {
       // error displayed via createItem.isError
     } finally {
@@ -138,12 +143,12 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
               <select
                 id="item-size"
                 className="input-field"
-                value={form.size_kg}
+                value={form.size_kg || ''}
                 onChange={(e) => setForm((p) => ({ ...p, size_kg: parseFloat(e.target.value) }))}
                 required
               >
                 <option value="">Select weight...</option>
-                {CYLINDER_SIZES_KG.map((weight) => {
+                {weights.map((weight) => {
                   const weightNum = weight;
                   return (
                     <option key={weight} value={weightNum}>

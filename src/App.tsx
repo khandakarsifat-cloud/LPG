@@ -9,7 +9,6 @@ import { Toaster } from 'react-hot-toast';
 const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
 const InventoryPage = lazy(() => import('./pages/Inventory').then(module => ({ default: module.InventoryPage })));
 const LogisticsPage = lazy(() => import('./pages/Logistics').then(module => ({ default: module.LogisticsPage })));
-const GasPlantsPage = lazy(() => import('./pages/GasPlants').then(module => ({ default: module.GasPlantsPage })));
 const PurchasesPage = lazy(() => import('./pages/Purchases').then(module => ({ default: module.PurchasesPage })));
 const SalesPage = lazy(() => import('./pages/Sales').then(module => ({ default: module.SalesPage })));
 const SettingsPage = lazy(() => import('./pages/Settings').then(module => ({ default: module.SettingsPage })));
@@ -58,7 +57,6 @@ function App() {
                 <Route path="purchases" element={<PurchasesPage />} />
                 <Route path="sales" element={<SalesPage />} />
                 <Route path="logistics" element={<LogisticsPage />} />
-                <Route path="gas-plants" element={<GasPlantsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="pos" element={<POSPage />} />
               </Route>

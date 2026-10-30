@@ -1,5 +1,5 @@
 import type { ActivityFilters, Employee, EmployeeFilters } from '../types/employee';
-export const employeeUnitLabels = { gas_business: 'Gas business', truck_business: 'Truck business' };
+export const employeeUnitLabels = { gas_business: 'Gas business', truck_business: 'Vehicle business' };
 export const defaultEmployeeFilters: EmployeeFilters = { search: '', status: 'all', unit: 'all', type: '', sort: 'name_asc' };
 export const defaultActivityFilters: ActivityFilters = { search: '', kind: '', from: '', to: '' };
 export const employeeToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());

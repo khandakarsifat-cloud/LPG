@@ -2,6 +2,7 @@
 import datetime
 import base64
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -12,8 +13,8 @@ import sys
 import urllib.request
 import urllib.error
 
-SERVICES = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'caddy']
-CORE_SERVICES = set(SERVICES) - {'studio', 'meta'}
+SERVICES = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'attendance-receiver', 'caddy']
+CORE_SERVICES = set(SERVICES) - {'studio', 'meta', 'attendance-receiver'}
 EXCLUDED = ['frontend', 'functions', 'supavisor', 'mailpit']
 
 
@@ -40,7 +41,7 @@ def digest(path):
 
 def validate_model(model):
     enabled = {name for name, service in model['services'].items() if not service.get('profiles')}
-    require(enabled == set(SERVICES), 'Compose must enable exactly the ten production services, including Studio/meta.')
+    require(enabled == set(SERVICES), 'Compose must enable exactly the reviewed backend services.')
     for name in SERVICES:
         service = model['services'][name]
         require(not service.get('build'), f'Unexpected image build: {name}.')
@@ -124,6 +125,26 @@ def sql_literal(value):
     return "'" + value.replace("'", "''") + "'"
 
 
+def configure_attendance_token(root, model, write=True):
+    # The receiver gets only a role-scoped JWT, never the signing secret or the
+    # service role key. Regenerate when the backend signing secret changes.
+    secret = model['services']['auth']['environment']['GOTRUE_JWT_SECRET']
+    encode = lambda value: base64.urlsafe_b64encode(value).decode().rstrip('=')
+    header = encode(b'{"alg":"HS256","typ":"JWT"}')
+    claims = encode(b'{"role":"attendance_receiver","iss":"supabase","exp":4102444800}')
+    message = header + '.' + claims
+    token = message + '.' + encode(hmac.new(secret.encode(), message.encode(), hashlib.sha256).digest()) + '\n'
+    target = root / 'deploy/.attendance-token'
+    changed = not target.exists() or content(target) != token
+    if changed and write:
+        temporary = target.with_suffix('.new')
+        temporary.write_text(token, encoding='utf-8')
+        temporary.chmod(0o400)
+        os.chown(temporary, 1000, 1000)
+        temporary.replace(target)
+    return changed
+
+
 def validate_proxy(model, source):
     run(['docker', 'run', '--rm', '--pull', 'never', '--network', 'none',
          '-e', 'API_DOMAIN=' + model['services']['caddy']['environment']['API_DOMAIN'],
@@ -195,12 +216,15 @@ def update(root, stage, project, api_url, approval):
     # Refuse database image upgrades and all volume remapping, including Caddy TLS.
     require(old['volumes'] == candidate['volumes'], 'Compose volume definitions changed. Separate review required.')
     for name in SERVICES:
+        if name not in old['services']:
+            require(name == 'attendance-receiver', 'Unexpected new backend service.')
+            continue
         before, after = old['services'][name], candidate['services'][name]
         require(before.get('volumes') == after.get('volumes'), f'{name} mount definitions changed. Separate review required.')
     require(old['services']['db']['image'] == candidate['services']['db']['image'], 'PostgreSQL image upgrade refused; use a reviewed upgrade procedure.')
 
-    ids = run(old_cmd + ['--profile', '*', 'ps', '-q', *SERVICES], 'Container discovery').split()
-    require(len(CORE_SERVICES) <= len(ids) <= len(SERVICES), 'All eight core production containers must be running; only Studio/meta may be added.')
+    ids = run(old_cmd + ['--profile', '*', 'ps', '-q', *[s for s in SERVICES if s in old['services']]], 'Container discovery').split()
+    require(len(CORE_SERVICES) <= len(ids) <= len(SERVICES), 'All eight core backend containers must be running; only reviewed supporting services may be added.')
     containers = json.loads(run(['docker', 'inspect', *ids], 'Existing container inspection'))
     current = {container['Config']['Labels']['com.docker.compose.service']: container for container in containers}
     require(CORE_SERVICES <= set(current) <= set(SERVICES) and len(current) == len(containers), 'Container service/project identity mismatch.')
@@ -248,6 +272,8 @@ def update(root, stage, project, api_url, approval):
         for volume in candidate['services'][name].get('volumes', []):
             if volume['type'] == 'bind' and any(str(root / relative) == volume['source'] for relative in changed):
                 affected.add(name)
+    if configure_attendance_token(root, candidate, write=False):
+        affected.add('attendance-receiver')
     excluded_ids = run(old_cmd + ['--profile', '*', 'ps', '-q', *EXCLUDED], 'Excluded service discovery').split()
     changes_runtime = bool(affected or pending or excluded_ids)
     print('Affected services: ' + (', '.join(name for name in SERVICES if name in affected) or 'none'), flush=True)
@@ -281,6 +307,7 @@ def update(root, stage, project, api_url, approval):
             run(candidate_cmd + ['pull', name], f'Image availability for {name}')
     if 'caddy' in affected:
         validate_proxy(candidate, stage)
+    configure_attendance_token(root, candidate)
     # Persist affected services before replacing bind files so an interrupted
     # deployment can retry them even when source files already match next time.
     if affected:
@@ -320,7 +347,7 @@ def update(root, stage, project, api_url, approval):
     verify_health(candidate, api_url)
     run(['python3', '-B', str(root / 'deploy/backup.py'), '--configure'], 'Verify daily backup scheduling')
     pending_file.unlink(missing_ok=True)
-    print('Ten production services verified; data volumes and VPS environment preserved.', flush=True)
+    print('Eleven backend services verified; data volumes and VPS environment preserved.', flush=True)
 
 
 if __name__ == '__main__':

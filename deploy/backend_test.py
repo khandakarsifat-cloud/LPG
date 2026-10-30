@@ -1,11 +1,35 @@
 import tempfile
 import json
 import io
+import base64
+import hashlib
+import hmac
 import urllib.error
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health
+from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health, configure_attendance_token
+
+
+class AttendanceTokenTests(unittest.TestCase):
+    def test_only_scoped_jwt_is_written_and_rotation_is_detected_before_mutation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'deploy').mkdir()
+            model = {'services': {'auth': {'environment': {'GOTRUE_JWT_SECRET': 'test-only-signing-secret'}}}}
+            self.assertTrue(configure_attendance_token(root, model, write=False))
+            self.assertFalse((root / 'deploy/.attendance-token').exists())
+            with patch('backend.os.chown', create=True):
+                self.assertTrue(configure_attendance_token(root, model))
+            token = (root / 'deploy/.attendance-token').read_text().strip()
+            header, claims, signature = token.split('.')
+            decode = lambda s: base64.urlsafe_b64decode(s + '=' * (-len(s) % 4))
+            self.assertEqual(json.loads(decode(claims))['role'], 'attendance_receiver')
+            self.assertEqual(decode(signature), hmac.new(b'test-only-signing-secret', (header + '.' + claims).encode(), hashlib.sha256).digest())
+            self.assertNotIn('test-only-signing-secret', token)
+            self.assertFalse(configure_attendance_token(root, model, write=False))
+            model['services']['auth']['environment']['GOTRUE_JWT_SECRET'] = 'rotated-test-only-secret'
+            self.assertTrue(configure_attendance_token(root, model, write=False))
 
 
 class MigrationSafetyTests(unittest.TestCase):
@@ -49,6 +73,32 @@ class MigrationSafetyTests(unittest.TestCase):
 
 
 class DeploymentFlowTests(unittest.TestCase):
+    def setUp(self):
+        token = patch('backend.configure_attendance_token', return_value=False)
+        token.start()
+        self.addCleanup(token.stop)
+
+    def test_new_receiver_is_added_without_recreating_existing_core_services(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root, stage, calls, fake = self.fixture(folder)
+
+            def original_stack(args, label, **kwargs):
+                result = fake(args, label, **kwargs)
+                if label == 'Existing production Compose validation':
+                    model = json.loads(result)
+                    del model['services']['attendance-receiver']
+                    return json.dumps(model)
+                if label == 'Container discovery':
+                    return ' '.join(s for s in SERVICES if s != 'attendance-receiver')
+                if label == 'Existing container inspection':
+                    return json.dumps([c for c in json.loads(result) if c['Id'] != 'attendance-receiver'])
+                return result
+
+            with patch('backend.run', original_stack), patch('backend.verify_health'):
+                update(root, stage, 'lpg', 'https://api.lpg.144.79.249.4.sslip.io', '')
+            self.assertEqual([args[-1] for args, _, _ in calls if '--force-recreate' in args], ['attendance-receiver'])
+            self.assertTrue(any(label == 'Pre-deployment database backup' for _, label, _ in calls))
+
     def test_internal_publication_is_refused(self):
         with tempfile.TemporaryDirectory() as folder:
             _, _, _, fake = self.fixture(folder)

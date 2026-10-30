@@ -29,7 +29,7 @@ grant execute on function pg_temp.check_purchase(boolean,text),pg_temp.purchase_
 select pg_temp.check_purchase(not exists(
   select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where (n.nspname='app_private' and p.proname in ('purchase_activity_immutable','purchase_money','purchase_integer',
-    'recalculate_purchase','save_purchase_lines','guard_purchase_transit','guard_truck_idle','guard_purchase_company')
+    'recalculate_purchase','save_purchase_lines','guard_purchase_transit','guard_vehicle_idle','guard_purchase_company')
     or n.nspname='public' and p.proname in ('create_purchase','update_purchase','dispatch_purchase',
       'receive_purchase','pay_purchase','cancel_purchase','save_transit_costs','transition_transit','list_purchases','get_purchase_activity','list_transits','update_transit_costs'))
     and pg_get_userbyid(p.proowner)<>'postgres'),'purchase helpers and RPCs share the existing application owner');
@@ -58,9 +58,10 @@ select t,'dd000000-0000-4000-8000-000000000001','cc000000-0000-4000-8000-0000000
   cross join lateral(values(tenant_a,'Plant A'),(tenant_b,'Plant B')) v(t,name);
 insert into public.gas_plants(tenant_id,plant_id,plant_name)
 select tenant_a,'dd000000-0000-4000-8000-000000000002','Unassigned plant' from purchase_test_context;
-insert into public.trucks(tenant_id,truck_id,name,serial_no,capacity,size)
-select t,'ee000000-0000-4000-8000-000000000001',name,name,100,'medium' from purchase_test_context
-  cross join lateral(values(tenant_a,'Truck A'),(tenant_b,'Truck B')) v(t,name);
+insert into public.vehicles(tenant_id,vehicle_id,name,serial_no,capacity)
+select t,'ee000000-0000-4000-8000-000000000001',name,name,100 from purchase_test_context
+  cross join lateral(values(tenant_a,'Vehicle A'),(tenant_b,'Vehicle B')) v(t,name);
+select pg_temp.fixture_vehicle_crew(v.tenant_id,v.vehicle_id) from public.vehicles v cross join purchase_test_context c where v.tenant_id in (c.tenant_a,c.tenant_b);
 insert into public.items(tenant_id,item_id,brand_id,size_kg,empty_quantity,filled_quantity) select t,'ff000000-0000-4000-8000-000000000001','cc000000-0000-4000-8000-000000000001',12,10,5 from purchase_test_context
   cross join lateral(values(tenant_a,'Item A'),(tenant_b,'Item B')) v(t,name);
 insert into public.items(tenant_id,item_id,brand_id,size_kg,empty_quantity) select tenant_a,'ff000000-0000-4000-8000-000000000002','cc000000-0000-4000-8000-000000000002',12,10 from purchase_test_context;
@@ -96,7 +97,7 @@ begin
  perform pg_temp.check_purchase(result=public.initiate_purchase_cancellation(draft_id,1,'CANCEL',key),'cancellation response-loss retry');
  perform pg_temp.check_purchase((result->>'financially_closed')::boolean,'unfunded draft closes immediately');
  perform pg_temp.purchase_fails(format('select public.cancel_purchase(%L,1)',draft_id),'does not exist');
- id:=(public.create_purchase(jsonb_build_object('plant_id','dd000000-0000-4000-8000-000000000001','truck_id','ee000000-0000-4000-8000-000000000001','request_id',gen_random_uuid(),
+ id:=(public.create_purchase(jsonb_build_object('plant_id','dd000000-0000-4000-8000-000000000001','vehicle_id','ee000000-0000-4000-8000-000000000001','request_id',gen_random_uuid(),
  'commission',50,'transport_cost',20,'labour_cost',10,'items','[{"item_id":"ff000000-0000-4000-8000-000000000001","type":"refill","quantity":4,"unit_price":100},{"item_id":"ff000000-0000-4000-8000-000000000001","type":"package","quantity":2,"unit_price":200}]'::jsonb))->>'purchase_id')::uuid;
  update purchase_test_context set purchase_id=id;
  perform pg_temp.purchase_fails(format('select public.record_purchase_payment(%L,%L,%L)',id,jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',1)),gen_random_uuid()),'dispatched');
@@ -104,7 +105,7 @@ begin
  p:=pg_temp.purchase_header(id);
  perform pg_temp.check_purchase(p.total_cost=780 and p.paid_amount=20,'dispatch funding counted once');
  select transit_id into tr from public.transits where purchase_id=id and tenant_id=app_private.current_tenant_id();
- perform public.save_transit_costs(tr,'{"driver_cost":15,"helper_cost":0,"oil_cost":0,"others_cost":0}',1);
+ perform public.save_transit_costs(tr,'{"driver_cost":0,"helper_cost":0,"oil_cost":15,"others_cost":0}',1);
  args:=jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',100),jsonb_build_object('wallet_id',bk,'amount',200,'reference','PURCHASE-BK-123'));
  key:=gen_random_uuid();result:=public.record_purchase_payment(id,args,key);
  perform pg_temp.check_purchase(result=public.record_purchase_payment(id,args,key),'multi-wallet retry returns original response');
@@ -128,12 +129,12 @@ begin
  p:=pg_temp.purchase_header(id); key:=gen_random_uuid();result:=public.initiate_purchase_cancellation(id,p.revision,'CANCEL',key);
  perform pg_temp.check_purchase((result->>'refund_due')::numeric=780 and not (result->>'financially_closed')::boolean,'cancellation creates pending obligations without moving money');
  perform pg_temp.check_purchase((select empty_quantity=10 from public.items where tenant_id=app_private.current_tenant_id() and item_id='ff000000-0000-4000-8000-000000000001'),'cancellation returns dispatched empties');
- perform pg_temp.check_purchase((select status='idle' from public.trucks where tenant_id=app_private.current_tenant_id() and truck_id='ee000000-0000-4000-8000-000000000001'),'cancellation releases truck');
+ perform pg_temp.check_purchase((select status='idle' from public.vehicles where tenant_id=app_private.current_tenant_id() and vehicle_id='ee000000-0000-4000-8000-000000000001'),'cancellation releases vehicle');
  perform pg_temp.purchase_fails(format('select public.receive_purchase(%L,6)',id),'In Transit');
  perform pg_temp.purchase_fails(format('select public.record_purchase_payment(%L,%L,%L)',id,args,gen_random_uuid()),'non-cancelled');
  perform pg_temp.purchase_fails(format('select public.update_purchase(%L,%L,6)',id,'{"notes":"no"}'),'locked');
  perform pg_temp.check_purchase((select total_cost=15 and closed_at is null and status='cancelled' from public.transits where tenant_id=app_private.current_tenant_id() and transit_id=tr),'incurred costs preserved');
- perform public.transition_transit(tr,'close',3);
+ perform public.transition_transit(tr,'complete',3);
  perform pg_temp.check_purchase((select balance=5 from public.wallets where tenant_id=app_private.current_tenant_id() and type='logistics'),'operating costs close independently before refunds');
  select * into o from jsonb_to_recordset(public.get_purchase_settlement(id)->'obligations') as q(obligation_id uuid,component text,amount numeric,remaining numeric) where component='company';
  args:=jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',200),jsonb_build_object('wallet_id',bk,'amount',100));key:=gen_random_uuid();
@@ -154,7 +155,7 @@ begin
  perform pg_temp.check_purchase((select balance=-15 from public.wallets where tenant_id=app_private.current_tenant_id() and type='logistics'),'transport reversal preserves actual expense');
  perform pg_temp.check_purchase((select sum(balance)=0 from public.wallets where tenant_id=app_private.current_tenant_id() and type<>'logistics'),'refund destinations reconcile purchasing balances');
  perform pg_temp.check_purchase((public.get_purchase_directory('{"status":"closed"}')->>'total')::int=2,'closed filtering');
- received_id:=(public.create_purchase(jsonb_build_object('plant_id','dd000000-0000-4000-8000-000000000001','truck_id','ee000000-0000-4000-8000-000000000001','request_id',gen_random_uuid(),
+ received_id:=(public.create_purchase(jsonb_build_object('plant_id','dd000000-0000-4000-8000-000000000001','vehicle_id','ee000000-0000-4000-8000-000000000001','request_id',gen_random_uuid(),
  'items','[{"item_id":"ff000000-0000-4000-8000-000000000001","type":"refill","quantity":1,"unit_price":100}]'::jsonb))->>'purchase_id')::uuid;
  perform public.dispatch_purchase(received_id,1);perform public.receive_purchase(received_id,2);
  perform pg_temp.purchase_fails(format('select public.initiate_purchase_cancellation(%L,3,%L,%L)',received_id,'CANCEL',gen_random_uuid()),'never be cancelled');

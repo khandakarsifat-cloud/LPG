@@ -5,9 +5,9 @@ export const THEME_STORAGE_KEY = 'lpg-theme';
 export const isAppTheme = (value: string | null): value is AppTheme =>
   value === 'light' || value === 'dark';
 
-export const getStoredTheme = (): AppTheme | null => {
+export const getStoredTheme = (userId?: string): AppTheme | null => {
   if (typeof window === 'undefined') return null;
-  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  const storedTheme = (userId ? window.localStorage.getItem(`${THEME_STORAGE_KEY}:${userId}`) : null) ?? window.localStorage.getItem(THEME_STORAGE_KEY);
   return isAppTheme(storedTheme) ? storedTheme : null;
 };
 
@@ -22,7 +22,7 @@ export const applyTheme = (theme: AppTheme) => {
   document.documentElement.style.colorScheme = theme;
 };
 
-export const persistTheme = (theme: AppTheme) => {
+export const persistTheme = (theme: AppTheme, userId?: string) => {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  window.localStorage.setItem(userId ? `${THEME_STORAGE_KEY}:${userId}` : THEME_STORAGE_KEY, theme);
 };

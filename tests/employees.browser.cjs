@@ -15,12 +15,17 @@ async page => {
  await page.route('**/rest/v1/**',async route=>{
   const request=route.request(),name=new URL(request.url()).pathname.split('/').pop(),args=request.method()==='POST'?request.postDataJSON():{};calls.push({name,args});let data;
   if(name==='user_profiles')data=[{tenant_id:id(1),full_name:'Employee Owner',email:user.email,tenants:{business_name:'Employee fixture business'}}];
+  else if(name==='get_my_preferences')data={theme:null};
+  else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
   else if(name==='get_my_permissions')data=['employees:view','employees:manage','payroll:view','payroll:pay','finance:view','finance:manage','logistics:view','logistics:manage'];
   else if(name==='wallets'||name==='get_payment_wallets')data=wallets;
   else if(name==='get_employee_directory'){
    const f=args.p_filters??{};let rows=employees.filter(e=>(!f.search||JSON.stringify(e).toLowerCase().includes(f.search.toLowerCase()))&&(f.status==='all'||!f.status||e.is_active===(f.status==='active'))&&(f.unit==='all'||!f.unit||e.business_unit===f.unit)&&(!f.type||e.employee_type_name===f.type));
    rows=rows.sort((a,b)=>f.sort==='name_desc'?b.name.localeCompare(a.name):a.name.localeCompare(b.name));data={total:rows.length,entries:rows.slice(args.p_offset,args.p_offset+args.p_limit)};
   } else if(name==='get_employee_overview')data={employees:employees.length,active:employees.filter(e=>e.is_active).length,types:['Staff','Driver']};
+  else if(name==='get_attendance_today')data={today,entries:[]};
+  else if(name==='get_attendance_configuration')data={today,timezone:'Asia/Dhaka',cutoff:'15:00:00',devices:[]};
+  else if(name==='get_employee_attendance')data={entries:[],links:[]};
   else if(name==='get_employee_profile'){const e=employees.find(e=>e.employee_id===args.p_employee_id);data={employee:e,terms:[{term_id:id(600),effective_from:month,monthly_salary:e.current_salary,is_active:e.is_active,reason:'Starting salary'}]};}
   else if(name==='get_employee_salary_month'){const e=employees.find(e=>e.employee_id===args.p_employee_id);data={period:args.p_period,salary_amount:e.current_salary,paid:e.paid,outstanding:(e.current_salary-e.paid),established:e.paid>0};}
   else if(name==='get_employee_salary_history'){const e=employees.find(e=>e.employee_id===args.p_employee_id);data={total:1,entries:[{period:month,salary_amount:e.current_salary,paid:e.paid,outstanding:(e.current_salary-e.paid),established:e.paid>0}]};}
@@ -61,20 +66,28 @@ async page => {
  let payment=page.getByRole('dialog',{name:'Pay salary',exact:true});await payment.getByLabel('Salary month',{exact:true}).fill('2030-12');
  await payment.getByRole('textbox',{name:'Pay now (Tk)',exact:true}).fill('5000');check(await payment.getByRole('button',{name:/Split across wallets|Add payment/}).count()===0,'No split wallet controls');
  check(await page.locator('dialog[open]').count()===1,'Payment stays in same modal');check(await payment.evaluate(el=>el.scrollWidth<=el.clientWidth),'Single wallet payment fits phone');
- await payment.getByRole('button',{name:/^Pay Tk/}).click();await payment.getByRole('button',{name:'Recover request',exact:true}).waitFor();
+ await payment.getByRole('button',{name:/^Pay Tk/}).click();
+ let confirmation=page.getByRole('dialog',{name:'Confirm employee payment',exact:true});await confirmation.waitFor();
+ check(events.length===0,'Opening confirmation must not record payment');check(await confirmation.getByText('December 2030',{exact:false}).count()>0,'Confirmation shows selected salary month');
+ await confirmation.getByRole('button',{name:'Go back',exact:true}).click();check(await payment.getByRole('textbox',{name:'Pay now (Tk)',exact:true}).inputValue().then(Number)===5000,'Cancel preserves amount');
+ await payment.getByRole('button',{name:/^Pay Tk/}).click();confirmation=page.getByRole('dialog',{name:'Confirm employee payment',exact:true});await confirmation.getByRole('button',{name:/^Confirm payment/}).click();await confirmation.getByRole('button',{name:'Recover request',exact:true}).waitFor();
  // Reload and recover original request without changing month or wallet.
  await page.reload();await page.getByRole('button',{name:'Recover request',exact:true}).click();await page.getByRole('button',{name:'Open Employee 01',exact:true}).click();
  profile=page.getByRole('dialog',{name:'Employee profile',exact:true});await profile.getByText('Activity history',{exact:true}).waitFor();
  check(events.length===1,'Response loss and recovery create one payment');
  const payCalls=calls.filter(c=>c.name==='employee_payment_operation'&&c.args.p_payload.action==='pay');check(payCalls.length===2,'Original and recovered request');
  check(JSON.stringify(payCalls[0].args)===JSON.stringify(payCalls[1].args),'Recovery retains exact key, month, amount and wallet');check(payCalls[0].args.p_payload.items[0].period==='2030-12-01','Future salary directly allocated');
- await profile.getByRole('button',{name:'Give bonus',exact:true}).click();const bonus=page.getByRole('dialog',{name:'Give bonus',exact:true});await bonus.getByRole('textbox',{name:'Bonus name',exact:true}).fill('Eid Bonus');await bonus.getByRole('textbox',{name:'Pay now (Tk)',exact:true}).fill('1000');await bonus.getByRole('textbox',{name:'Description (optional)',exact:true}).fill('Thank you');await bonus.getByRole('button',{name:/^Pay Tk/}).click();
+ await profile.getByRole('button',{name:'Give bonus',exact:true}).click();const bonus=page.getByRole('dialog',{name:'Give bonus',exact:true});await bonus.getByRole('textbox',{name:'Bonus name',exact:true}).fill('Eid Bonus');await bonus.getByRole('textbox',{name:'Pay now (Tk)',exact:true}).fill('1000');await bonus.getByRole('textbox',{name:'Description (optional)',exact:true}).fill('Thank you');await bonus.getByRole('button',{name:/^Pay Tk/}).click();await page.getByRole('dialog',{name:'Confirm employee payment',exact:true}).getByRole('button',{name:/^Confirm payment/}).click();
  profile=page.getByRole('dialog',{name:'Employee profile',exact:true});await profile.getByText('Eid Bonus · Thank you',{exact:true}).waitFor();check(employees[0].paid===5000,'Bonus never pays salary');
  check(await profile.locator('.employee-activity-row').evaluateAll(rows=>rows.every((row,i)=>{
   const css=getComputedStyle(row),next=rows[i+1];
   return css.borderTopStyle==='solid'&&parseFloat(css.borderRadius)>0&&(!next||next.getBoundingClientRect().top-row.getBoundingClientRect().bottom>=7);
  })),'Employee activity records lack individual boundaries and separation');
- await profile.getByRole('button',{name:'Edit',exact:true}).click();const edit=page.getByRole('dialog',{name:'Edit employee',exact:true});await edit.getByRole('textbox',{name:'Employee name',exact:true}).waitFor();check(await page.locator('dialog[open]').count()===1,'Edit stays in profile modal');await edit.getByRole('button',{name:'Cancel',exact:true}).click();await page.getByRole('dialog',{name:'Employee profile',exact:true}).getByRole('button',{name:'Close dialog',exact:true}).click();
+ await profile.getByRole('button',{name:'Edit',exact:true}).click();const edit=page.getByRole('dialog',{name:'Edit employee',exact:true});await edit.getByRole('textbox',{name:'Employee name',exact:true}).waitFor();check(await page.locator('dialog[open]').count()===1,'Edit stays in profile modal');check(await edit.getByRole('button',{name:'Edit salary',exact:true}).count()===0,'One editor for employee details');
+ await edit.getByRole('textbox',{name:'Employee name',exact:true}).fill('Employee revised');await edit.getByRole('button',{name:'Save changes',exact:true}).click();
+ const review=page.getByRole('dialog',{name:'Confirm employee changes',exact:true});await review.waitFor();check(calls.filter(c=>c.name==='save_employee').length===0,'Review does not save employee');await review.locator('.employee-change-after').filter({hasText:'Employee revised'}).waitFor();
+ await review.getByRole('button',{name:'Go back',exact:true}).click();check(await edit.getByRole('textbox',{name:'Employee name',exact:true}).inputValue()==='Employee revised','Cancel preserves employee draft');
+ await edit.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByRole('dialog',{name:'Confirm employee changes',exact:true}).getByRole('button',{name:'Confirm changes',exact:true}).click();await page.getByRole('dialog',{name:'Employee profile',exact:true}).waitFor();check(calls.filter(c=>c.name==='save_employee').length===1,'Confirmed edit saves once');await page.getByRole('dialog',{name:'Employee profile',exact:true}).getByRole('button',{name:'Close dialog',exact:true}).click();
  await page.getByRole('textbox',{name:'Search employees',exact:true}).fill('Employee 31');await page.waitForTimeout(350);await page.getByRole('button',{name:'Open Employee 31',exact:true}).waitFor();check(await page.locator('.employee-card').count()===1,'Search filters directory');
  check(calls.filter(c=>c.name==='get_employee_directory').every(c=>c.args.p_limit===25),'Backend batches remain 25');check(errors.length===0,errors.join('\n'));check(unknown.length===0,'Unknown API calls: '+unknown.join(','));
  return {passed:true,payments:events.length,widths:[320,390,768,1440],recoveries:payCalls.length};

@@ -1,0 +1,46 @@
+.settings-workspace { display:grid;gap:var(--space-lg);min-width:0; }
+.settings-layout { display:grid;grid-template-columns:10.5rem minmax(0,1fr);gap:1.25rem;align-items:start; }
+.settings-navigation { display:grid;gap:.25rem;position:sticky;top:0; }
+.settings-navigation button { display:flex;align-items:center;gap:.5rem;text-align:left;padding:.65rem .7rem;border:1px solid transparent;border-radius:var(--radius-md);background:transparent;color:var(--text-muted);font:inherit;font-size:var(--font-sm);cursor:pointer; }
+.settings-navigation button:hover { background:var(--surface-subtle); }
+.settings-navigation button[aria-current="page"] { color:var(--primary);background:var(--primary-weak);border-color:var(--primary-border-muted);font-weight:650; }
+.settings-content { display:grid;gap:1.5rem;max-width:62rem;min-width:0; }
+.settings-section { display:grid;gap:.75rem;min-width:0; }
+.settings-section-heading { display:flex;align-items:center;justify-content:space-between;gap:.75rem; }
+.settings-section-heading h2 { font-size:1rem;margin:0; }
+.settings-section-heading h3 { font-size:.875rem;margin:0; }
+.settings-section-heading p { margin:.3rem 0 0;font-size:var(--font-sm);color:var(--text-muted);line-height:1.5; }
+.settings-section-heading>.btn { flex-shrink:0; }
+.settings-card { background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:1rem;display:grid;gap:1rem;min-width:0; }
+.settings-profile-form { grid-template-columns:minmax(0,24rem) auto;align-items:end;justify-content:start; }
+.settings-profile-form>p { grid-column:1/-1;margin:0;font-size:var(--font-sm); }
+.settings-catalog { padding:0 1rem;gap:0; }
+.settings-catalog-row { display:flex;gap:.75rem;align-items:center;justify-content:space-between;padding:.75rem 0;border-bottom:1px solid var(--border-subtle);min-width:0; }
+.settings-catalog-row:last-child { border-bottom:0; }
+.settings-catalog-row>div { display:grid;gap:.25rem;min-width:0; }
+.settings-catalog-row strong { font-size:var(--font-md);overflow-wrap:anywhere; }
+.settings-catalog-row small { font-size:var(--font-xs);color:var(--text-muted); }
+.settings-save-row { display:flex;align-items:center;gap:.75rem;font-size:var(--font-sm); }
+.settings-appearance-options { display:flex;gap:.75rem; }
+.settings-theme-option { display:grid;justify-items:center;gap:.75rem;min-width:8rem;padding:1.5rem 1rem;border:1px solid var(--border-strong);background:var(--surface-muted);color:var(--text-main);border-radius:var(--radius-md);cursor:pointer; }
+.settings-theme-option[aria-pressed="true"] { border:2px solid var(--primary);background:var(--primary-weak);color:var(--primary); }
+.attendance-rules-fields { display:grid;grid-template-columns:1fr 1fr;gap:1.5rem; }
+.timezone-picker,.attendance-cutoff-field { display:grid;gap:.5rem;align-content:start;min-width:0; }
+.attendance-device-list { display:grid;gap:1rem; }
+.attendance-device-identity { display:flex;align-items:center;gap:.6rem;flex-wrap:wrap; }
+.attendance-device-identity>div { display:grid;gap:.25rem;flex:1;min-width:8rem; }
+.attendance-device-icon { display:inline-flex;padding:.6rem;background:var(--surface-subtle);border-radius:var(--radius-md);color:var(--primary); }
+.attendance-device-facts { display:flex;flex-wrap:wrap;gap:.75rem 2rem;margin:0; }
+.attendance-device-facts>div { display:grid;gap:.25rem; }
+.attendance-device-facts dt { color:var(--text-muted);font-size:var(--font-xs); }
+.attendance-device-facts dd { margin:0;font-size:var(--font-sm); }
+@media(max-width:760px) {
+ .settings-layout { grid-template-columns:minmax(0,1fr);gap:1rem; }
+ .settings-navigation { display:flex;overflow-x:auto;position:static;padding-bottom:.25rem; }
+ .settings-navigation button { flex-shrink:0;padding:.5rem .65rem; }
+ .settings-profile-form { grid-template-columns:minmax(0,1fr); }
+ .attendance-rules-fields { grid-template-columns:minmax(0,1fr);gap:1rem; }
+ .settings-section-heading { align-items:flex-start;flex-wrap:wrap; }
+ .settings-card { padding:.75rem; }
+ .settings-catalog { padding:0 .75rem; }
+}

@@ -22,9 +22,9 @@
 .employee-avatar { width:34px; height:34px; flex-shrink:0; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; background:var(--primary-weak); color:var(--primary); font-weight:700; font-size:15px; }
 .employee-card-body { padding:10px 12px; display:flex; flex-direction:column; justify-content:center; gap:8px; flex:1; }
 .employee-card-contact { font-size:var(--font-xs); color:var(--text-muted); }
-.employee-card-salary { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
-.employee-card-salary>span { font-size:var(--font-xs); color:var(--text-muted); }
-.employee-card-salary strong { font-size:var(--font-sm); font-variant-numeric:tabular-nums; }
+.employee-card-attendance { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:4px 8px; }
+.employee-card-attendance>span { font-size:var(--font-xs); color:var(--text-muted); }
+.employee-card-attendance strong { font-size:var(--font-sm); font-variant-numeric:tabular-nums; }
 .employee-card-footer { display:flex; align-items:center; justify-content:space-between; gap:5px; border-top:1px solid var(--border-subtle); background:var(--surface-subtle); padding:7px 12px; font-size:var(--font-xs); color:var(--text-muted); }
 .employee-status-badge { display:inline-flex; align-items:center; border-radius:5px; padding:3px 7px; background:var(--surface-subtle); color:var(--text-muted); font-size:var(--font-xs); font-weight:600; white-space:nowrap; }
 .employee-status-badge.active,.employee-status-badge.paid,.employee-status-badge.payment { color:var(--accent); background:var(--accent-weak); }
@@ -108,3 +108,33 @@
  .employee-quick-actions>.btn { min-height:40px; }
 }
 @media(prefers-reduced-motion:reduce) { .employee-card { transition:none; } }
+.employee-confirm-details,.employee-change-list { margin:12px 0; display:grid; gap:10px; font-size:var(--font-sm); }
+.employee-confirm-details>div { display:flex; justify-content:space-between; gap:16px; padding-bottom:9px; border-bottom:1px solid var(--border-subtle); }
+.employee-confirm-details dt,.employee-change-list dt { color:var(--text-muted); font-size:var(--font-xs); }
+.employee-confirm-details dd { margin:0; text-align:right; font-weight:600; overflow-wrap:anywhere; min-width:0; }
+.employee-confirm-amount { color:var(--accent); font-size:var(--font-lg); }
+.employee-change-list>div { padding:10px; background:var(--surface-subtle); border:1px solid var(--border-subtle); border-radius:var(--radius-md); }
+.employee-change-list dd { margin:6px 0 0; display:grid; gap:6px; overflow-wrap:anywhere; }
+.employee-change-before { color:var(--text-muted); }
+.employee-change-after { color:var(--accent); font-weight:600; }
+.employee-change-arrow { margin-right:8px; }
+.employee-activity-row.history-card { background:var(--surface); border-inline-start:3px solid var(--primary); }
+.employee-activity-row.activity-payment { border-inline-start-color:var(--accent); }
+.employee-activity-row.activity-reversal { border-inline-start-color:var(--danger); }
+.employee-status-badge.terms,.employee-status-badge.profile { color:var(--primary); background:var(--primary-weak); }
+.employee-activity-meta { display:flex; flex-wrap:wrap; gap:6px 12px; margin:8px 0 4px; font-size:var(--font-xs); color:var(--text-main); }
+.employee-activity-meta>span { display:inline-flex; align-items:center; gap:5px; }
+.employee-activity-meta svg { color:var(--primary); flex-shrink:0; }
+.employee-activity-saved { display:block; line-height:1.5; }
+.employee-activity-wallets>span { display:inline-flex; align-items:center; flex-wrap:wrap; gap:6px; border-radius:6px; padding:5px 8px; background:var(--primary-weak); color:var(--primary); max-width:100%; }
+.employee-activity-wallets strong { font-variant-numeric:tabular-nums; }
+.employee-period-tag { display:inline-flex; padding:4px 7px; border-radius:5px; background:var(--primary-weak); color:var(--primary); font-size:var(--font-xs); font-weight:600; }
+.employee-activity-row.activity-payment .employee-activity-amount { color:var(--accent); }
+.employee-activity-row.activity-reversal .employee-activity-amount { color:var(--danger); }
+
+.employee-history-filters { grid-template-columns:repeat(auto-fit,minmax(9rem,1fr)); align-items:end; }
+.employee-history-filters .input-group { min-width:0; }
+.employee-card-attendance small {flex-basis:100%;display:block;color:var(--text-muted);font-size:.75rem;}
+
+.purchase-dialog .employee-search>.input-field { padding-left:2.2rem; }
+@media(max-width:640px) { .employee-history-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .employee-history-filters>.purchase-select { grid-column:1/-1; } }

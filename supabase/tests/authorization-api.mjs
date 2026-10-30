@@ -58,7 +58,7 @@ try {
   }
   const ownerPermissions = await checked(owner.client.rpc('get_my_permissions'));
   assert.deepEqual((await checked(manager.client.rpc('get_my_permissions'))).sort(), ownerPermissions.sort());
-  assert.equal((await checked(salesman.client.rpc('get_my_permissions'))).length, 4);
+  assert.equal((await checked(salesman.client.rpc('get_my_permissions'))).length, 5);
   const brand = await checked(owner.client.rpc('create_lpg_brand', { p_brand_name: 'API brand', p_description: null }));
   const item = await checked(owner.client.from('items').insert({
     tenant_id: owner.tenant, brand_id: brand.brand_id, size_kg: 12,
@@ -126,7 +126,7 @@ try {
   assert.deepEqual(await checked(salesman.client.from('wallets').select()), []);
   const metadataChange = await salesman.client.auth.updateUser({ data: { tenant_id: other.tenant, role: 'OWNER', is_active: true } });
   assert.equal(metadataChange.error, null);
-  assert.equal((await checked(salesman.client.rpc('get_my_permissions'))).length, 4);
+  assert.equal((await checked(salesman.client.rpc('get_my_permissions'))).length, 5);
   assert.equal((await checked(salesman.client.from('items').select().single())).tenant_id, owner.tenant);
   const anon = createClient(url, key, { auth: { persistSession: false } });
   await denied(anon.from('items').select());

@@ -5,12 +5,12 @@
 :root {
   color-scheme: light;
 
-  --app-bg: #f5f7fa;
+  --app-bg: #edf2f8;
   --nav-bg: #101828;
   --nav-bg-strong: #0b1220;
   --surface: #ffffff;
-  --surface-muted: #f8fafc;
-  --surface-subtle: #eef2f6;
+  --surface-muted: #f2f6fc;
+  --surface-subtle: #e6eef8;
   --surface-raised: #ffffff;
   --overlay: rgba(15, 23, 42, 0.42);
   --topbar-bg: rgba(255, 255, 255, 0.88);
@@ -36,14 +36,14 @@
   --skeleton-bg: #edf1f7;
   --skeleton-shine: rgba(255, 255, 255, 0.65);
 
-  --border-subtle: #e3e8ef;
-  --border-strong: #cbd5e1;
+  --border-subtle: #bdccdf;
+  --border-strong: #7e93b0;
   --border-focus: rgba(37, 99, 235, 0.32);
 
   --text-main: #172033;
   --text-primary: #172033;
-  --text-muted: #526077;
-  --text-soft: #606d80;
+  --text-muted: #304766;
+  --text-soft: #405773;
   --text-inverse: #f8fafc;
 
   --primary: #255fb8;
@@ -95,7 +95,7 @@
   --topbar-height: 48px;
   --page-padding: 12px;
 
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-sm: 0 1px 3px rgba(23, 46, 78, 0.09);
   --shadow-md: 0 8px 24px rgba(16, 24, 40, 0.08);
   --shadow-lg: 0 18px 44px rgba(16, 24, 40, 0.16);
   --shadow-glow: none;
@@ -112,7 +112,7 @@
   --nav-bg-strong: #0b0e13;
   --surface: #181c24;
   --surface-muted: #141820;
-  --surface-subtle: #242a35;
+  --surface-subtle: #223148;
   --surface-raised: #1d222c;
   --overlay: rgba(8, 11, 16, 0.74);
   --topbar-bg: rgba(20, 24, 32, 0.92);
@@ -138,14 +138,14 @@
   --skeleton-bg: #222833;
   --skeleton-shine: rgba(255, 255, 255, 0.075);
 
-  --border-subtle: #2a303b;
-  --border-strong: #3b4452;
+  --border-subtle: #3d506b;
+  --border-strong: #7185a1;
   --border-focus: rgba(125, 161, 216, 0.36);
 
   --text-main: #e7ebf1;
   --text-primary: #e7ebf1;
-  --text-muted: #b3bece;
-  --text-soft: #a1adbd;
+  --text-muted: #c7d9f0;
+  --text-soft: #b9cde8;
   --text-inverse: #f8fafc;
 
   --primary: #93b8f4;
@@ -861,7 +861,7 @@ button:disabled {
 }
 
 .input-label {
-  color: var(--text-main);
+  color: var(--primary);
   font-size: var(--font-xs);
   font-weight: 600;
 }
@@ -1536,7 +1536,6 @@ textarea.input-field {
 }
 
 
-.gas-plant-card { padding: 24px; gap: 16px; }
 .brand-card { padding: 20px; }
 .workspace-placeholder { min-height: min(60dvh, 32rem); }
 .settings-placeholder { padding: 32px; }
@@ -1740,7 +1739,7 @@ textarea.input-field {
 .modal-header {
   border-top: 4px solid var(--primary);
   border-bottom: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--primary-weak) 38%, var(--surface));
+  background: var(--primary-weak);
 }
 
 .modal-footer {
@@ -2429,11 +2428,9 @@ textarea.input-field {
 @media (max-width: 600px) {
   .page-header { align-items: center; flex-wrap: nowrap; gap: 8px; }
   .page-header > div:first-child { flex: 1; }
-  .dashboard-header, .logistics-header { flex-wrap: wrap; }
-  .dashboard-header > div:first-child, .logistics-header > div:first-child { flex-basis: 100%; }
-  .dashboard-header > div:last-child, .logistics-header > div:last-child { gap: 6px !important; max-width: 100%; }
-  .logistics-wallet { padding: 6px 8px !important; min-width: 0; }
-  .logistics-wallet > span:last-child { font-size: 16px !important; overflow-wrap: anywhere; }
+  .dashboard-header { flex-wrap: wrap; }
+  .dashboard-header > div:first-child { flex-basis: 100%; }
+  .dashboard-header > div:last-child { gap: 6px !important; max-width: 100%; }
   .page-subtitle { margin: 0; font-size: 12px; line-height: 1.4; }
   .page-add-button { width: 34px; min-height: 34px; padding: 7px; }
   .page-add-button > span { display: none; }
@@ -2444,7 +2441,7 @@ textarea.input-field {
   .inv-stat .inv-stat-icon { width: 28px; height: 28px; }
   .inv-stat .inv-stat-icon svg { width: 15px; height: 15px; }
   .inv-stat-label { font-size: 11px; }
-  .gas-plant-card, .brand-card { padding: 12px; gap: 8px; }
+  .brand-card { padding: 12px; gap: 8px; }
   .brand-management { gap: 12px !important; }
   .brand-management-header { gap: 8px; }
   .brand-management-header > div { min-width: 0; flex: 1; }
@@ -2462,9 +2459,6 @@ textarea.input-field {
   .settings-placeholder-icon { font-size: 24px; margin-bottom: 8px; }
   .workspace-placeholder { min-height: 0; max-width: 400px; padding: 16px; }
   .workspace-placeholder h2 { font-size: 16px; }
-  .fleet-view { gap: 10px !important; }
-  .fleet-heading { margin-bottom: 8px !important; padding: 10px !important; }
-  .fleet-heading h3 { margin: 0; font-size: 15px; }
   .data-table.mobile-record-table { display: block; min-width: 0; width: 100%; }
   .mobile-record-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .mobile-record-table tbody { display: grid; gap: 8px; }

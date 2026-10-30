@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import './components/ui/adaptive-grid.css'
+import './components/ui/surfaces.css'
 import App from './App.tsx'
 import { applyTheme, getPreferredTheme, getStoredTheme } from './lib/theme'
 

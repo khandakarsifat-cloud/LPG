@@ -6,7 +6,9 @@ The API is <https://api.lpg.144.79.249.4.sslip.io>. The frontend stays on the ex
 
 ## Stack and isolation
 
-`compose.yml` plus `compose.vps.yml` run exactly ten services: PostgreSQL 17.6, Auth, PostgREST, Realtime, Storage, imgproxy, Studio, postgres-meta, Envoy and Caddy. Pinned images, memory limits, bounded logs and reduced pools are retained. Frontend, Mailpit, Edge Functions and Supavisor are excluded profiles. Local Compose and its private `.env` remain independent.
+`compose.yml` plus `compose.vps.yml` run eleven services: PostgreSQL 17.6, Auth, PostgREST, Realtime, Storage, imgproxy, Studio, postgres-meta, Envoy, the internal attendance receiver and Caddy. Pinned images, memory limits, bounded logs and reduced pools are retained. Frontend, Mailpit, Edge Functions and Supavisor are excluded profiles. Local Compose and its private `.env` remain independent.
+
+The attendance receiver uses Caddy HTTPS/443 under `/iclock/*`, with no host port. Its 96 MiB ceiling is additional to the existing backend budget. Deployment privately generates the scoped JWT in `deploy/.attendance-token`, owned by UID 1000, mode 400. No signing/service-role credential is copied into the receiver. Registration requires an approved serial; shop IP restrictions have been removed by explicit development policy. Serial-only identification cannot authenticate the physical machine; the attendance guide records this limitation. Public access to its ingestion RPC is blocked. See [attendance security and hardware acceptance](../docs/modules/attendance.md).
 
 Only Caddy explicitly publishes public TCP 80/443. Envoy and Studio bind loopback; PostgreSQL, metadata and the other services have no public ports. UFW and the persistent IPv4/IPv6 Docker ingress guard remain enabled. The only Docker forwarding exceptions match the new VPS IPv4 address and original host ports 80/443. Public `/mcp*`, `/api/mcp*`, `/pg*` and `/functions*` remain blocked. Browser origins are restricted at Caddy to the Worker and API origin; API keys, Auth, RBAC and RLS still enforce authorization.
 

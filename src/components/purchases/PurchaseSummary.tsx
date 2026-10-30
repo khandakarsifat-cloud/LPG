@@ -13,7 +13,7 @@ export function PurchaseIdentity({ purchase }: { purchase: Purchase }) {
     <dl className="purchase-meta">
       <div><dt>Company</dt><dd>{purchase.company_name ?? 'Historical company not recorded'}</dd></div>
       <div><dt>Plant</dt><dd>{purchase.plant_name}</dd></div>
-      <div><dt>Truck</dt><dd>{purchase.truck_name ?? 'Not assigned'}</dd></div>
+      <div><dt>Vehicle</dt><dd>{purchase.vehicle_name ?? 'Not assigned'}</dd></div>
       <div><dt>Created</dt><dd>{purchaseDate(purchase.created_at)}</dd></div>
       {purchase.dispatched_at && <div><dt>Dispatched</dt><dd>{purchaseDate(purchase.dispatched_at)}</dd></div>}
       {purchase.received_at && <div><dt>Received</dt><dd>{purchaseDate(purchase.received_at)}</dd></div>}

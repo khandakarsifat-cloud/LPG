@@ -8,9 +8,9 @@ const amount = (value: unknown): string | null =>
     ? formatBDT(Number(value)) : null;
 
 const titles: Record<string, string> = {
-  created: 'Purchase created', updated: 'Purchase updated', dispatched: 'Truck dispatched',
+  created: 'Purchase created', updated: 'Purchase updated', dispatched: 'Vehicle dispatched',
   received: 'Shipment received', paid: 'Full payment recorded', logistics_updated: 'Operating costs updated',
-  legacy_import: 'Historical purchase retained', cancelled: 'Purchase cancelled', transit_closed: 'Transit costs settled',
+  legacy_import: 'Historical purchase retained', cancelled: 'Purchase cancelled', transit_closed: 'Transit completed',
   transport_funded: 'Transport funding adjusted', payment_recorded: 'Purchase payment recorded',
   cancellation_confirmed: 'Owner confirmed cancellation', cancellation_initiated: 'Cancellation initiated',
   refund_recorded: 'Refund / funding reversal recorded', refund_completed: 'Refunds completed', financially_closed: 'Purchase financially closed',
@@ -33,9 +33,9 @@ export function describePurchaseActivity(activity: PurchaseActivity, purchase: P
       if (amount(before[key]) !== null && amount(after[key]) !== null && Number(before[key]) !== Number(after[key]))
         (['subtotal', 'company_payable', 'total_cost'].includes(key) ? totals : changes).push(`${label}: ${amount(before[key])} → ${amount(after[key])}`);
     }
-    if ('truck_id' in before && 'truck_id' in after && before.truck_id !== after.truck_id) {
-      const truck = after.truck_id === purchase.truck_id ? purchase.truck_name : null;
-      changes.push(after.truck_id ? `Truck ${before.truck_id ? 'reassigned' : 'assigned'}${truck ? `: ${truck}` : ''}` : 'Truck assignment removed');
+    if ('vehicle_id' in before && 'vehicle_id' in after && before.vehicle_id !== after.vehicle_id) {
+      const vehicle = after.vehicle_id === purchase.vehicle_id ? purchase.vehicle_name : null;
+      changes.push(after.vehicle_id ? `Vehicle ${before.vehicle_id ? 'reassigned' : 'assigned'}${vehicle ? `: ${vehicle}` : ''}` : 'Vehicle assignment removed');
     }
     if ('notes' in before && 'notes' in after && (before.notes ?? '') !== (after.notes ?? '')) {
       changes.push(after.notes ? `Notes ${before.notes ? 'updated' : 'added'}: ${String(after.notes)}` : 'Notes cleared');
@@ -72,7 +72,7 @@ export function describePurchaseActivity(activity: PurchaseActivity, purchase: P
       const payment = record(value);
       changes.push(`${String(payment.wallet_name ?? 'Wallet')} · ${String(payment.component ?? 'payment')}: ${amount(payment.amount) ?? 'Unknown amount'}${payment.reference ? ` · Ref: ${String(payment.reference)}` : ''}`);
       if (payment.payment_id) changes.push(`Payment reference: ${String(payment.payment_id)}`);
-      if (Number(payment.logistics_reversal) > 0) changes.push(`Logistics funding reversed: ${amount(payment.logistics_reversal)}; truck expenses retained.`);
+      if (Number(payment.logistics_reversal) > 0) changes.push(`Logistics funding reversed: ${amount(payment.logistics_reversal)}; vehicle expenses retained.`);
     }
     for (const [key, label] of [['paid_amount', 'Total paid'], ['due', 'Outstanding'], ['refunded', 'Refund / reversal'], ['refund_due', 'Refund remaining'], ['amount', 'Amount']]) {
       const value = amount(details[key]); if (value !== null) changes.push(`${label}: ${value}`);
