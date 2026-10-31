@@ -8,6 +8,7 @@ export interface ReceiptItem {
 }
 
 export interface ReceiptData {
+  business_category?: 'lpg' | 'stove';
   additional_charges?: number;
   bottles?: { expected: number; received: number; outstanding: number;
     actual: Array<{ phase: 'checkout' | 'collection'; item_id?: string; name: string; quantity: number }>;

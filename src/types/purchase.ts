@@ -1,12 +1,12 @@
-import type { PaymentWallet } from './finance';
-
 export type PurchaseStatus = 'created' | 'in_transit' | 'received' | 'cancelled';
 export type PurchasePaymentStatus = 'unpaid' | 'partial' | 'paid';
 export type PurchaseType = 'refill' | 'package';
 
 export interface PurchaseItem {
+  image_url?: string | null;
   purchase_item_id: string;
   item_id: string;
+  product_name?: string | null;
   brand_name: string;
   size_kg: number;
   mouth_size: string | null;
@@ -21,6 +21,8 @@ export interface PurchaseItem {
 
 export interface Purchase {
   purchase_id: string;
+  business_category?: 'lpg' | 'stove';
+  supplier_name?: string;
   vehicle_id: string | null;
   vehicle_name: string | null;
   plant_id: string;
@@ -35,6 +37,7 @@ export interface Purchase {
   transport_cost: number;
   labour_cost: number;
   total_cost: number;
+  payable_amount: number;
   notes: string | null;
   receipt_notes: string | null;
   created_at: string;
@@ -42,7 +45,6 @@ export interface Purchase {
   received_at: string | null;
   paid_at: string | null;
   revision: number;
-  transport_funded?: number;
   paid_amount?: number;
   refund_due?: number;
   refunded_amount?: number;
@@ -58,8 +60,6 @@ export interface PurchaseRefundObligation {
   amount: number;
   refunded: number;
   remaining: number;
-  logistics_amount: number;
-  credit_business: boolean;
   sources: { transaction_id: string; wallet_name: string; amount: number; description: string; payment_id?: string }[];
 }
 
@@ -67,7 +67,6 @@ export interface PurchaseSettlement {
   total: number; paid: number; due: number; refund_due: number; refunded: number;
   financial_closed_at: string | null; can_cancel: boolean; financial_locked: boolean;
   obligations: PurchaseRefundObligation[];
-  internal_wallet?: PaymentWallet;
   payment_count: number;
   payments: { transaction_id: string; purchase_payment_id?: string | null; wallet_name: string; method: string; amount: number; type: string; created_at: string; operation_id: string | null; description: string; reference: string | null; component: string | null; actor: string | null; obligation_id: string | null }[];
 }
@@ -91,6 +90,8 @@ export interface PurchaseDraft {
 }
 
 export interface CreatePurchasePayload extends PurchaseDraft {
+  business_category?: 'lpg' | 'stove';
+  supplier_name?: string;
   plant_id: string;
   request_id: string;
 }

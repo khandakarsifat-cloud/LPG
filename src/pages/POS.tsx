@@ -1,3 +1,7 @@
+import { StoveItemsGrid } from '../components/pos/StoveItemsGrid';
+import { useStoveProducts } from '../hooks/useAccounting';
+import { PurchaseConfirmation } from '../components/purchases/PurchaseControls';
+import type { BusinessCategory } from '../types/accounting';
 import { useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { AlertCircle, CheckCircle2, ReceiptText, RefreshCw, ShoppingCart, User } from 'lucide-react';
@@ -36,6 +40,9 @@ const resetForm = (
 
 export const POSPage = () => {
   const { can } = useAuth();
+  const [category, setCategory] = useState<BusinessCategory>('lpg');
+  const [switching, setSwitching] = useState<BusinessCategory | null>(null);
+  const stoves = useStoveProducts(category === 'stove');
   const [items, setItems]               = useState<POSSalePayload['items']>([]);
   const [customer, setCustomer]         = useState<POSCustomerDraft | null>(null);
   const [discount, setDiscount]         = useState(0);
@@ -151,7 +158,7 @@ export const POSPage = () => {
 
   const handleAddItem = useCallback((item: POSSalePayload['items'][0]) => {
     if (item.type === 'refill' || item.type === 'package') {
-      const invItem = inventoryItems?.find(i => i.item_id === item.item_id);
+      const invItem = (category === 'stove' ? stoves.data : inventoryItems)?.find(i => i.item_id === item.item_id);
       const maxStock = invItem?.filled_quantity || 0;
       const currentTotalInCart = items
         .filter(i => i.item_id === item.item_id && (i.type === 'refill' || i.type === 'package'))
@@ -170,7 +177,7 @@ export const POSPage = () => {
       }
       return [...prev, item];
     });
-  }, [inventoryItems, items]);
+  }, [inventoryItems, items, category, stoves.data]);
 
   const handleDecreaseItem = useCallback((itemId: string, type: 'refill' | 'package' | 'empty_return') => {
     setItems(prev => {
@@ -188,6 +195,7 @@ export const POSPage = () => {
   return (
     <div className="pos-page">
 
+      {switching && <PurchaseConfirmation title="Switch product catalog?" action="Switch catalog" busy={false} onCancel={() => setSwitching(null)} onConfirm={() => { setCategory(switching); setSwitching(null); setItems([]); setExchangeFee(0); setDiscount(0); setNotes(''); setBottles(undefined); }}><p>Clear the current cart and open the {switching === 'stove' ? 'stove' : 'gas'} catalog? Customer selection is retained.</p></PurchaseConfirmation>}
       {/* 2-column layout */}
       {hasPending && !isProcessing && <div className="pos-recovery-notice" role="alert">
         A previous checkout has an unconfirmed result. Recover it before starting another sale. Recovery clears the current draft.
@@ -198,6 +206,7 @@ export const POSPage = () => {
         {/* LEFT: Products Grid */}
         <div className="pos-products" ref={productsPanel}>
           {/* Title + Mouth Size toggle row */}
+          <div className="finance-actions business-switch" role="group" aria-label="POS business catalog">{(['lpg', 'stove'] as const).map(c => <button className={`btn ${category === c ? 'btn-primary' : 'btn-secondary'}`} key={c} aria-pressed={category === c} disabled={isProcessing || hasPending} onClick={() => { if (c !== category) { if (items.length) setSwitching(c); else { setCategory(c); setExchangeFee(0); setDiscount(0); setNotes(''); } } }}>{c === 'lpg' ? 'Gas' : 'Stove Business'}</button>)}</div>
           <div className="pos-products-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Products</span>
             <button className="btn btn-secondary pos-checkout-link" onClick={() => checkoutPanel.current?.scrollIntoView({ block: 'start' })}>
@@ -210,7 +219,7 @@ export const POSPage = () => {
             }}><RefreshCw size={14} /> Refresh prices</button>
 
             {/* Mouth Size Pill Toggle */}
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div hidden={category === 'stove'} style={{ marginLeft: 'auto', display: category === 'stove' ? 'none' : 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span className="pos-mouth-label" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mouth Size</span>
               <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: 8, padding: '0.2rem', gap: '0.15rem', border: '1px solid var(--border-color)' }}>
                 {MOUTH_SIZE_OPTIONS.map(size => (
@@ -238,13 +247,13 @@ export const POSPage = () => {
           </div>
 
           <div>
-            <POSItemsGrid
+            {category === 'stove' ? <StoveItemsGrid tier={customer?.tier || 'retail'} onAddItem={handleAddItem} /> : <POSItemsGrid
               cartItems={items}
               onAddItem={handleAddItem}
               onDecreaseItem={handleDecreaseItem}
               tier={customer?.tier || 'retail'}
               mouthSize={mouthSize}
-            />
+            />}
           </div>
         </div>
 
@@ -288,6 +297,7 @@ export const POSPage = () => {
             {/* POSCart scrollable */}
             <div className="pos-cart-body">
               <POSCart
+                category={category}
                 items={items}
                 onChangeItems={setItems}
                 discount={discount}
@@ -349,6 +359,7 @@ export const POSPage = () => {
       )}
       {/* Checkout Confirmation Modal */}
       {modalOpen && <CheckoutConfirmModal
+        category={category}
         isOpen={modalOpen}
         onClose={() => { if (!isProcessing) setModalOpen(false); }}
         onConfirm={handleConfirm}

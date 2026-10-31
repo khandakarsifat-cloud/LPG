@@ -35,12 +35,12 @@ function EmployeePaymentForm({ employee, wallets, period, kind, salary, operatio
  const limit = trip?.amount ?? (kind === 'salary' ? salary?.outstanding ?? 0 : Infinity);
  const initial = Number.isFinite(limit) ? limit : 0;
  const [amount, setAmount] = useState(initial);
- const [wallet, setWallet] = useState(() => (trip ? wallets.find(w => w.kind === 'logistics')?.wallet_id : undefined) ?? paymentDraft(wallets, 0).wallet_id);
+ const [wallet, setWallet] = useState(() => paymentDraft(wallets, 0).wallet_id);
  const [date, setDate] = useState(employeeToday()); const [description, setDescription] = useState(''); const [name, setName] = useState('');
  const [confirming, setConfirming] = useState(false);
  const disabled = operation.isPending || operation.hasPending;
  const drafts = [{ id: 'simple', wallet_id: wallet, amount: amount.toFixed(2), reference: '' }];
- const [tripEntries, setTripEntries] = useState(() => [{ ...paymentDraft(wallets, initial), wallet_id: wallets.find(w => w.kind === 'logistics')?.wallet_id ?? wallet }]);
+ const [tripEntries, setTripEntries] = useState(() => [{ ...paymentDraft(wallets, initial), wallet_id: wallet }]);
  const validation = validatePayments(trip ? tripEntries : drafts, Number.isFinite(limit) ? limit : amount, wallets);
  async function submit() {
   if (disabled || validation.error || validation.paid <= 0 || validation.paid > limit || !date || (kind === 'bonus' && !name.trim())) return;

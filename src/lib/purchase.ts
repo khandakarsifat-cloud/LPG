@@ -39,11 +39,11 @@ export function purchaseAccess(purchase: Purchase, canManage = true, isOwner = f
   const complete = purchase.status === 'received' && purchase.payment_status === 'paid';
   const editable = canManage && !complete && purchase.status !== 'cancelled';
   return {
-    complete, editable, products: editable && purchase.status === 'created',
-    cancel: canManage && isOwner && (purchase.status === 'created' || purchase.status === 'in_transit'),
-    financials: editable && !financialLocked,
-    dispatch: editable && purchase.status === 'created', receive: editable && purchase.status === 'in_transit',
-    pay: editable && purchase.status !== 'created' && purchase.payment_status !== 'paid' && Number(purchase.paid_amount ?? 0) < Number(purchase.total_cost),
+    complete, editable, products: editable && !financialLocked && purchase.status === 'created',
+    cancel: canManage && isOwner && (purchase.status === 'created' || purchase.status === 'in_transit' || purchase.business_category === 'stove' && purchase.status === 'received'),
+    financials: editable && !financialLocked && purchase.status !== 'received',
+    dispatch: editable && purchase.business_category !== 'stove' && purchase.status === 'created', receive: editable && (purchase.status === 'in_transit' || purchase.business_category === 'stove' && purchase.status === 'created'),
+    pay: editable && (purchase.status !== 'created' || purchase.business_category === 'stove') && purchase.payment_status !== 'paid' && Number(purchase.paid_amount ?? 0) < (Number(purchase.company_payable) + Number(purchase.labour_cost)),
   };
 }
 
@@ -92,5 +92,6 @@ export function validatePurchaseDraft(draft: PurchaseDraft, subtotal: number): s
 
 export type PurchaseSort = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
 export interface PurchaseFilters {
+  business_category?: string;
   search: string; status: string; payment: string; from: string; to: string; sort: PurchaseSort;
 }

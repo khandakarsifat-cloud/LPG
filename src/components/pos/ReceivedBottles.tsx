@@ -30,7 +30,6 @@ export function ReceivedBottles({ obligations, products, value, onChange, disabl
     {acknowledge && <label className="bottle-acknowledge"><input type="checkbox" checked={Boolean(line.acknowledged)} disabled={disabled} onChange={e => update(index,{ acknowledged: e.target.checked })} />{obligation ? `I accept ${actual?.name}: total received exceeds the original ${obligation.expected} expected.` : `I accept ${actual?.name}, which was not originally expected.`}</label>}
    </div>;
   })}
-  {!collection && catalog.length > 0 && <details><summary>Other received products</summary><BottleCollectionPicker catalog={catalog.filter(item => !obligations.some(o => o.item_id === item.item_id))} brands={brands} value={value} onChange={onChange} disabled={disabled} outstanding={outstanding} /></details>}
   {(collection || differs) && <label className="input-group"><span className="input-label">Bottle note (optional)</span><textarea className="input-field" maxLength={1000} value={value.note} disabled={disabled} onChange={e => onChange({ ...value, note: e.target.value })} placeholder="Add collection details…" /></label>}
   <p className="payment-hint">Each physical bottle reduces the total outstanding count by one.</p>
   {validation.error && <p role="alert" className="payment-error">{validation.error}</p>}

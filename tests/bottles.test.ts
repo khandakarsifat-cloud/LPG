@@ -18,7 +18,7 @@ test('optional notes, cumulative excess and unexpected products', () => {
  assert.match(validateBottles([obligation],products,[line],true).error ?? '',/Acknowledge/);
  assert.equal(validateBottles([obligation],products,[{...line,acknowledged:true}],true).error,undefined);
  assert.match(validateBottles([{...obligation,expected:2,received:2}],products,[{received_item_id:'a',quantity:1}],true,0).error ?? '',/Acknowledge/);
- for (const quantity of [-1,0.5,NaN,Infinity]) assert.match(validateBottles([obligation],products,[{...line,quantity}]).error ?? '',/valid|whole/);
+ for (const quantity of [-1,0.5,NaN,Infinity]) assert.match(validateBottles([obligation],products,[{...line,quantity}],true).error ?? '',/valid|whole/);
 });
 test('thermal receipts combine checkout and later products by identity', () => {
  const receipt = { sale_id:'12345678',created_at:'2026-10-23',customer_name:'Test',customer_phone:'01700000000',customer_tier:'retail',items:[

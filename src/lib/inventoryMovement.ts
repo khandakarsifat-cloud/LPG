@@ -1,8 +1,8 @@
 import { MOVEMENT_TYPE_LABELS, type InventoryMovement } from '../types/inventory.ts';
 
 export type InventoryHistorySource = 'all' | 'purchase' | 'sale';
-export const PURCHASE_MOVEMENT_FILTER = 'reference_type.in.(purchase_dispatch,purchase_receipt_refill,purchase_receipt_new,purchase_cancellation),movement_type.in.(purchase,refill,purchase_adjustment)';
-export const SALE_MOVEMENT_FILTER = 'reference_type.eq.sale,movement_type.eq.sale';
+export const PURCHASE_MOVEMENT_FILTER = 'reference_type.in.(purchase_dispatch,purchase_receipt_refill,purchase_receipt_new,purchase_cancellation,stove_purchase_receipt,stove_purchase_cancellation),movement_type.in.(purchase,refill,purchase_adjustment)';
+export const SALE_MOVEMENT_FILTER = 'reference_type.in.(sale,sale_reversal),movement_type.eq.sale';
 
 /** Inclusive calendar days in Bangladesh, expressed as a half-open timestamp range. */
 export function inventoryHistoryBounds(from: string, to: string) {
@@ -16,10 +16,11 @@ export function inventoryHistoryBounds(from: string, to: string) {
 export function inventoryMovementSource(movement: Pick<InventoryMovement, 'reference_type' | 'reference_id' | 'movement_type' | 'notes'>): {
   kind: Exclude<InventoryHistorySource, 'all'> | null; id: string | null;
 } {
+  if (movement.reference_type === 'sale_reversal') return { kind: 'sale', id: movement.reference_id };
   if (movement.reference_type === 'sale' || movement.movement_type === 'sale') {
     return { kind: 'sale', id: movement.reference_type === 'sale' ? movement.reference_id : null };
   }
-  if (movement.reference_type?.startsWith('purchase_')) return { kind: 'purchase', id: movement.reference_id };
+  if (movement.reference_type?.startsWith('purchase_') || movement.reference_type?.startsWith('stove_purchase_')) return { kind: 'purchase', id: movement.reference_id };
   if (['purchase', 'refill', 'purchase_adjustment'].includes(movement.movement_type)) return { kind: 'purchase', id: null };
   return { kind: null, id: null };
 }
@@ -37,6 +38,8 @@ export function inventoryMovementActions(movement: Pick<InventoryMovement, 'refe
     if (filled > 0) actions.push(`Received filled from ${name} on POS sale`);
     if (empty < 0) actions.push(`Sent empty to ${name} on POS sale`);
   } else if (source === 'purchase') {
+    if (movement.reference_type === 'stove_purchase_receipt') return ['Received stove products from supplier'];
+    if (movement.reference_type === 'stove_purchase_cancellation') return ['Reversed received stove products on cancellation'];
     const name = counterparty ? `${counterparty} (plant)` : 'plant';
     if (movement.reference_type === 'purchase_cancellation') {
       if (filled < 0) actions.push(`Reversed received stock from ${name} on cancelled purchase`);

@@ -12,7 +12,7 @@ export function buildSaleReceipt(sale: SaleTransaction, settlement: SaleSettleme
     lpg_brands: line.items?.lpg_brands ? { brand_id: line.items.brand_id ?? '', brand_name: line.items.lpg_brands.brand_name } : null }));
   const productOrder = [...new Set(groupInventoryByBrand(products, brands).flatMap(group => group.items.map(item => item.item_id)))];
   return {
-    sale_id: sale.sale_id, created_at: sale.created_at, shop_name: shopName,
+    business_category: sale.business_category, sale_id: sale.sale_id, created_at: sale.created_at, shop_name: shopName,
     customer_name: sale.customers?.name || 'Unknown', customer_phone: sale.customers?.phone || '', customer_tier: sale.sale_tier,
     subtotal: Number(sale.subtotal), discount_amount: Number(sale.discount_amount), exchange_fee: Number(sale.exchange_fee), total_amount: Number(sale.total_amount), notes: sale.notes,
     paid_amount: Number(settlement.paid), due_amount: Number(settlement.due), payments: settlement.receipt_payments, unattributed_paid: settlement.unattributed_paid,
@@ -20,7 +20,7 @@ export function buildSaleReceipt(sale: SaleTransaction, settlement: SaleSettleme
     items: orderSaleLines((sale.sale_items ?? []).map(line => {
       const type = line.type;
       if (type !== 'refill' && type !== 'package' && type !== 'empty_return') throw new Error('Unsupported receipt item type.');
-      return { item_id: line.item_id ?? line.items?.item_id, name: `${line.items?.lpg_brands?.brand_name ?? 'Unknown'} ${Number(line.items?.size_kg ?? 0)}kg${line.items?.mouth_size ? ` ${line.items.mouth_size}` : ''}`.trim(), type, quantity: Number(line.quantity), unit_price: Number(line.unit_price), line_total: Number(line.line_total) };
+      return { item_id: line.item_id ?? line.items?.item_id, name: line.items?.product_name || `${line.items?.lpg_brands?.brand_name ?? 'Unknown'} ${Number(line.items?.size_kg ?? 0)}kg${line.items?.mouth_size ? ` ${line.items.mouth_size}` : ''}`.trim(), type, quantity: Number(line.quantity), unit_price: Number(line.unit_price), line_total: Number(line.line_total) };
     }), productOrder),
   };
 }
@@ -71,10 +71,10 @@ export function formatReceipt(data: ReceiptData, paperWidth: 58 | 80 = 80): Rece
     }
     lines.push({ text: item.name, bold: true, right: paperWidth === 80 ? money(item.line_total) : undefined });
     if (paperWidth === 58) {
-      lines.push({ text: `${labels[item.type]} x${item.quantity}` });
+      lines.push({ text: `${data.business_category === 'stove' ? 'Item' : labels[item.type]} x${item.quantity}` });
       lines.push({ text: `@ ${money(item.unit_price)}`, right: money(item.line_total) });
     } else {
-      lines.push({ text: `${labels[item.type]} x${item.quantity} @ ${money(item.unit_price)}` });
+      lines.push({ text: `${data.business_category === 'stove' ? 'Item' : labels[item.type]} x${item.quantity} @ ${money(item.unit_price)}` });
     }
   }
   if (data.bottles) {

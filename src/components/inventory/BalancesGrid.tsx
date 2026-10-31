@@ -4,6 +4,7 @@ import { useInventoryBalances } from '../../hooks/useInventory';
 import { useLPGBrands } from '../../hooks/useBrands';
 import { groupInventoryByBrand } from '../../lib/inventoryGroups';
 import { ProductHistoryModal } from './ProductHistoryModal';
+import { ProductImage } from './ProductImage';
 import type { InventoryProductIdentity, ItemWithBrand } from '../../types/inventory';
 
 // ── Status helpers ────────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ export const ProductTile = ({ item, onClick, selected, showStock = true, startsB
       {selected === undefined ? <span className="inv-tile-dot" style={{ background: color }} />
         : <span className="inv-tile-check" aria-hidden="true">{selected && <Check size={14} />}</span>}
 
+      {item.image_url && <ProductImage path={item.image_url} name={brandName} className="product-image--lpg" />}
       {/* Brand + size */}
       <div className="inv-tile-brand">{brandName}</div>
       <div className="inv-tile-size">{item.size_kg} <span>kg</span> {item.mouth_size && <small className="inv-mouth-size">{item.mouth_size}</small>}</div>
@@ -131,7 +133,7 @@ export const BalancesGrid = () => {
       {/* Toolbar */}
       <div className="inventory-catalog-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          Select a product for prices, buying costs and weekly history.
+          Select a product for prices, carrying values and weekly history.
         </p>
         <button
           className="btn btn-ghost"

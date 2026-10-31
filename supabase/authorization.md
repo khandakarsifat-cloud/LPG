@@ -5,6 +5,10 @@ the implemented authorization boundaries and their verification.
 
 ## Authority and roles
 
+Financial Analysis additionally supports explicit read-only cross-business grants in `business_analysis_access`. Only a trusted target-business OWNER with Finance management may grant/revoke scope for another active application user. Aggregate and paged detail RPCs derive and recheck the authorized business set, require active current Finance membership, and reject unchecked tenant IDs. These grants provide no operational, stock or payment access. The grant table has RLS and no browser table privileges.
+
+Buying-price history, sale cost evidence, operating payments, incurred-cost events, service-trip activity and the financial source archive are immutable and RPC-only. Buying-price writes require the same trusted OWNER and inventory-management gate as selling prices. Service and operating payments derive tenant/actor and require Logistics management; linked crew payments retain the Payroll gate. Historical unknown real-wallet attribution cannot create a wallet refund.
+
 `roles`, `permissions`, `role_permissions` and `user_roles` are the authorization
 source of truth. Operational access uses capabilities. Inventory price and commission
 writes additionally require trusted OWNER membership; the UI uses the server-returned
@@ -70,7 +74,7 @@ the caller's own profile/business identity needed to load the workspace.
 | POS | `pos:sell` supports product, brand and price reads, customer lookup/creation, and validated `create_pos_sale`. It gives no inventory adjustment, purchase, logistics, employee or finance management rights. |
 | Sales / printing | `sales:view` and `receipts:print` support saved sale details and their product/customer embeds; printing can read saved printer configuration. SALESMAN can read/reprint tenant sales. |
 | Printer settings | `printers:manage` gates configuration INSERT/UPDATE; configuration SELECT also allows `receipts:print`. PostgREST upserts can assign the tenant column, but old and new ownership must both match the trusted tenant. |
-| Inventory | View/manage capabilities permit registry/history reads and same-tenant creator attribution. `inventory:manage` allows registering zero-stock items and calling inventory adjustments. Price and explicit commission writes additionally require an OWNER role assignment from tenant-qualified RBAC tables. Commission history has RLS, no browser grants and immutable rows; the product RPC exposes only the current refill/package rates and version. |
+| Inventory | View/manage capabilities permit registry/history reads and same-tenant creator attribution. `inventory:manage` allows registering zero-stock items through scoped column grants, including a validated tenant photo reference. Valued stock adjustments, prices and explicit commission writes additionally require an OWNER role assignment from tenant-qualified RBAC tables. Buying-price and commission histories are immutable and exposed through paged RPCs; direct stock and history writes remain denied. |
 | Customers | Customer view/manage allows reads; management or POS allows form creation. No direct update/delete path is exposed. |
 | Purchases | Purchase view/manage gates lists, activity and supporting product/truck/plant selectors. Create/edit/dispatch/receive/payments/refunds require `purchases:manage`; internal stock and wallet writes need no separate inventory/finance management grant. See [lifecycle and settlement](../docs/modules/purchases-and-logistics.md). |
 | Logistics | Logistics view/manage gates truck/transit/wallet reads; truck/custom-transit/cost mutations require `logistics:manage`. |
@@ -170,6 +174,6 @@ Purchase cancellation additionally checks trusted OWNER membership and exact `CA
 
 ## Canonical development contracts
 
-`20261026070000_canonical_development_model.sql` removes retired RPC overloads and the duplicated bottle-obligation table without adding browser grants. Expected returns now come from immutable `sale_items`; actual receipt lines retain their composite tenant/sale/receipt/product relationships. Brand identity is required and tenant-qualified. Existing permission gates, unexposed helpers, money/stock recorders and request locks remain authoritative. See the [audit](../docs/reports/2026-10-26-canonical-development-audit.md) for verification and retained accounting evidence.
+`20261026070000_canonical_development_model.sql` removes retired RPC overloads and the duplicated bottle-obligation table without adding browser grants. Expected returns now come from immutable `sale_items`; actual receipt lines retain their composite tenant/sale/receipt/product relationships. Brand identity is required and tenant-qualified. Existing permission gates, unexposed helpers, money/stock recorders and request locks remain authoritative.
 
 Personal appearance uses `preferences:manage` for Settings navigation, mapped to existing roles and seeded for SALESMAN at new-business setup. Personal preference RPCs derive the Auth identity and never accept another user's ID. Business settings retain `settings:manage`. Employee job-title management is a separate tenant catalog and cannot change RBAC assignments. Manual attendance correction additionally verifies trusted OWNER/MANAGER membership plus `employees:manage`; raw events and adjustment audits have no direct browser grants.

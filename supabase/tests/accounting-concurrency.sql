@@ -1,0 +1,24 @@
+insert into auth.users(id,email,is_anonymous) values('ac910000-0000-4000-8000-000000000001','accounting-concurrency@example.invalid',false);
+set local role authenticated;
+select set_config('request.jwt.claim.sub','ac910000-0000-4000-8000-000000000001',true);
+select public.setup_business('Accounting concurrency disposable fixture','Owner');
+reset role;
+create table app_private.accounting_concurrency_fixture(t uuid,vehicle uuid,transit uuid,service uuid,wallet uuid,item uuid,history uuid);
+grant insert on app_private.accounting_concurrency_fixture to authenticated;
+grant usage on schema app_private to authenticated;
+set local role authenticated;
+do $$ declare t uuid;driver uuid;v uuid;tr uuid;sid uuid;cat uuid;cash uuid;brand uuid;item uuid:=gen_random_uuid();hist uuid;begin
+ t:=app_private.current_tenant_id();
+ driver:=(public.save_employee(jsonb_build_object('name','Concurrent driver','phones',jsonb_build_array(jsonb_build_object('phone','01700000981','is_primary',true)),'business_unit','truck_business','employee_type_name','Driver','terms',jsonb_build_object('monthly_salary',0,'effective_from',(now() at time zone 'Asia/Dhaka')::date,'is_active',true)),gen_random_uuid())->>'employee_id')::uuid;
+ v:=(public.save_vehicle(jsonb_build_object('name','Concurrent vehicle','serial_no','ACC-RACE','capacity',0,'driver_employee_id',driver),gen_random_uuid())->>'vehicle_id')::uuid;
+ tr:=(public.create_custom_transit(jsonb_build_object('vehicle_id',v,'fee',1000,'client_name','Concurrent client','destination','Dhaka'),gen_random_uuid())->>'transit_id')::uuid;
+ perform public.save_transit_costs(tr,'{"driver_cost":0,"helper_cost":0,"oil_cost":100,"others_cost":0,"additional_costs":[]}',1);
+ select category_id into cat from public.get_vehicle_expense_categories() where name='Engine Oil';
+ sid:=(public.save_service_trip(jsonb_build_object('vehicle_id',v,'title','Concurrent service','service_date',(now() at time zone 'Asia/Dhaka')::date,'expenses',jsonb_build_array(jsonb_build_object('category_id',cat,'amount',150))),gen_random_uuid())->>'service_trip_id')::uuid;
+ select wallet_id into cash from public.get_payment_wallets() where type='cash';
+ brand:=(public.create_lpg_brand('Concurrency brand')->>'brand_id')::uuid;
+ insert into public.items(tenant_id,item_id,brand_id,size_kg,mouth_size) values(t,item,brand,12,'22mm');
+ hist:=(public.set_product_buying_price(jsonb_build_object('item_id',item,'price_type','package','is_manual',true,'expected',null,'price',1000,'reason','Concurrency starting price'),gen_random_uuid())->>'history_id')::uuid;
+ insert into app_private.accounting_concurrency_fixture values(t,v,tr,sid,cash,item,hist);
+end $$;
+reset role;

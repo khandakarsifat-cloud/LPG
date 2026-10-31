@@ -1,18 +1,25 @@
+import { useOwnerAccess } from '../hooks/useAccounting';
+import { StoveInventory, StoveInventorySummary } from '../components/inventory/StoveInventory';
+import { InventoryAdjustmentDialog } from '../components/inventory/InventoryAdjustments';
 import { useState } from 'react';
-import { Plus, Activity, LayoutGrid } from 'lucide-react';
-import { useInventoryBalances } from '../hooks/useInventory';
+import { Plus, Activity, LayoutGrid, SlidersHorizontal } from 'lucide-react';
+import { useInventoryBalances, useInventoryValuation } from '../hooks/useInventory';
 import { useLPGBrands } from '../hooks/useBrands';
+import { formatBDT } from '../lib/formatBDT';
 import { useAuth } from '../contexts/AuthContext';
 import { BalancesGrid } from '../components/inventory/BalancesGrid';
 import { MovementsFeed } from '../components/inventory/MovementsFeed';
 import { AddItemModal } from '../components/inventory/AddItemModal';
 
-type Tab = 'balances' | 'history';
+type Tab = 'balances' | 'history' | 'stove';
 
 export const InventoryPage = () => {
   const { data: items = [], isPending, isError } = useInventoryBalances();
   const { can } = useAuth();
   const brands = useLPGBrands();
+  const valuation = useInventoryValuation();
+  const owner = useOwnerAccess();
+  const [adjusting, setAdjusting] = useState(false);
 
   const [tab, setTab]                 = useState<Tab>('balances');
   const [addItemOpen, setAddItemOpen] = useState(false);
@@ -29,7 +36,7 @@ export const InventoryPage = () => {
     <div className="inventory-page">
       {/* ── Overview Toolbar: Unified Command Hub Bar ── */}
       <div className="inv-hub-bar inv-overview-toolbar">
-        <div className="inv-hub-metrics inv-overview">
+        <div className="inv-hub-metrics inv-overview">{tab === 'stove' ? <StoveInventorySummary /> : <>
           {/* Module 1: Total Units */}
           <div className="inv-hub-module inv-overview-box" title="Units on hand">
             <span className="inv-hub-label inv-overview-label">
@@ -109,7 +116,7 @@ export const InventoryPage = () => {
               </span>
             </div>
           </div>
-        </div>
+        </>} </div>
 
         {can('inventory:manage') && (
           <div className="inv-hub-action">
@@ -119,39 +126,65 @@ export const InventoryPage = () => {
               title="Add Item"
               onClick={() => setAddItemOpen(true)}
             >
-              <Plus size={18} strokeWidth={2.5} />
+              <Plus size={16} strokeWidth={2.5} />
               <span>Add Item</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* ── Tabs ── */}
-      <div className="inv-tabs">
-        {([
-          { key: 'balances', label: 'Stock Balances',    icon: LayoutGrid },
-          { key: 'history',  label: 'Inventory History',  icon: Activity },
-        ] as { key: Tab; label: string; icon: React.ElementType }[]).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            className={`inv-tab ${tab === key ? 'inv-tab-active' : ''}`}
-            onClick={() => setTab(key)}
-          >
-            <Icon size={15} />
-            {label}
-          </button>
-        ))}
+      {/* ── Valuation Summary ── */}
+      <section className="inventory-worth" aria-label="Stock worth">
+        <span>Current stock worth <strong>{valuation.data ? formatBDT(valuation.data.known_value) : '—'}</strong></span>
+        {valuation.data && <small>LPG {formatBDT(valuation.data.lpg_value)} · Stove {formatBDT(valuation.data.stove_value)} · Moving weighted average{valuation.data.reconstructed_products > 0 ? ' · Includes estimated development opening values' : ''}</small>}
+        {valuation.error && <button className="btn btn-secondary" onClick={() => void valuation.refetch()}>Retry valuation</button>}
+      </section>
+
+      {/* ── Tabs & Actions Row ── */}
+      <div className="inv-tabs-bar">
+        <div className="inv-tabs" aria-label="Inventory catalogs">
+          {([
+            { key: 'stove', label: 'Stove Business', icon: LayoutGrid },
+            { key: 'balances', label: 'Stock Balances',    icon: LayoutGrid },
+            { key: 'history',  label: 'Inventory History',  icon: Activity },
+          ] as { key: Tab; label: string; icon: React.ElementType }[]).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              className={`inv-tab ${tab === key ? 'inv-tab-active' : ''}`}
+              onClick={() => setTab(key)}
+            >
+              <Icon size={15} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="inv-tabs-actions">
+          {owner.data && tab !== 'history' && (
+            <button
+              type="button"
+              className="btn btn-secondary inv-tab-action-btn"
+              aria-label="Adjustment"
+              title="Record stock adjustment"
+              onClick={() => setAdjusting(true)}
+            >
+              <SlidersHorizontal size={14} />
+              <span>Adjustment</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Tab Content ── */}
-      <div className="inv-tab-content">
+      <div className="inv-tab-content">{tab === 'stove' && <StoveInventory creating={addItemOpen} onCloseCreate={() => setAddItemOpen(false)} />}
         {tab === 'balances' && <BalancesGrid />}
 
         {tab === 'history' && <MovementsFeed />}
       </div>
 
       {/* ── Dialogs ── */}
-      <AddItemModal open={addItemOpen} onClose={() => setAddItemOpen(false)} />
+      {adjusting && <InventoryAdjustmentDialog category={tab === 'stove' ? 'stove' : 'lpg'} onClose={() => setAdjusting(false)} />}
+      <AddItemModal open={addItemOpen && tab !== 'stove'} onClose={() => setAddItemOpen(false)} />
     </div>
   );
 };

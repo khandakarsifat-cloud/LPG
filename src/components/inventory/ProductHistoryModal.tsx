@@ -5,6 +5,9 @@ import toast from 'react-hot-toast';
 import { useProductInventory, useSaveProductPrices, useSetProductCommission } from '../../hooks/useInventory';
 import { formatBDNumber } from '../../lib/formatBDT';
 import type { CustomerTier, ItemWithBrand, PriceType, ProductPrice } from '../../types/inventory';
+import { InventoryCostHistory } from './InventoryAdjustments';
+import { OperationalPrices } from './OperationalPrices';
+import { ProductImage, ProductPhotoEditor } from './ProductImage';
 import { PurchaseDialog } from '../purchases/PurchaseControls';
 import '../purchases/purchases.css';
 import './inventory.css';
@@ -142,7 +145,7 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
   };
 
   return <><dialog ref={dialog} className="product-dialog" aria-labelledby="product-title"
-    onCancel={event => { event.preventDefault(); if (!saving) onClose(); }}
+    onCancel={event => { if (event.target !== event.currentTarget) return; event.preventDefault(); if (!saving) onClose(); }}
     onClick={event => {
       if (event.target !== event.currentTarget || saving) return;
       const bounds = event.currentTarget.getBoundingClientRect();
@@ -151,7 +154,7 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
     <div className="product-dialog-layout">
       <header className="product-dialog-header">
         <div className="product-heading">
-          <span className="phm-product-icon"><Package size={21} /></span>
+          {item.image_url ? <ProductImage path={item.image_url} name={brandName} /> : <span className="phm-product-icon"><Package size={21} /></span>}
           <div><h2 id="product-title">{brandName} <span>{item.size_kg} kg</span></h2>
             <p>{item.mouth_size ? `${item.mouth_size} mouth` : 'Product details'}</p></div>
         </div>
@@ -198,27 +201,10 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
             </div>
           </section>
 
-          <section className="product-section" aria-labelledby="product-buying-title">
-            <div className="product-section-heading"><h3 id="product-buying-title">Estimated buying price</h3><span className="product-approx">Per unit · approximate</span></div>
-            <div className="product-buying-grid">
-              {kinds.map(kind => {
-                const cost = product.data.buying_costs.find(entry => entry.type === kind);
-                return <div className="product-buying" key={kind}>
-                  <div className="product-buying-heading"><span>{kindLabel[kind]}</span><strong>{cost ? money(cost.estimated_unit_cost) : '—'}</strong></div>
-                  {cost ? <>
-                    <p>{cost.received_at ? `Received ${format(new Date(cost.received_at), 'dd MMM yyyy')}` : 'Last received purchase'}</p>
-                    <dl><div><dt>Bottle cost</dt><dd>{money(cost.bottle_cost)}</dd></div>
-                      <div><dt>Transport + labour / unit</dt><dd>+ {money(cost.overhead_per_unit)}</dd></div>
-                      <div><dt>Commission / unit</dt><dd className="product-commission-rate">− {money(cost.commission_per_unit)}</dd></div>
-                    </dl>
-                  </> : <><p>No received {kindLabel[kind].toLowerCase()} purchase yet.</p>
-                    <dl><div><dt>Commission / unit</dt><dd className="product-commission-rate">{product.data.commission.version ? money(kind === 'refill' ? product.data.commission.refill_rate : product.data.commission.package_rate) : 'Not set'}</dd></div></dl></>}
-                </div>;
-              })}
-            </div>
-            {product.data.can_manage_prices && <div className="product-buying-actions"><button className="btn btn-secondary" disabled={editing}
-              onClick={() => setEditingCommission(true)}><Pencil size={13} />Edit commission</button></div>}
-            <p className="product-help">Latest received purchase for this exact product and type, plus shared transport and labour, minus its current manually set commission. Purchase commission is ignored.</p>
+          <OperationalPrices itemId={item.item_id} data={product.data} disabled={editing || saving} onEditCommission={() => setEditingCommission(true)} />
+          {product.data.can_manage_prices && <ProductPhotoEditor itemId={item.item_id} path={item.image_url} />}
+          <section className="product-section" aria-label="Inventory valuation">
+            <InventoryCostHistory itemId={item.item_id}/>
           </section>
 
           <section className="product-section product-history" aria-labelledby="product-history-title">
@@ -260,7 +246,7 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
     {editingCommission && product.data?.can_manage_prices && <PurchaseDialog title="Edit commission" subtitle={`${brandName} ${item.size_kg} kg · Commission per unit`}
       compact busy={saving || reloading} onClose={() => setEditingCommission(false)}>
       <div className="modal-body product-commission-popup">
-        <p className="product-help">Set refill and package rates separately. Each rate reduces its estimated buying price.</p>
+        <p className="product-help">Set refill and package rates separately. Rates are operational references. Only recorded invoice discounts change purchase costs.</p>
         <CommissionEditor key={commissionEditorVersion} itemId={item.item_id} refillRate={product.data.commission.refill_rate}
           packageRate={product.data.commission.package_rate} version={product.data.commission.version} disabled={reloading}
           onCancel={() => setEditingCommission(false)} onSaved={() => setEditingCommission(false)} onPending={setSaving} />

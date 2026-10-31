@@ -2,6 +2,8 @@ import type { CustomerTier, MouthSize } from './inventory.ts';
 
 export interface SaleTransaction {
   sale_id: string;
+  status?: 'completed' | 'voided';
+  business_category?: 'lpg' | 'stove';
   sale_tier: CustomerTier;
   created_at: string;
   total_amount: number;
@@ -26,6 +28,8 @@ export interface SaleTransaction {
     line_total: number;
     type: string;
     items?: {
+      image_url?: string | null;
+      product_name?: string | null;
       item_id?: string;
       brand_id?: string;
       size_kg?: string;

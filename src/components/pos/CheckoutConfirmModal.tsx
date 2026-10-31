@@ -1,3 +1,5 @@
+import { useStoveProducts } from '../../hooks/useAccounting';
+import type { BusinessCategory } from '../../types/accounting';
 import { useState } from 'react';
 import { ChevronDown, CheckCircle2, Printer } from 'lucide-react';
 import type { POSSalePayload } from '../../hooks/usePOS';
@@ -20,7 +22,7 @@ import { useLPGBrands } from '../../hooks/useBrands';
 import { groupInventoryByBrand, orderSaleLines } from '../../lib/inventoryGroups';
 
 interface CheckoutConfirmModalProps {
-  isOpen: boolean; onClose: () => void; onConfirm: () => Promise<void>; onConfirmAndPrint: () => Promise<void>;
+  category?: BusinessCategory; isOpen: boolean; onClose: () => void; onConfirm: () => Promise<void>; onConfirmAndPrint: () => Promise<void>;
   onPaymentsChange: (payments: PaymentInput[] | undefined) => void;
   onBottlesChange: (bottles: BottleInput | undefined) => void;
   isProcessing: boolean; customer: POSCustomerDraft | null; items: POSSalePayload['items'];
@@ -28,12 +30,13 @@ interface CheckoutConfirmModalProps {
   saleResult: { sale_id: string; subtotal: number; total_amount: number } | null;
 }
 
-export const CheckoutConfirmModal = ({ isOpen, onClose, onConfirm, onConfirmAndPrint, onPaymentsChange, onBottlesChange, isProcessing, customer, items, discount, exchangeFee, notes }: CheckoutConfirmModalProps) => {
+export const CheckoutConfirmModal = ({ category = 'lpg', isOpen, onClose, onConfirm, onConfirmAndPrint, onPaymentsChange, onBottlesChange, isProcessing, customer, items, discount, exchangeFee, notes }: CheckoutConfirmModalProps) => {
   const { data: inventory } = useInventoryBalances(); const { profile, can } = useAuth();
   const wallets = usePaymentWallets(isOpen); const paperWidth = useReceiptPaperWidth();
   const [advanced, setAdvanced] = useState(false); const [entries, setEntries] = useState<PaymentDraft[]>([]);
   const [showBottles, setShowBottles] = useState(false);
   const brands = useLPGBrands();
+  const stoves = useStoveProducts(category === 'stove');
   const orderedItems = orderSaleLines(items, groupInventoryByBrand(inventory ?? [], brands.data ?? []).flatMap(group => group.items.map(item => item.item_id)));
 
   const products = (inventory ?? []).map(i => ({ item_id: i.item_id, name: `${i.lpg_brands?.brand_name ?? 'Product unavailable'} ${i.size_kg}kg ${i.mouth_size ?? ''}`.trim(), size_kg: Number(i.size_kg), mouth_size: i.mouth_size ?? null }));
@@ -72,7 +75,7 @@ export const CheckoutConfirmModal = ({ isOpen, onClose, onConfirm, onConfirmAndP
         {!showBottles && bottleValidation.error && <p className="payment-error" role="alert">{bottleValidation.error} Expand received bottles to review.</p>}
       </section>}
       <ReceiptPreview width={paperWidth} receipt={{
-        sale_id: 'PENDING', created_at: createdAt, shop_name: profile?.business_name,
+        business_category: category, sale_id: 'PENDING', created_at: createdAt, shop_name: profile?.business_name,
         customer_name: customer?.name || 'Unknown', customer_phone: customer?.phone || '', customer_tier: customer?.tier || 'retail',
         subtotal, discount_amount: discount, exchange_fee: exchangeFee, total_amount: total, notes,
         paid_amount: advanced ? validation.paid : total, due_amount: advanced ? Math.max(0, validation.due) : 0, unattributed_paid: 0,
@@ -80,7 +83,7 @@ export const CheckoutConfirmModal = ({ isOpen, onClose, onConfirm, onConfirmAndP
         bottles: { expected: obligations.reduce((sum,o) => sum + o.expected,0), received: bottleValidation.received, outstanding: Math.max(0, obligations.reduce((sum,o) => sum + o.expected,0) - bottleValidation.received),
           actual: bottleInput.lines.filter(l => l.quantity > 0).map(l => ({ phase: 'checkout' as const, item_id: l.received_item_id, name: products.find(p => p.item_id === l.received_item_id)?.name ?? 'Unknown', quantity: l.quantity })),
           obligations: obligations.map(o => ({ name: o.name, expected: o.expected })) },
-        items: orderedItems.map(item => { const product = inventory?.find(i => i.item_id === item.item_id); return { item_id: item.item_id, name: product ? `${product.lpg_brands?.brand_name ?? 'Product unavailable'} ${product.size_kg}kg${product.mouth_size ? ` ${product.mouth_size}` : ''}` : 'Unknown', type: item.type, quantity: item.quantity, unit_price: item.unit_price, line_total: item.quantity * item.unit_price }; }),
+        items: orderedItems.map(item => { const product = inventory?.find(i => i.item_id === item.item_id); return { item_id: item.item_id, name: category === 'stove' ? stoves.data?.find(p => p.item_id === item.item_id)?.product_name ?? 'Loading product…' : product ? `${product.lpg_brands?.brand_name ?? 'Product unavailable'} ${product.size_kg}kg${product.mouth_size ? ` ${product.mouth_size}` : ''}` : 'Unknown', type: item.type, quantity: item.quantity, unit_price: item.unit_price, line_total: item.quantity * item.unit_price }; }),
       }} />
     </div><div className="modal-footer">
       <button className="btn btn-secondary" disabled={isProcessing} onClick={onClose}>Cancel</button>

@@ -1,0 +1,38 @@
+import { useState } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { readAllRows } from '../lib/queryPages';
+import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest } from '../lib/pendingRequest';
+import type { AccountingCommand, BusinessAsset, CostEntry, CostPool, InventoryAdjustment, JournalEntry, JournalLine, JournalFilters, JournalReport, Loan, OpeningBalance, StoveProduct, StoveType, SupplierCommission } from '../types/accounting';
+
+export function useOwnerAccess() { return useQuery<boolean>({ queryKey: ['finance', 'owner-access'], queryFn: async () => { const { data, error } = await supabase.rpc('can_cancel_purchases'); if (error) throw error; return data; } }); }
+function useAccountingWrite<T extends object>(rpc: string, scope: string) {
+ const { profile, user } = useAuth(); const qc = useQueryClient(); const key = `lpg-${scope}:${profile?.tenant_id}:${user?.id}`;
+ const [pending, setPending] = useState(() => hasPendingRequest(key));
+ const mutation = useMutation<{ id?: string; item_id?: string }, Error, T | undefined>({ mutationFn: async payload => {
+  if (!profile || !user) throw new Error('Sign in before recording this operation.');
+  const request = prepareRequest(key, payload ? Object.fromEntries(Object.entries(payload)) : undefined); setPending(true);
+  const { data, error } = await supabase.rpc(rpc, { p_payload: request.body, p_request_id: request.id });
+  if (!error || isDefiniteRejection(error.code)) { finishRequest(key, request.id); setPending(false); }
+  if (error) throw new Error(error.message); return data;
+ }, onSuccess: () => Promise.all([['inventory'], ['finance'], ['logistics'], ['purchases'], ['sales'], ['customers'], ['dashboard'], ['price_books']].map(queryKey => qc.invalidateQueries({ queryKey }))) });
+ return { ...mutation, hasPending: pending };
+}
+export const useAccountingOperation = () => useAccountingWrite<AccountingCommand>('accounting_operation', 'accounting-operation');
+export const useInventoryAdjustment = () => useAccountingWrite<InventoryAdjustment>('adjust_inventory', 'valued-stock-adjustment');
+export const useSaveStoveProduct = () => useAccountingWrite<{ item_id?: string; name: string; type_id: string; image_url?: string | null }>('save_stove_product', 'stove-product');
+export function useStoveProducts(enabled = true) { return useQuery<StoveProduct[]>({ queryKey: ['inventory', 'stove'], enabled, refetchInterval: 30_000, queryFn: ({ signal }) => readAllRows<StoveProduct>((from, to) => supabase.from('items').select('*').eq('business_category', 'stove').order('product_name').order('item_id').range(from, to).abortSignal(signal).overrideTypes<StoveProduct[], { merge: false }>()) }); }
+export function useStoveTypes() { return useQuery<StoveType[]>({ queryKey: ['inventory', 'stove-types'], queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_stove_product_types').abortSignal(signal); if (error) throw error; return data; } }); }
+export function useSaveStoveType() { const qc = useQueryClient(); return useMutation({ mutationFn: async (p: { name: string; type_id?: string; active: boolean }) => { const { error } = await supabase.rpc('save_stove_product_type', { p_name: p.name, p_type_id: p.type_id ?? null, p_active: p.active }); if (error) throw new Error(error.message); }, onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory', 'stove-types'] }) }); }
+export function useInventoryCosts(itemId: string, page = 0) { return useQuery<{ pool: CostPool | null; total: number; entries: CostEntry[] }>({ queryKey: ['inventory', 'costs', itemId, page], queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_inventory_cost_history', { p_item_id: itemId, p_offset: page * 10 }).abortSignal(signal); if (error) throw error; return data; } }); }
+export function useJournalReport(filters: JournalFilters) { return useQuery<JournalReport>({ queryKey: ['finance', 'journal-report', filters], enabled: Boolean(filters.from && filters.to && filters.from <= filters.to), staleTime: 30_000, placeholderData: keepPreviousData, queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_finance_analysis', { p_filters: filters }).abortSignal(signal); if (error) throw error; return data; } }); }
+export function useJournalEntries(filters: JournalFilters, page: number) { return useQuery<{ total: number; entries: JournalEntry[]; sources: string[] }>({ queryKey: ['finance', 'journal', filters, page], queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_analysis_details', { p_filters: filters, p_metric: 'journal', p_category: filters.account || null, p_offset: page * 12 }).abortSignal(signal); if (error) throw error; return data; } }); }
+export function useAccountingRegister<T extends Loan | BusinessAsset | SupplierCommission | OpeningBalance>(kind: 'loans' | 'assets' | 'commissions' | 'opening' | 'obligations', page: number) { return useQuery<{ total: number; entries: T[] }>({ queryKey: ['finance', 'register', kind, page], refetchInterval: 30_000, queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_accounting_register', { p_kind: kind, p_offset: page * 20 }).abortSignal(signal); if (error) throw error; return data; } }); }
+export function useAccountingHistory(kind: 'loan' | 'asset' | 'vehicle', id: string, page: number) { return useQuery<{ total: number; entries: Record<string, unknown>[] }>({ queryKey: ['finance', 'accounting-history', kind, id, page], queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_accounting_history', { p_kind: kind, p_id: id, p_offset: page * 20 }).abortSignal(signal); if (error) throw error; return data; } }); }
+
+export function useJournalLines(filters: JournalFilters, journalId: string, page: number) {
+ return useQuery<{ total: number; entries: JournalLine[] }>({ queryKey: ['finance', 'journal-lines', filters.business_id, journalId, page], placeholderData: keepPreviousData, queryFn: async ({ signal }) => {
+  const { data, error } = await supabase.rpc('get_journal_lines', { p_filters: filters, p_journal_id: journalId, p_offset: page * 25, p_limit: 25 }).abortSignal(signal); if (error) throw error; return data;
+ } });
+}

@@ -7,6 +7,7 @@ import { formatBDNumber } from '../../lib/formatBDT';
 import { findSellingPrice } from '../../lib/productPricing';
 import { useLPGBrands } from '../../hooks/useBrands';
 import { groupInventoryByBrand } from '../../lib/inventoryGroups';
+import { ProductImage } from '../inventory/ProductImage';
 
 interface ProductOptionRowProps {
   icon: React.ReactNode;
@@ -167,6 +168,7 @@ export const POSItemsGrid = ({ cartItems = [], onAddItem, onDecreaseItem, tier, 
             }}
           >
             <div className="pos-product-heading" style={{ padding: '8px', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+              {item.image_url && <ProductImage path={item.image_url} name={`${item.lpg_brands?.brand_name ?? 'LPG'} ${item.size_kg}kg`} />}
               <div className="inv-stat-icon" style={{
                 background: inStock ? 'var(--accent-weak)' : 'var(--danger-weak)',
                 color: inStock ? 'var(--accent)' : 'var(--danger)',

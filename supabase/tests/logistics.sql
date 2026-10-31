@@ -1,3 +1,4 @@
+begin;
 -- Disposable/rolled-back fixtures. Never use genuine employees or wallets.
 insert into public.tenants(tenant_id,business_name) values('91111111-1111-4111-8111-111111111111','Logistics SQL fixture A'),('81111111-1111-4111-8111-111111111111','Logistics SQL fixture B');
 insert into auth.users(id,email,is_anonymous) values('92222222-2222-4222-8222-222222222222','logistics-sql-a@example.invalid',false),('82222222-2222-4222-8222-222222222222','logistics-sql-b@example.invalid',false);
@@ -12,7 +13,7 @@ create function pg_temp.employee_reject(q text,expected text) returns void langu
 grant execute on function pg_temp.employee_assert(boolean,text),pg_temp.employee_reject(text,text) to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','92222222-2222-4222-8222-222222222222',true);
-do $$ declare d uuid; h uuid; d2 uuid; v uuid; tr uuid; newer uuid; cash uuid; logistics uuid; body jsonb; result jsonb; req uuid; payment uuid;
+do $$ declare d uuid; h uuid; d2 uuid; v uuid; tr uuid; newer uuid; cash uuid; bank uuid; body jsonb; result jsonb; req uuid; payment uuid;
  today date:=(now() at time zone 'Asia/Dhaka')::date; baseline numeric; revision integer; i integer; p uuid; plant uuid; brand uuid; item uuid;
 begin
  d:=(public.save_employee('{"name":"Logistics Driver One","phones":[{"phone":"01700000101","is_primary":true}],"business_unit":"truck_business","employee_type_name":"Driver","terms":{"monthly_salary":20000,"effective_from":"2025-01-01","is_active":true}}',gen_random_uuid())->>'employee_id')::uuid;
@@ -32,15 +33,15 @@ begin
  perform pg_temp.employee_assert(public.create_custom_transit(body,req)=result,'client fee exact once after replay');
  perform pg_temp.employee_assert(public.get_vehicle(v)->>'location'='Dhaka','destination derived from active transit');
  perform pg_temp.employee_assert(public.get_transit(tr)->>'driver_employee_id'=d::text and public.get_transit(tr)->>'helper_employee_id'=h::text,'crew captured at departure');
- select wallet_id into cash from public.get_trip_payment_wallets(tr) where type='cash'; select wallet_id into logistics from public.get_trip_payment_wallets(tr) where type='logistics';
+ select wallet_id into cash from public.get_trip_payment_wallets(tr) where type='cash'; select wallet_id into bank from public.get_trip_payment_wallets(tr) where type='dealership';
  select sum(balance) into baseline from public.wallets;
  perform public.save_transit_costs(tr,'{"driver_cost":500,"helper_cost":100,"oil_cost":50,"others_cost":20,"additional_costs":[{"name":"Toll","amount":30}]}',1);
  perform pg_temp.employee_assert((select sum(balance) from public.wallets)=baseline,'earnings are deferred with no wallet posting');
  perform pg_temp.employee_assert((public.get_logistics_summary(null,d)->>'outstanding')::numeric=500,'employee outstanding earning');
- body:=jsonb_build_object('action','pay','items',jsonb_build_array(jsonb_build_object('employee_id',d,'kind','trips','trip_count',1,'transit_id',tr,'trip_role','driver','payment_date',today,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',100),jsonb_build_object('wallet_id',logistics,'amount',200)))));
+ body:=jsonb_build_object('action','pay','items',jsonb_build_array(jsonb_build_object('employee_id',d,'kind','trips','trip_count',1,'transit_id',tr,'trip_role','driver','payment_date',today,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',100),jsonb_build_object('wallet_id',bank,'amount',200)))));
  req:=gen_random_uuid(); result:=public.employee_payment_operation(body,req); payment:=(result->'payment_ids'->>0)::uuid;
  perform pg_temp.employee_assert(public.employee_payment_operation(body,req)=result,'split employee payment exact once');
- perform pg_temp.employee_assert((public.get_transit(tr)->>'outstanding')::numeric=300,'partial balance is correct');
+ perform pg_temp.employee_assert((public.get_transit(tr)->>'outstanding')::numeric=400,'partial balance is correct');
  perform pg_temp.employee_reject(format('select public.employee_payment_operation(%L,%L)',jsonb_set(body,'{items,0,employee_id}',to_jsonb(d2)),gen_random_uuid()),'recorded on this transit');
  perform pg_temp.employee_reject(format('select public.employee_payment_operation(%L,%L)',body,gen_random_uuid()),'exceeds');
  perform pg_temp.employee_reject(format('select public.transition_transit(%L,%L,3)',tr,'complete'),'outstanding');
@@ -57,7 +58,8 @@ begin
  perform public.employee_payment_operation(jsonb_build_object('action','reverse_payment','payment_id',payment,'payment_date',today,'reason','Funds returned for SQL fixture'),gen_random_uuid());
  perform pg_temp.employee_reject(format('select public.transition_transit(%L,%L,7)',tr,'complete'),'outstanding');
  body:=jsonb_set(jsonb_set(jsonb_set(body,'{items,0,employee_id}',to_jsonb(d)),'{items,0,trip_role}','"driver"'),'{items,0,payments}',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',300))); perform public.employee_payment_operation(body,gen_random_uuid());
- perform public.transition_transit(tr,'complete',8); perform public.transition_transit(tr,'complete',8);
+ perform public.record_operating_payment(jsonb_build_object('transit_id',tr,'kind','expense','payment_date',today,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',100))),gen_random_uuid());
+ perform public.transition_transit(tr,'complete',9); perform public.transition_transit(tr,'complete',9);
  perform pg_temp.employee_assert((select sum(balance) from public.wallets)=baseline-700,'crew plus non-crew posted exactly once');
  perform pg_temp.employee_assert(public.get_vehicle(v)->>'location'='Chattogram','old completion cannot release a later journey');
  perform pg_temp.employee_assert((public.get_logistics_summary(null,d)->>'paid')::numeric=500 and (public.get_logistics_summary(null,d)->>'outstanding')::numeric=0,'employee earnings reconcile after returns');
@@ -85,16 +87,16 @@ begin
  perform pg_temp.employee_assert(public.get_vehicle(v)->>'location'='Home','receipt frees vehicle with unpaid earnings');
  perform pg_temp.employee_reject(format('select public.transition_transit(%L,%L,3)',tr,'complete'),'outstanding');
  body:=jsonb_build_object('action','pay','items',jsonb_build_array(jsonb_build_object('employee_id',d2,'kind','trips','trip_count',1,'transit_id',tr,'trip_role','driver','payment_date',today,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',100)))));
- perform public.employee_payment_operation(body,gen_random_uuid()); perform public.transition_transit(tr,'complete',4);
+ perform public.employee_payment_operation(body,gen_random_uuid()); perform public.record_operating_payment(jsonb_build_object('transit_id',tr,'kind','expense','payment_date',today,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',20))),gen_random_uuid()); perform public.transition_transit(tr,'complete',5);
  perform pg_temp.employee_assert((select filled_quantity from public.items where item_id=item)=10,'purchase receipt quantity exceeds informational capacity without restriction');
  -- Cancellation refunds client funding while incurred employee earnings remain due.
  tr:=(public.create_custom_transit(jsonb_build_object('vehicle_id',v,'fee',100,'client_name','Cancelled earnings fixture','destination','Dhaka'),gen_random_uuid())->>'transit_id')::uuid;
  perform public.save_transit_costs(tr,'{"driver_cost":200,"helper_cost":0,"oil_cost":20,"others_cost":0}',1);
  body:=jsonb_build_object('action','pay','items',jsonb_build_array(jsonb_build_object('employee_id',d2,'kind','trips','trip_count',1,'transit_id',tr,'trip_role','driver','payment_date',today,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',100)))));
  perform public.employee_payment_operation(body,gen_random_uuid()); perform public.transition_transit(tr,'cancel',3);
- perform pg_temp.employee_assert((public.get_transit(tr)->>'outstanding')::numeric=100,'cancelled incurred earnings remain due');
+ perform pg_temp.employee_assert((public.get_transit(tr)->>'outstanding')::numeric=120,'cancelled incurred earnings remain due');
  perform pg_temp.employee_reject(format('select public.transition_transit(%L,%L,4)',tr,'complete'),'outstanding');
- perform public.employee_payment_operation(body,gen_random_uuid()); perform public.transition_transit(tr,'complete',5);
+ perform public.employee_payment_operation(body,gen_random_uuid()); perform public.record_operating_payment(jsonb_build_object('transit_id',tr,'kind','expense','payment_date',today,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',20))),gen_random_uuid()); perform public.transition_transit(tr,'complete',6);
  perform pg_temp.employee_assert(public.get_transit(tr)->>'status'='cancelled' and public.get_transit(tr)->>'closed_at' is not null,'cancelled financial completion keeps operational evidence');
  for i in 1..27 loop
   tr:=(public.create_custom_transit(jsonb_build_object('vehicle_id',v,'fee',0,'client_name','History fixture '||i,'destination','Dhaka'),gen_random_uuid())->>'transit_id')::uuid;
@@ -121,3 +123,5 @@ select pg_temp.employee_assert(not exists(select 1 from public.employee_payment_
 select pg_temp.employee_assert(to_regclass('public.trucks') is null and to_regprocedure('public.list_transits()') is null and not exists(select 1 from information_schema.columns where table_schema='public' and table_name='vehicles' and column_name in ('size','location')),'obsolete fleet contracts removed');
 select 'PASS: vehicle CRUD/assignments/history, mandatory driver, deferred/split/partial payments, returns, exact-once completion, purchase receipt, wallet reconciliation and tenant isolation';
 
+
+rollback;

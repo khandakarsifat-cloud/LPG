@@ -5,7 +5,7 @@ import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest }
 import { useBatchedDirectory } from './useBatchedDirectory';
 import type { BottleCollection, SaleBottles, SalesFilters, SaleSummary } from '../types/bottles';
 
-export const defaultSalesFilters: SalesFilters = { search: '', payment: 'all', bottles: 'all', from: '', to: '', sort: 'date_desc', tier: 'all' };
+export const defaultSalesFilters: SalesFilters = { status: 'completed', search: '', payment: 'all', bottles: 'all', from: '', to: '', sort: 'date_desc', tier: 'all' };
 export function useSalesDirectory(filters: SalesFilters, size: number) {
  return useBatchedDirectory<SaleSummary>(['sales', 'directory', filters], size, async (offset, limit, signal) => {
   const { data, error } = await supabase.rpc('get_sales_directory', { p_filters: filters, p_offset: offset, p_limit: limit }).abortSignal(signal);

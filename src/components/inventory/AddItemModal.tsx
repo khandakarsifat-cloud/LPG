@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react';
-import { X, Package, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useCreateItem, useInventoryBalances } from '../../hooks/useInventory';
 import { useLPGBrands } from '../../hooks/useBrands';
 import { useBusinessCatalogs } from '../../hooks/useBusinessSettings';
 import type { CreateItemPayload, MouthSize } from '../../types/inventory';
 import { MOUTH_SIZE_OPTIONS } from '../../types/inventory';
+import { PurchaseDialog } from '../purchases/PurchaseControls';
+import { ProductPhotoField } from './ProductImage';
+import { useProductPhoto } from '../../hooks/useProductImages';
 
 interface AddItemModalProps {
   open: boolean;
@@ -13,8 +16,11 @@ interface AddItemModalProps {
 
 type FormState = CreateItemPayload;
 
-export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
+export const AddItemModal = ({ open, onClose }: AddItemModalProps) => open ? <AddItemForm onClose={onClose} /> : null;
+
+function AddItemForm({ onClose }: Pick<AddItemModalProps, 'onClose'>) {
   const createItem = useCreateItem();
+  const photo = useProductPhoto();
   const catalogs = useBusinessCatalogs();
   const weights = catalogs.data?.weights.filter(weight => weight.active).map(weight => weight.size_kg) ?? [];
   const { data: brands = [] } = useLPGBrands();
@@ -59,12 +65,15 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
 
     setIsSubmitting(true);
     try {
+      const imagePath = await photo.prepare();
       await createItem.mutateAsync({
+        image_url: imagePath,
         brand_id:        form.brand_id,
         size_kg:         form.size_kg,
         mouth_size:      form.mouth_size,
       });
 
+      await photo.committed(imagePath);
       onClose();
       setForm({ brand_id: '', size_kg: 0, mouth_size: '22mm' });
     } catch {
@@ -74,38 +83,11 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-content glass-panel"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add New Item"
-      >
-        {/* Header */}
-        <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="modal-icon">
-              <Package size={18} />
-            </div>
-            <div>
-              <h2 className="modal-title">Add New Item</h2>
-              <p className="modal-subtitle">
-                Register a new cylinder SKU (tracks both filled and empty stocks)
-              </p>
-            </div>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-
+    <PurchaseDialog title="Add New Item" subtitle="Register an LPG product, then add stock through a purchase or valued adjustment." onClose={onClose} busy={isSubmitting}>
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+          <div className="modal-body dialog-form"><div className="product-form-grid"><div className="product-identity-fields">
             {/* Brand Selection */}
             <div className="input-group">
               <label className="input-label" htmlFor="item-brand">Brand *</label>
@@ -177,11 +159,11 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                 ))}
               </select>
             </div>
-          </div>
+          </div><ProductPhotoField photo={photo} disabled={isSubmitting} /></div></div>
 
           {/* Footer */}
           <div className="modal-footer">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>
+            <button type="button" className="btn btn-ghost" disabled={isSubmitting} onClick={onClose}>
               Cancel
             </button>
             <button
@@ -206,7 +188,6 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
             </div>
           )}
         </form>
-      </div>
-    </div>
+    </PurchaseDialog>
   );
-};
+}

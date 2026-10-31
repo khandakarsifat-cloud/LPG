@@ -5,6 +5,9 @@ import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest }
 import type { FinanceDues, FinanceWallet, LedgerFilters, PaymentInput, PaymentWallet, SaleSettlement, WalletLedger } from '../types/finance';
 
 export const financeKeys = ['finance'] as const;
+export interface FinancialActivityEntry {id:string;source:'purchase'|'transit'|'service_trip';created_at:string;title:string;status:string;cost:number;revenue:number;paid:number;internal_allocation:number;breakdown:Record<string,unknown>}
+export function useFinancialActivity(filters:{search:string;source:string;from:string;to:string},page:number){return useQuery<{entries:FinancialActivityEntry[];total:number}>({queryKey:['finance','activity',filters,page],refetchInterval:30_000,queryFn:async({signal})=>{const {data,error}=await supabase.rpc('get_financial_activity',{p_filters:filters,p_offset:page*12,p_limit:12}).abortSignal(signal);if(error)throw error;return data;}});}
+export function useActivityWalletAudit(source:string,id:string,page:number){return useQuery<{entries:{transaction_id:string;wallet_name:string;amount:number;description:string;created_at:string}[];total:number}>({queryKey:['finance','activity-wallets',source,id,page],queryFn:async({signal})=>{const {data,error}=await supabase.rpc('get_financial_activity_wallets',{p_source:source,p_id:id,p_offset:page*10,p_limit:10}).abortSignal(signal);if(error)throw error;return data;}});}
 export const usePaymentWallets = (enabled = true) => useQuery<PaymentWallet[]>({
   queryKey: [...financeKeys, 'payment_wallets'], enabled,
   refetchInterval: 30_000,
@@ -37,7 +40,7 @@ export const useCustomerBalance = (id: string, enabled: boolean) => useQuery<num
 });
 export function useFinanceRefresh() {
   const qc = useQueryClient();
-  return () => Promise.all([financeKeys, ['logistics'], ['customers'], ['sales'], ['dashboard']].map(queryKey => qc.invalidateQueries({ queryKey })));
+  return () => Promise.all([financeKeys, ['inventory'], ['purchases'], ['logistics'], ['customers'], ['sales'], ['dashboard']].map(queryKey => qc.invalidateQueries({ queryKey })));
 }
 export function useSaveFinanceWallet() {
   const refresh = useFinanceRefresh();
@@ -47,7 +50,7 @@ export function useSaveFinanceWallet() {
     }, onSuccess: refresh,
   });
 }
-export type FinanceOperation = { action:'spending'; category_id:string;category_name:string;classification:'cost'|'withdrawal';wallet_id:string;amount:number;spending_date:string;description:string } | { action: 'collection'; sale_id: string; payments: PaymentInput[] } |
+export type FinanceOperation = { action: 'sale_cancel'; sale_id: string; reason: string; confirmation: string } | { action: 'sale_refund'; sale_id: string; payments: PaymentInput[] } | { action:'spending'; category_id:string;category_name:string;classification:'cost'|'withdrawal';wallet_id:string;amount:number;spending_date:string;description:string } | { action: 'collection'; sale_id: string; payments: PaymentInput[] } |
   { action: 'transfer' | 'adjustment'; wallet_id: string; destination_id?: string; amount: number; reason: string };
 /** One recoverable request per user/tab across Finance and customer dialogs. */
 export function useFinanceOperation() {
@@ -61,6 +64,8 @@ export function useFinanceOperation() {
       const body = request.body;
       const result = body.action === 'collection'
         ? await supabase.rpc('collect_sale_payment', { p_sale_id: body.sale_id, p_payments: body.payments, p_request_id: request.id })
+        : body.action === 'sale_cancel' ? await supabase.rpc('reverse_sale', { p_sale_id: body.sale_id, p_reason: body.reason, p_confirmation: body.confirmation, p_request_id: request.id })
+        : body.action === 'sale_refund' ? await supabase.rpc('refund_sale', { p_sale_id: body.sale_id, p_payments: body.payments, p_request_id: request.id })
         : body.action === 'spending' ? await supabase.rpc('record_spending',{p_payload:body,p_request_id:request.id})
         : await supabase.rpc('move_wallet_money', { p_payload: body, p_request_id: request.id });
       if (!result.error || isDefiniteRejection(result.error.code)) finishRequest(key, request.id);

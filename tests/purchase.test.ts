@@ -127,7 +127,7 @@ test('actions follow lifecycle and independent payment status', () => {
   const prepaid=purchaseAccess({ ...purchase,status:'in_transit',payment_status:'paid' });
   assert.equal(prepaid.editable,true); assert.equal(prepaid.financials,false); assert.equal(prepaid.receive,true); assert.equal(prepaid.pay,false);
   const received=purchaseAccess({ ...purchase,status:'received' });
-  assert.equal(received.pay,true); assert.equal(received.receive,false); assert.equal(received.financials,true);
+  assert.equal(received.pay,true); assert.equal(received.receive,false); assert.equal(received.financials,false);
 });
 
 test('read-only capability and cancelled history expose no mutations', () => {
@@ -159,4 +159,15 @@ test('Created drafts restore exchange quantities; saved dispatched history remai
   const dispatched = { ...purchase, status: 'in_transit' as const };
   assert.equal(purchaseDraft(dispatched).items[0].empty_dispatched, 6);
   assert.match(validatePurchaseDraft({ ...emptyPurchaseDraft(), items: [{ ...purchaseDraft(purchase).items[0], empty_dispatched: 6 }] }, 400) ?? '', /one empty/);
+});
+
+test('stove purchases receive directly and retain guarded owner cancellation after receipt', () => {
+ const stove = { ...purchase, business_category: 'stove' as const };
+ const created = purchaseAccess(stove, true, true);
+ assert.equal(created.dispatch, false); assert.equal(created.receive, true); assert.equal(created.pay, true);
+ const received = purchaseAccess({ ...stove, status: 'received', payment_status: 'paid' }, true, true);
+ assert.equal(received.cancel, true); assert.equal(received.products, false); assert.equal(received.financials, false);
+ assert.equal(purchaseAccess({ ...stove, status: 'received' }, true, false).cancel, false);
+ const prepaid = purchaseAccess({ ...stove, payment_status: 'partial' });
+ assert.equal(prepaid.products, false); assert.equal(prepaid.financials, false); assert.equal(prepaid.receive, true);
 });

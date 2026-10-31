@@ -80,7 +80,7 @@ export const MovementsFeed = () => {
       return <article className="movement-row inv-history-row" key={movement.movement_id}>
         <div className={`movement-icon inv-history-icon inv-history-icon-${ref.kind ?? 'other'}`}><Icon size={18} /></div>
         <div className="movement-info">
-          <div className="movement-item-name">{item ? `${item.lpg_brands?.brand_name ?? 'Product unavailable'} ${item.size_kg} kg${item.mouth_size ? ` · ${item.mouth_size}` : ''}` : 'Product unavailable'}</div>
+          <div className="movement-item-name">{item?.product_name || (item ? `${item.lpg_brands?.brand_name ?? 'Product unavailable'} ${item.size_kg} kg${item.mouth_size ? ` · ${item.mouth_size}` : ''}` : 'Product unavailable')}</div>
           <div className="inv-history-actions">{actions.map((action, index) => <p key={index}>{action}{reference && <> {' '}{readable && ref.id && ref.kind
             ? <button className="inv-history-reference" title={`${ref.kind === 'sale' ? 'POS sale' : 'Purchase'} ${ref.id}`} onClick={event => {
               opener.current = event.currentTarget;

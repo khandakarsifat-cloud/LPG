@@ -43,9 +43,9 @@ declare t uuid:='c1111111-1111-4111-8111-111111111111'; cash uuid; bank uuid; bk
  r jsonb; replay jsonb; sid uuid; zero_sale uuid; request uuid:=gen_random_uuid(); collection uuid:=gen_random_uuid(); move uuid:=gen_random_uuid();
  before_stock integer; before_sales integer; before_entries integer; before_balance numeric; before_total numeric;
 begin
- perform pg_temp.finance_check((select count(*) from public.wallets)=5,'new business defaults and RLS');
+ perform pg_temp.finance_check((select count(*) from public.wallets)=4,'new business defaults and RLS');
  select wallet_id into cash from public.wallets where type='cash'; select wallet_id into bank from public.wallets where type='dealership'; select wallet_id into bkash from public.wallets where type='bkash';
- perform pg_temp.finance_check((select count(*) from public.get_payment_wallets())=4,'POS destinations exclude logistics');
+ perform pg_temp.finance_check((select count(*) from public.get_payment_wallets())=4,'POS destinations are real wallets');
  perform public.move_wallet_money(jsonb_build_object('action','adjustment','wallet_id',bank,'amount',10000,'reason','Opening bank funds'),gen_random_uuid());
  r:=public.create_pos_sale('01700000000',null,null,null,'retail',0,0,null,payload,'c5555555-5555-4555-8555-555555555555',request);
  replay:=public.create_pos_sale('01700000000',null,null,null,'retail',0,0,null,payload,'c5555555-5555-4555-8555-555555555555',request);
@@ -108,7 +108,7 @@ select pg_temp.finance_fails('delete from public.sale_payments','immutable');
 select set_config('request.jwt.claim.sub','d2222222-2222-4222-8222-222222222222',true);
 set local role authenticated;
 do $$ declare sid uuid; other uuid; own_wallet uuid; begin
- perform pg_temp.finance_check((select count(*) from public.wallets)=5 and not exists(select 1 from public.wallet_transactions),'cross-tenant history is invisible');
+ perform pg_temp.finance_check((select count(*) from public.wallets)=4 and not exists(select 1 from public.wallet_transactions),'cross-tenant history is invisible');
  select sale_id,wallet_id into sid,other from finance_cross;
  select wallet_id into own_wallet from public.wallets where type='cash';
  perform pg_temp.finance_fails(format('select public.get_sale_settlement(%L)',sid),'not found');

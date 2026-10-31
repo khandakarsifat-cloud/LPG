@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "accounting:db:test": "node supabase/tests/run-unified-accounting.mjs --vps",
+    "accounting:api:test": "node supabase/tests/unified-accounting-api.mjs --vps --browser",
     "attendance:db:test": "node supabase/tests/run-attendance.mjs --vps",
     "attendance:api:test": "node supabase/tests/attendance-api.mjs --vps --browser",
     "attendance:test": "node --test attendance-receiver/*.test.mjs",
@@ -29,6 +31,7 @@
     "@supabase/supabase-js": "^2.107.0",
     "@tanstack/react-query": "^5.101.0",
     "date-fns": "^4.4.0",
+    "jspdf": "4.2.1",
     "lucide-react": "^1.17.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

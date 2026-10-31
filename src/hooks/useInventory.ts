@@ -1,9 +1,13 @@
 import { readAllRows } from '../lib/queryPages';
+import { useState } from 'react';
+import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest } from '../lib/pendingRequest';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Item, ItemWithBrand, InventoryMovement, CreateItemPayload } from '../types/inventory';
 import type { ProductInventory, SaveProductPrices, SetProductCommission } from '../types/inventory';
+import type { InventoryValuation } from '../types/inventory';
+import type { BuyingPrice, CommissionHistory, PriceType } from '../types/inventory';
 import { posKeys } from './usePOS';
 import { inventoryHistoryBounds, inventoryMovementSource, PURCHASE_MOVEMENT_FILTER, SALE_MOVEMENT_FILTER, type InventoryHistorySource } from '../lib/inventoryMovement';
 
@@ -26,7 +30,7 @@ export const useInventoryBalances = () =>
   useQuery<ItemWithBrand[]>({
     queryKey: inventoryKeys.balances,
     queryFn: async ({ signal }) => readAllRows<ItemWithBrand>((from, to) => supabase
-      .from('items').select('*, lpg_brands(brand_id, brand_name)')
+      .from('items').select('*, lpg_brands(brand_id, brand_name)').eq('business_category', 'lpg')
       .order('brand_id', { ascending: true }).order('item_id', { ascending: true })
       .range(from, to).abortSignal(signal).overrideTypes<ItemWithBrand[], { merge: false }>()),
     refetchInterval: 30_000,
@@ -43,7 +47,7 @@ export const useInventoryHistory = ({ source, itemIds, page, from, to }: {
     queryFn: async ({ signal }) => {
       if (itemIds?.length === 0) return { entries: [], hasMore: false };
       let query = supabase.from('inventory_movements')
-        .select('*, items(size_kg, filled_quantity, empty_quantity, mouth_size, lpg_brands(brand_id, brand_name)), user_profiles(email)')
+        .select('*, items(product_name, size_kg, filled_quantity, empty_quantity, mouth_size, lpg_brands(brand_id, brand_name)), user_profiles(email)')
         .order('created_at', { ascending: false }).order('movement_id', { ascending: false });
       if (source === 'sale') query = query.or(SALE_MOVEMENT_FILTER);
       if (source === 'purchase') query = query.or(PURCHASE_MOVEMENT_FILTER);
@@ -138,6 +142,33 @@ export const useSetProductCommission = () => {
       });
       if (error) throw new Error(error.message);
     },
-    onSuccess: async () => { await qc.invalidateQueries({ queryKey: inventoryKeys.all }); },
+    onSuccess: async () => { await Promise.all([qc.invalidateQueries({ queryKey: inventoryKeys.all }),qc.invalidateQueries({ queryKey: ['finance'] })]); },
   });
 };
+
+export const useInventoryValuation = () => useQuery<InventoryValuation>({ queryKey: ['inventory','valuation'],refetchInterval:30_000,queryFn:async({signal})=>{
+  const {data,error}=await supabase.rpc('get_inventory_valuation').abortSignal(signal);if(error)throw error;return data;
+}});
+
+export function useOperationalPriceHistory(itemId: string, kind: 'buying' | 'commission', page: number, enabled: boolean) {
+  return useQuery<{ total: number; entries: (BuyingPrice | CommissionHistory)[] }>({
+    queryKey: ['inventory', 'operational-price-history', itemId, kind, page], enabled,
+    queryFn: async ({ signal }) => {
+      const { data, error } = await supabase.rpc(kind === 'buying' ? 'get_buying_price_history' : 'get_product_commission_history', { p_item_id: itemId, p_offset: page * 10, p_limit: 10 }).abortSignal(signal);
+      if (error) throw error; return data;
+    },
+  });
+}
+export function useSetBuyingPrice() {
+  const { profile, user } = useAuth(); const qc = useQueryClient();
+  const key = `lpg-buying-price:${profile?.tenant_id}:${user?.id}`;
+  const [pending, setPending] = useState(() => hasPendingRequest(key));
+  const mutation = useMutation({ mutationFn: async (payload: { item_id: string; price_type: PriceType; is_manual: boolean; price?: number; reason: string; expected: string | null } | undefined) => {
+    if (!profile || !user) throw new Error('Sign in before saving prices.');
+    const request = prepareRequest(key, payload); setPending(true);
+    const { error } = await supabase.rpc('set_product_buying_price', { p_payload: request.body, p_request_id: request.id });
+    if (!error || isDefiniteRejection(error.code)) { finishRequest(key, request.id); setPending(false); }
+    if (error) throw new Error(error.message);
+  }, onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.all }) });
+  return { ...mutation, hasPending: pending };
+}

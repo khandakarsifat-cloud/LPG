@@ -46,10 +46,10 @@ export const usePurchaseDirectory = (filters: PurchaseFilters, pageSize: number)
     return data as { entries: Purchase[]; total: number };
   });
 
-export const usePurchaseOverview = () => useQuery<{ total: number; created: number; in_transit: number; unpaid: number; company_payable: number; outstanding?: number }>({
-  queryKey: [...purchaseKeys.all, 'overview'],
+export const usePurchaseOverview = (category?: string) => useQuery<{ total: number; created: number; in_transit: number; unpaid: number; company_payable: number; outstanding?: number }>({
+  queryKey: [...purchaseKeys.all, 'overview', category],
   queryFn: async ({ signal }) => {
-    const { data, error } = await supabase.rpc('get_purchase_overview').abortSignal(signal);
+    const { data, error } = await supabase.rpc('get_purchase_overview', { p_category: category ?? null }).abortSignal(signal);
     if (error) throw error;
     return data as { total: number; created: number; in_transit: number; unpaid: number; company_payable: number; outstanding?: number };
   }, refetchInterval: 30_000,

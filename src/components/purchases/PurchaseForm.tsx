@@ -7,6 +7,7 @@ import { PurchaseNumber, PurchaseSelect, PurchaseFinancials } from './PurchaseCo
 import { purchaseTotals } from '../../lib/purchase';
 import { formatBDT } from '../../lib/formatBDT';
 import type { Purchase, PurchaseDraft, PurchaseLinePayload } from '../../types/purchase';
+import { ProductImage } from '../inventory/ProductImage';
 
 export function PurchaseShipment({ draft, onChange }: { draft: PurchaseDraft; onChange: (draft: PurchaseDraft) => void }) {
   const vehiclesQuery = useVehicles();
@@ -55,11 +56,12 @@ export function PurchaseForm({ draft, onChange, companyId, purchase, showShipmen
         const item = items.find(item => item.item_id === line.item_id);
         const saved = purchase?.items.find(item => item.purchase_item_id === line.purchase_item_id);
         return <article className={`purchase-line${productsEditable ? ' purchase-line-editable' : ''}`} key={line.purchase_item_id ?? index}>
-            {productsEditable ? <PurchaseSelect label={`Product ${index + 1}`} value={line.item_id} onChange={id => updateLine(index, { item_id: id })}
+            {productsEditable ? <div className="purchase-line-product"><PurchaseSelect label={`Product ${index + 1}`} value={line.item_id} onChange={id => updateLine(index, { item_id: id })}
               options={items.filter(item => !draft.items.some((other, i) => i !== index && other.item_id === item.item_id && other.type === line.type))
                 .map(item => ({ value: item.item_id, label: `${item.lpg_brands?.brand_name ?? 'Product unavailable'} ${item.size_kg} kg${item.mouth_size ? ` · ${item.mouth_size}` : ''}`,
                   description: `${item.empty_quantity} empty cylinders available` }))} />
-              : <strong>{saved?.brand_name} {saved?.size_kg} kg {saved?.mouth_size}</strong>}
+              {item?.image_url && <ProductImage path={item.image_url} name={item.lpg_brands?.brand_name ?? 'Selected product'} />}</div>
+              : <div className="product-with-image">{saved?.image_url && <ProductImage path={saved.image_url} name={saved.brand_name} />}<strong>{saved?.brand_name} {saved?.size_kg} kg {saved?.mouth_size}</strong></div>}
             {productsEditable && <fieldset className="purchase-kind"><legend className="input-label">Purchase type</legend>
               <div className="purchase-segmented">
                 <button type="button" aria-pressed={line.type === 'refill'} disabled={draft.items.some((other, i) => i !== index && !!line.item_id && other.item_id === line.item_id && other.type === 'refill')} onClick={() => updateLine(index, { type: 'refill' })}>Refill</button>

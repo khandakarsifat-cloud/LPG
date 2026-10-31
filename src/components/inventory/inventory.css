@@ -1046,3 +1046,222 @@
     display: none;
   }
 }
+
+.inventory-worth{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border-subtle);padding:12px 16px;border-radius:var(--radius-md);margin-bottom:14px;font-size:.8rem}.inventory-worth strong{margin-left:10px;color:var(--info);font-size:1rem}.inventory-worth small{color:var(--text-soft)}
+.buying-history-list{display:grid;gap:9px}.buying-history-list small{display:block;color:var(--text-soft);font-size:.73rem;line-height:1.7}
+
+
+/* ==========================================================================
+   INVENTORY TABS BAR & ACTIONS
+   ========================================================================== */
+.inv-tabs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.inv-tabs-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.inv-tab-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.45rem 0.75rem;
+  min-height: 2.125rem;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.inv-tab-action-btn:hover {
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+}
+
+/* ==========================================================================
+   STOVE PRODUCT MODAL & PHOTO UPLOAD
+   ========================================================================== */
+.stove-modal {
+  width: min(34rem, calc(100vw - 2rem));
+  max-width: none;
+}
+
+.stove-modal--wide {
+  width: min(44rem, calc(100vw - 2rem));
+}
+
+.stove-modal-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.stove-photo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+.stove-photo-dropzone {
+  position: relative;
+  border: 1.5px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--surface-subtle);
+  padding: 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 120px;
+}
+
+.stove-photo-dropzone:hover {
+  border-color: var(--primary);
+  background: var(--primary-weak);
+}
+
+.stove-photo-icon {
+  color: var(--primary);
+  opacity: 0.85;
+}
+
+.stove-photo-prompt {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.stove-photo-hint {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.stove-photo-preview {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--surface-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stove-photo-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.stove-photo-actions {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.375rem;
+}
+
+.stove-photo-actions .btn {
+  font-size: 0.6875rem;
+  padding: 0.25rem 0.5rem;
+  min-height: 26px;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Stove Catalog Tiles */
+.stove-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  padding: 0.625rem;
+  gap: 0.375rem;
+  min-height: 190px;
+}
+
+.stove-tile-image {
+  width: 100%;
+  height: 96px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.stove-tile-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stove-tile-image--empty {
+  color: var(--text-muted);
+  opacity: 0.35;
+}
+
+.stove-tile-type {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.stove-edit-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.stove-edit-tab {
+  border: none;
+  background: transparent;
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.stove-edit-tab:hover {
+  color: var(--text-main);
+  background: var(--surface-muted);
+}
+
+.stove-edit-tab.active {
+  color: var(--primary);
+  background: var(--primary-weak);
+}

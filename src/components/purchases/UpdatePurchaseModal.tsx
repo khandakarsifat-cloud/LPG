@@ -1,3 +1,4 @@
+import { StovePurchaseForm } from './StovePurchaseForm';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -72,7 +73,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
       : access.financials && draft.commission > totals.subtotal ? 'Commission cannot exceed the product subtotal.' : null;
     setError(message); if (message) return;
     try {
-      if (access.products && !await checkEmpties()) return;
+      if (access.products && purchase.business_category !== 'stove' && !await checkEmpties()) return;
       await update.mutateAsync({ purchase_id: purchase.purchase_id, revision: draftRevision,
         draft: access.financials ? draft : { notes: draft.notes },
       });
@@ -105,14 +106,14 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
           {operation.hasPending && <p className="purchase-alert">A previous purchase transaction needs confirmation. <button type="button" className="btn btn-secondary" disabled={busy} onClick={async () => { try { await operation.mutateAsync(undefined); toast.success('Transaction confirmed'); } catch (cause) { handleError(cause); } }}>Recover transaction</button></p>}
           {dirty && draftRevision !== purchase.revision && <p className="purchase-alert">This purchase changed while you were editing. Your edits are still here. <button type="button" className="btn btn-secondary" onClick={loadSaved}>Reload saved purchase</button></p>}
           <p className={`purchase-alert${access.complete ? ' success' : ''}`}>
-            {access.complete ? 'Received and Paid. This purchase is complete; inventory, shipment and financial details are locked.'
+            {purchase.business_category === 'stove' ? (purchase.status === 'created' ? 'Receive directly into inventory or record a payment. Quantities and prices lock after either operation.' : purchase.status === 'received' ? 'Received stock is valued at recorded purchase cost. An owner may cancel only while its quantities and receipt value can be reversed; cash refunds remain separate.' : 'Cancelled. Record any remaining source-backed refund below.') : access.complete ? 'Received and Paid. This purchase is complete; inventory, shipment and financial details are locked.'
               : purchase.status === 'created' ? 'Prepare the shipment at your own pace. No inventory has moved. Save your changes before dispatch.'
               : purchase.status === 'in_transit' ? 'The shipment remains In Transit until the vehicle returns, including its time at the plant. Products and outgoing quantities are locked.'
               : purchase.status === 'received' ? 'Inventory and shipment details are finalized. Record the outstanding payments to settle the purchase. Received purchases cannot be cancelled.'
               : 'Cancellation is permanent. Dispatched empties have been returned and the vehicle released. Settle recorded refund obligations below; transit expenses remain separate.'}
           </p>
           {access.editable && access.financials ? <>
-            <PurchaseForm draft={draft} onChange={setDraft} companyId={purchase.brand_id} purchase={purchase} />
+            {purchase.business_category === 'stove' ? <StovePurchaseForm draft={draft} onChange={setDraft} /> : <PurchaseForm draft={draft} onChange={setDraft} companyId={purchase.brand_id} purchase={purchase} />}
             {purchase.receipt_notes && <section className="purchase-section"><h3>Receipt notes</h3><p className="purchase-hint">{purchase.receipt_notes}</p></section>}
           </> : <>
             <PurchaseSummary purchase={purchase} showNotes={!access.editable} />
@@ -140,9 +141,9 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
     {paymentDialog && settlement.data && <PurchasePaymentDialog purchase={purchase} settlement={settlement.data} refund={paymentDialog === 'refund'} operation={operation} onClose={() => setPaymentDialog(null)} />}
     {confirm && <PurchaseConfirmation title={{ dispatch: 'Dispatch this vehicle?', receive: 'Receive this shipment?', cancel: 'Cancel this purchase?' }[confirm]}
       action={confirm === 'cancel' ? 'Confirm cancellation' : confirm === 'receive' ? 'Receive shipment' : 'Dispatch vehicle'} busy={busy} confirmDisabled={operation.hasPending || confirm === 'cancel' && cancellationText !== 'CANCEL'} onCancel={() => setConfirm(null)} onConfirm={() => void transition()}>
-      {confirm === 'dispatch' ? <>
+      {purchase.business_category === 'stove' ? <><p>{confirm === 'receive' ? 'Receive the saved quantities directly into inventory. Quantities and prices become immutable.' : 'Cancel this purchase permanently. Received stock must still be available; inventory and supplier debt will be reversed. Cash refunds and applied supplier commissions remain auditable.'}</p>{confirm === 'cancel' && <label className="input-group"><span className="input-label">Type exactly CANCEL</span><input className="input-field" value={cancellationText} onChange={e => setCancellationText(e.target.value)} /></label>}</> : confirm === 'dispatch' ? <>
         <p>Dispatch <strong>{purchase.vehicle_name}</strong> to <strong>{purchase.plant_name}</strong>. Deduct <strong>{outgoing} empty cylinders</strong> from inventory; no filled cylinders are added yet.</p>
-        <p>Transfer {formatBDT(Number(purchase.transport_cost))} from the dealership wallet to logistics. This fee is counted once toward the purchase total.</p>
+        <p>Allocate {formatBDT(Number(purchase.transport_cost))} as an internal transport allocation, excluded from recorded revenue and profit. Dispatch does not transfer or deduct wallet money.</p>
         <p>Vehicle, products and expected quantities become locked until receipt.</p>
       </> : confirm === 'receive' ? <>
         <p>Receive all saved expected quantities from <strong>{purchase.plant_name}</strong>.</p>
@@ -151,7 +152,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
       </> : <>
         <p>Cancel this {purchase.status === 'created' ? 'draft' : 'purchase'} permanently. Unsaved edits will be discarded and normal purchase operations will stop.</p>
         <p>{purchase.status === 'created' ? 'No dispatched inventory needs returning.' : 'Return the recorded dispatched empties, cancel the linked transit and release the assigned vehicle.'} Received purchases can never be cancelled.</p>
-        <p>Company payments, labour and purchase-funded transport become separate refund obligations based on their original financial records. No money is refunded by this confirmation. Partial refunds may return to one or more active wallets; transport reversals debit Logistics.</p>
+        <p>Actual purchase payments create a source-backed refund obligation. No money is refunded by this confirmation. Partial refunds may return to one or more active wallets. Purchase transport remains an internal allocation; incurred costs remain payable.</p>
         <p>Legitimate vehicle operating expenses are preserved. Transit cost closure is independent of purchase refund completion. The purchase stays Pending refund until every obligation is settled.</p>
         <label className="input-group"><span className="input-label">Type exactly CANCEL</span><input className="input-field" aria-label="Type exactly CANCEL" autoComplete="off" value={cancellationText} onChange={e => setCancellationText(e.target.value)} disabled={busy} /></label>
       </>}

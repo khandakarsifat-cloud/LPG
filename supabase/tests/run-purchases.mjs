@@ -33,7 +33,7 @@ if (replayIndex === -1) {
   const { pg_trgm } = await import(pathToFileURL(resolve(moduleDir,'dist/contrib/pg_trgm.js')).href);
   const db = new PGlite({ extensions:{uuid_ossp,pg_trgm} });
   try {
-    await db.exec(`create role anon; create role authenticated; create role service_role bypassrls; create role supabase_admin superuser;
+    await db.exec(`create role anon; create role authenticated; create role authenticator; create role service_role bypassrls; create role supabase_admin superuser;
       create schema auth; create schema extensions;
       create extension "uuid-ossp" with schema extensions;
       create table auth.users(id uuid primary key,email text,is_anonymous boolean default false,raw_app_meta_data jsonb,raw_user_meta_data jsonb);
@@ -85,6 +85,15 @@ if (replayIndex === -1) {
         await db.exec(read('canonical.before.sql'));
       }
       if(name.endsWith('_employee_monthly_payroll.sql')) await db.exec(read('payroll-legacy.before.sql'));
+      if(name.endsWith('_logistics_overhaul.sql')) await db.exec('drop table if exists pg_temp.exchange_transit_snapshot;');
+      if(name.endsWith('_canonical_accounting.sql')) await db.exec(read('accounting-normalization.before.sql'));
+      if(name.endsWith('_unified_accounting_foundation.sql')) {
+        // Preserve the original contract suites at their owning migration
+        // boundary. The next forward model deliberately removes buying-price
+        // overrides and unvalued stock APIs.
+        await db.exec(read('fixture-helpers.sql'));
+        for(const suite of ['purchase-wallets.sql','authorization.sql','receipt_printers.sql','inventory.sql','sale-tier.sql','pos-integrity.sql','customers.sql','reporting.sql','finance.sql','bottles.sql','employees.sql','accounting.sql']) report('historical '+suite,await db.exec(read(suite)));
+      }
       const definition = readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8');
       try {
         await db.exec(name.includes('canonical_development_model') && !process.argv.includes('--deployment-batch') ? 'begin;\n'+definition+'\ncommit;' : definition);
@@ -99,6 +108,7 @@ if (replayIndex === -1) {
       console.log('Workflow migration preserves stock, wallet balances and all ledger history.');
       }
       if(name.endsWith('_canonical_development_model.sql')) report('canonical normalization',await db.exec(read('canonical.after.sql')));
+      if(name.endsWith('_canonical_accounting.sql')) report('accounting normalization',await db.exec(read('accounting-normalization.after.sql')));
       if(name.endsWith('_dynamic_settlement_receipts.sql')) report('settlement history preservation',await db.exec(read('settlement-legacy.after.sql')));
       if(name.endsWith('_aggregate_bottle_settlement.sql')) report('tracked bottle preservation',await db.exec(read('bottles-aggregate.after.sql')));
       if(name.endsWith('_sales_bottle_receivables.sql')) report('bottle legacy preservation',await db.exec(read('bottles-legacy.after.sql')));
@@ -110,7 +120,7 @@ if (replayIndex === -1) {
     console.log('Migration replay:', (await db.query('select version()')).rows[0].version);
     await db.exec('set row_security=on; set check_function_bodies=on;');
     await db.exec(read('fixture-helpers.sql'));
-    for(const name of ['purchase-wallets.sql','authorization.sql','receipt_printers.sql','inventory.sql','sale-tier.sql','pos-integrity.sql','customers.sql','reporting.sql','finance.sql','bottles.sql','employees.sql']) {
+    for(const name of ['unified-accounting.sql']) {
       await db.exec('set row_security=on;');
       report(name,await db.exec(read(name)));
     }

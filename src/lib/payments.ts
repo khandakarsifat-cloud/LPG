@@ -1,6 +1,6 @@
 import type { PaymentDraft, PaymentInput, PaymentWallet } from '../types/finance.ts';
 
-export const paymentMethodLabel: Record<string, string> = { cash: 'Cash', bkash: 'bKash', nagad: 'Nagad', bank: 'Bank', other: 'Other', logistics: 'Logistics' };
+export const paymentMethodLabel: Record<string, string> = { cash: 'Cash', bkash: 'bKash', nagad: 'Nagad', bank: 'Bank', other: 'Other' };
 export const minorUnits = (amount: number) => Math.round((amount + Number.EPSILON) * 100);
 export function paymentDraft(wallets: PaymentWallet[], amount: number): PaymentDraft {
   return { id: crypto.randomUUID(), wallet_id: wallets.find(w => w.type === 'cash')?.wallet_id ?? wallets[0]?.wallet_id ?? '', amount: (Math.max(0, minorUnits(amount)) / 100).toFixed(2), reference: '' };

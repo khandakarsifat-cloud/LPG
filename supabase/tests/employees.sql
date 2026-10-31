@@ -84,7 +84,8 @@ begin
  perform pg_temp.employee_reject(format('select public.save_transit_costs(%L,%L,3)',tr,'{"driver_cost":200,"helper_cost":0,"oil_cost":50,"others_cost":0}'),'below employee payments');
  perform pg_temp.employee_reject(format('select public.transition_transit(%L,%L,3)',tr,'complete'),'outstanding');
  body:=jsonb_set(body,'{items,0,payments}',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',200))); perform public.employee_payment_operation(body,gen_random_uuid());
- perform public.transition_transit(tr,'complete',4);
+ perform public.record_operating_payment(jsonb_build_object('transit_id',tr,'kind','expense','payment_date',today,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',50))),gen_random_uuid());
+ perform public.transition_transit(tr,'complete',5);
  perform pg_temp.employee_assert((public.get_transit_payroll(tr)->>'driver_paid')::numeric=500,'Logistics allocation retained');
  perform pg_temp.employee_reject(format('select public.employee_payment_operation(%L,%L)',body,gen_random_uuid()),'open operating costs');
  perform set_config('request.jwt.claim.sub','f2222222-2222-4222-8222-222222222222',true);

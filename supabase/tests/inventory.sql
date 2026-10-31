@@ -119,6 +119,7 @@ select 'a1000000-0000-4000-8000-000000000003',a,'inventory-manager@example.inval
 insert into public.user_roles(tenant_id,user_id,role_id)
 select a,'a1000000-0000-4000-8000-000000000003',r.role_id from inv_context join public.roles r on r.tenant_id=a and r.name='MANAGER';
 
+update public.purchases set labour_cost=labour_cost where status='received' and tenant_id in(select a from inv_context union select b from inv_context);
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000002',true);
 do $$ declare d jsonb; begin
@@ -132,9 +133,9 @@ do $$ declare d jsonb; begin
   perform pg_temp.inv_check((d#>>'{weeks,7,sold_refill}')::integer=0,'zero activity stays visible');
   perform pg_temp.inv_check(extract(dow from (d#>>'{weeks,0,start_date}')::date)=6
     and extract(dow from (d#>>'{weeks,0,end_date}')::date)=5,'Saturday to Friday in Dhaka');
-  perform pg_temp.inv_check((select (x->>'estimated_unit_cost')::numeric=140 from jsonb_array_elements(d->'buying_costs') x where x->>'type'='refill'),
+  perform pg_temp.inv_check((select (x->>'price')::numeric=140 from jsonb_array_elements(d->'buying_prices') x where x->>'type'='refill'),
     'refill cost 100 + (300+100)/10, excluding purchase commission');
-  perform pg_temp.inv_check((select (x->>'estimated_unit_cost')::numeric=240 from jsonb_array_elements(d->'buying_costs') x where x->>'type'='package'),
+  perform pg_temp.inv_check((select (x->>'price')::numeric=240 from jsonb_array_elements(d->'buying_prices') x where x->>'type'='package'),
     'package cost 200 + shared overhead 40, excluding purchase commission');
   perform pg_temp.inv_check((d->>'can_manage_prices')::boolean=false,'reader has no pricing authority');
   perform pg_temp.inv_check(jsonb_array_length(d->'prices')=2,'current price windows only');
@@ -178,8 +179,8 @@ do $$ declare d jsonb; first_version uuid; latest_version uuid; original_order u
   d:=public.get_product_inventory('f1000000-0000-4000-8000-000000000001');
   first_version:=(d#>>'{commission,version}')::uuid;
   perform pg_temp.inv_check((d#>>'{commission,refill_rate}')::numeric=15 and (d#>>'{commission,package_rate}')::numeric=35 and first_version is not null,'explicit current commission');
-  perform pg_temp.inv_check((select (x->>'estimated_unit_cost')::numeric=125 and (x->>'commission_per_unit')::numeric=15 from jsonb_array_elements(d->'buying_costs') x where x->>'type'='refill'),'manual refill commission deducted from estimate');
-  perform pg_temp.inv_check((select (x->>'estimated_unit_cost')::numeric=205 and (x->>'commission_per_unit')::numeric=35 from jsonb_array_elements(d->'buying_costs') x where x->>'type'='package'),'separate manual package commission deducted from estimate');
+  perform pg_temp.inv_check((select (x->>'price')::numeric=125 and (x->>'commission_per_unit')::numeric=15 from jsonb_array_elements(d->'buying_prices') x where x->>'type'='refill'),'manual refill commission deducted from estimate');
+  perform pg_temp.inv_check((select (x->>'price')::numeric=205 and (x->>'commission_per_unit')::numeric=35 from jsonb_array_elements(d->'buying_prices') x where x->>'type'='package'),'separate manual package commission deducted from estimate');
   perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',0,-1,null)$q$,'nonnegative');
   perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',0,1.001,null)$q$,'two decimal');
   perform pg_temp.inv_fails($q$select public.set_product_commissions('f1000000-0000-4000-8000-000000000001',0,'Infinity'::numeric,null)$q$,'nonnegative');
@@ -219,12 +220,12 @@ select pg_temp.inv_fails($q$update public.product_commission_rates set refill_co
 select pg_temp.inv_fails($q$update public.product_commission_rates set package_commission_per_unit=99 where created_by='a1000000-0000-4000-8000-000000000001'$q$,'immutable');
 select pg_temp.inv_fails($q$delete from public.product_commission_rates where created_by='a1000000-0000-4000-8000-000000000001'$q$,'immutable');
 select pg_temp.inv_check((select count(*)=1 and max(display_order)=0 from public.lpg_brands b join inv_context c on b.tenant_id=c.b),'other tenant brand order unchanged');
-select pg_temp.inv_check((select count(*)=0 from public.price_books where customer_tier='wholesale'),'second-line failure rolls back both prices');
-select pg_temp.inv_check((select count(*)=2 from public.price_books where price in (1250,2500)),'refill and package share one timestamp without collision');
-select pg_temp.inv_check((select count(*)=1 from public.price_books where price=9999 and effective_to is null),'future scheduled price preserved');
-select pg_temp.inv_check((select bool_and(effective_to=now()+interval '1 day') from public.price_books where price=1250),
+select pg_temp.inv_check((select count(*)=0 from public.price_books where tenant_id=(select a from inv_context) and customer_tier='wholesale'),'second-line failure rolls back both prices');
+select pg_temp.inv_check((select count(*)=2 from public.price_books where tenant_id=(select a from inv_context) and price in (1250,2500)),'refill and package share one timestamp without collision');
+select pg_temp.inv_check((select count(*)=1 from public.price_books where tenant_id=(select a from inv_context) and price=9999 and effective_to is null),'future scheduled price preserved');
+select pg_temp.inv_check((select bool_and(effective_to=now()+interval '1 day') from public.price_books where tenant_id=(select a from inv_context) and price=1250),
   'new price ends at the next scheduled price');
-select pg_temp.inv_check((select count(*)=2 from public.price_books where effective_to=(select min(effective_from) from public.price_books where price=1250)),
+select pg_temp.inv_check((select count(*)=2 from public.price_books where tenant_id=(select a from inv_context) and effective_to=(select min(effective_from) from public.price_books where tenant_id=(select a from inv_context) and price=1250)),
   'old active prices closed, history preserved');
 select pg_temp.inv_check(not has_function_privilege('anon','public.get_product_inventory(uuid)','EXECUTE')
   and not has_function_privilege('anon','public.save_product_prices(uuid,text,jsonb,jsonb)','EXECUTE'),'anonymous denied');

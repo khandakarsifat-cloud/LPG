@@ -6,10 +6,9 @@ Windows. `sample.py` is a read-only five-second VPS sampler; it generates no loa
 requests. Azure is never contacted. Keep all private artifacts under the ignored
 `.temp/vps-capacity/` directory.
 
-Read the root README, AGENTS, deployment guide and
-[Azure reporting benchmark](../../../docs/reports/2026-10-23-customer-load-test.md)
-before a new run. Do not reuse its read-only disposable database as a mixed-write
-fixture: its stock and payment history were deliberately incomplete.
+Read the root README, AGENTS, and deployment guide
+before a new run. Do not reuse earlier read-only disposable databases as a mixed-write
+fixture: stock and payment history were deliberately incomplete.
 
 ## Preparation and execution
 

@@ -20,7 +20,7 @@ export function PurchaseDialog({ title, subtitle, children, onClose, busy = fals
     return () => { dialog?.close(); document.body.style.overflow = previous; };
   }, []);
   return createPortal(<dialog ref={ref} className={`purchase-dialog${compact ? ' purchase-dialog-compact' : ''} ${className}`}
-    aria-labelledby={titleId} aria-describedby={subtitle ? `${titleId}-description` : undefined} onCancel={event => { event.preventDefault(); event.stopPropagation(); if (!busy) onClose(); }}>
+    aria-labelledby={titleId} aria-describedby={subtitle ? `${titleId}-description` : undefined} onCancel={event => { if (event.target !== event.currentTarget) return; event.preventDefault(); event.stopPropagation(); if (!busy) onClose(); }}>
     <div className="modal-header">
       <div><h2 id={titleId} className="modal-title">{title}</h2>{subtitle && <p id={`${titleId}-description`} className="modal-subtitle">{subtitle}</p>}</div>
       <button type="button" className="modal-close" aria-label="Close dialog" onClick={onClose} disabled={busy}><X size={20} /></button>
@@ -88,10 +88,15 @@ export function PurchaseStatuses({ purchase }: { purchase: Pick<Purchase, 'statu
   </div>;
 }
 
-export function PurchaseFinancials({ draft, totals, onChange }: {
+export function PurchaseFinancials({ draft, totals, onChange, businessCategory = 'lpg' }: {
   draft: PurchaseDraft; totals: { subtotal: number; company_payable: number; total_cost: number };
   onChange?: (draft: PurchaseDraft) => void;
+  businessCategory?: 'lpg' | 'stove';
 }) {
+  if (businessCategory === 'stove') return <section className="purchase-section"><h3>Financial breakdown</h3><dl className="purchase-totals">
+    <div><dt>Product subtotal</dt><dd>{formatBDT(totals.subtotal)}</dd></div>
+    <div className="purchase-total"><dt>Supplier payable</dt><dd>{formatBDT(totals.company_payable)}</dd></div>
+  </dl></section>;
   return <section className="purchase-section"><h3>Financial breakdown</h3>
     <div className="purchase-financial-grid">
       {onChange && <div className="purchase-cost-fields">
@@ -103,9 +108,9 @@ export function PurchaseFinancials({ draft, totals, onChange }: {
         <div><dt>Product subtotal</dt><dd>{formatBDT(totals.subtotal)}</dd></div>
         <div><dt>Commission</dt><dd>− {formatBDT(draft.commission)}</dd></div>
         <div className="purchase-payable"><dt>Company payable</dt><dd>{formatBDT(totals.company_payable)}</dd></div>
-        <div><dt>Transport cost</dt><dd>{formatBDT(draft.transport_cost)}</dd></div>
+        <div><dt>Transport allocation (internal)</dt><dd>{formatBDT(draft.transport_cost)}</dd></div>
         <div><dt>Labour cost</dt><dd>{formatBDT(draft.labour_cost)}</dd></div>
-        <div className="purchase-total"><dt>Total purchase cost</dt><dd>{formatBDT(totals.total_cost)}</dd></div>
+        <div className="purchase-payable"><dt>External payable (company + labour)</dt><dd>{formatBDT((Math.round(totals.company_payable*100)+Math.round(draft.labour_cost*100))/100)}</dd></div><div className="purchase-total"><dt>Total allocated purchase cost</dt><dd>{formatBDT(totals.total_cost)}</dd></div>
       </dl>
     </div>
   </section>;

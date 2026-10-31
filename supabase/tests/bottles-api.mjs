@@ -26,9 +26,10 @@ try {
  const a=randomUUID(),other=randomUUID(),small=randomUUID();const t=uuid(owner.tenant);
  const brandIds=[randomUUID(),randomUUID(),randomUUID()];
  sql(`insert into public.lpg_brands(tenant_id,brand_id,brand_name) values(${t},${uuid(brandIds[0])},'Bottle fixture Bashundhara'),(${t},${uuid(brandIds[1])},'Bottle fixture Jamuna'),(${t},${uuid(brandIds[2])},'Bottle fixture small');
- insert into public.items(tenant_id,item_id,brand_id,size_kg,mouth_size,filled_quantity,empty_quantity)values(${t},${uuid(a)},${uuid(brandIds[0])},12,'22mm',100,10),(${t},${uuid(other)},${uuid(brandIds[1])},12,'22mm',100,10),(${t},${uuid(small)},${uuid(brandIds[2])},5,'20mm',100,10);
+ insert into public.items(tenant_id,item_id,brand_id,size_kg,mouth_size,filled_quantity,empty_quantity)values(${t},${uuid(a)},${uuid(brandIds[0])},12,'22mm',0,0),(${t},${uuid(other)},${uuid(brandIds[1])},12,'22mm',0,0),(${t},${uuid(small)},${uuid(brandIds[2])},5,'20mm',0,0);
  insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from)values(${t},${uuid(a)},'retail','refill',100,now()-interval '1 day');`);
 
+ for(const item_id of [a,other,small])await checked(c.rpc('adjust_inventory',{p_payload:{item_id,kind:'opening',filled_quantity:100,empty_quantity:10,filled_unit_cost:80,empty_unit_cost:50,reason:'Verified bottle workflow fixture stock'},p_request_id:randomUUID()}));
  const customer=await checked(c.from('customers').insert({tenant_id:owner.tenant,name:'Bottle fixture customer',phone:'01700000000',tier:'retail'}).select().single());
  const cash=(await checked(c.rpc('get_payment_wallets'))).find(w=>w.type==='cash');assert(cash);
  const cart=[{item_id:a,type:'refill',quantity:5,unit_price:100},{item_id:a,type:'empty_return',quantity:5,unit_price:0}];
@@ -79,7 +80,8 @@ try {
  const costs=await checked(c.rpc('get_wallet_ledger',{p_filters:{type:'sale_bottle_expense'}}));assert.equal(costs.total,0);assert.equal(costs.paid_out,0);
  const currentReceipt=await checked(c.rpc('get_sale_receipt',{p_sale_id:sid}));assert.equal(currentReceipt.settlement.additional_charges,75);assert.equal(currentReceipt.settlement.paid,575);assert.equal(currentReceipt.bottles.received,5);
  const over=await create({lines:[receipt(a,7,{acknowledged:true})]});assert.equal((await state(over.sale_id)).received,7);assert.equal((await state(over.sale_id)).outstanding,0);
- const alternate=await create({lines:[receipt(small,6,{acknowledged:true})]});assert.equal((await state(alternate.sale_id)).received,6);assert.equal((await state(alternate.sale_id)).outstanding,0);
+ await denied(c.rpc('create_pos_sale',{...args,p_request_id:randomUUID(),p_bottles:{lines:[receipt(small,6,{acknowledged:true})]}}));
+ const alternate=await create({lines:[]});await collect(alternate.sale_id,[receipt(small,6,{acknowledged:true})]);assert.equal((await state(alternate.sale_id)).received,6);assert.equal((await state(alternate.sale_id)).outstanding,0);
  assert.equal(sql(`select count(*) from public.sale_bottle_receipt_lines where tenant_id=${t} and quantity<=0`),'0');
  // Capability independence: bottle-only staff can collect, cannot charge or receive money.
  sql(`delete from public.role_permissions where tenant_id=${t} and permission_id not in ('sales:view','sales:collect_bottles');`);
@@ -147,6 +149,7 @@ try {
   const checkout=page.getByRole('dialog',{name:'Confirm Sale',exact:true});
   assert.equal(await checkout.getByRole('button',{name:/Received bottles/}).getAttribute('aria-expanded'),'false');
   await checkout.getByRole('button',{name:/Received bottles/}).click();
+  assert.equal(await checkout.getByText('Other received products',{exact:true}).count(),0);
   assert.equal(await checkout.getByLabel('Received quantity 1',{exact:true}).inputValue(),'1');
   await checkout.getByRole('button',{name:/Decrease Bottle fixture Bashundhara/}).click();
   assert(await checkout.getByRole('button',{name:'Confirm',exact:true}).isEnabled());
@@ -162,8 +165,8 @@ try {
  }
 } finally {
  if(browser)await browser.close();
- if(tenants.length){const ids=tenants.map(uuid).join(',');const tables=['finance_requests','wallet_transactions','customer_transactions','sale_payments','sale_bottle_receipt_lines','sale_bottle_receipts','sale_items','sales','inventory_movements','price_books','items','lpg_brands','customers','receipt_printers','wallets','user_roles','role_permissions','roles','audit_logs','user_profiles','tenants'];
-  sql(`begin;do $$begin if exists(select 1 from public.tenants where tenant_id in (${ids}) and business_name not like 'Bottle API fixture %') then raise exception 'Not a bottle fixture';end if;end$$;create temporary table bottle_fixture_cleanup(id integer);create function pg_temp.bottle_fixture_cleanup() returns trigger language plpgsql as $$begin ${tables.map(t=>`delete from public.${t} where tenant_id in (${ids});`).join('\n')} return new;end$$;create trigger cleanup after insert on bottle_fixture_cleanup for each row execute function pg_temp.bottle_fixture_cleanup();insert into bottle_fixture_cleanup values(1);commit;`);
+ if(tenants.length){const ids=tenants.map(uuid).join(',');const tables=sql("select c.table_name from information_schema.columns c join information_schema.tables t using(table_catalog,table_schema,table_name) where c.table_schema='public' and c.column_name='tenant_id' and t.table_type='BASE TABLE' order by c.table_name;").split('\n');assert(tables.every(t=>/^[a-z_]+$/.test(t)));
+  sql(`begin;do $$begin if exists(select 1 from public.tenants where tenant_id in (${ids}) and business_name not like 'Bottle API fixture %') then raise exception 'Not a bottle fixture';end if;end$$;set local session_replication_role=replica;delete from app_private.accounting_source_state where tenant_id in (${ids});${tables.map(t=>`delete from public.${t} where tenant_id in (${ids});`).join('\n')}commit;`);
  }
  if(users.length)sql(`delete from auth.users where id in (${users.map(uuid).join(',')});`);
  for(const c of clients)await c.auth.signOut();

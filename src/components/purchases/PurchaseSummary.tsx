@@ -7,20 +7,23 @@ import { describePurchaseActivity } from '../../lib/purchaseActivity';
 import { formatBDT } from '../../lib/formatBDT';
 import { PurchaseFinancials, PurchaseStatuses } from './PurchaseControls';
 import type { Purchase } from '../../types/purchase';
+import { ProductImage } from '../inventory/ProductImage';
 
 export function PurchaseIdentity({ purchase }: { purchase: Purchase }) {
   return <section className="purchase-section"><PurchaseStatuses purchase={purchase} />
     <dl className="purchase-meta">
-      <div><dt>Company</dt><dd>{purchase.company_name ?? 'Historical company not recorded'}</dd></div>
-      <div><dt>Plant</dt><dd>{purchase.plant_name}</dd></div>
-      <div><dt>Vehicle</dt><dd>{purchase.vehicle_name ?? 'Not assigned'}</dd></div>
+      <div><dt>{purchase.business_category === 'stove' ? 'Supplier' : 'Company'}</dt><dd>{purchase.business_category === 'stove' ? purchase.supplier_name : purchase.company_name ?? 'Historical company not recorded'}</dd></div>
+      {purchase.business_category === 'stove' ? <div><dt>Delivery</dt><dd>Direct inventory receipt</dd></div> : <>
+        <div><dt>Plant</dt><dd>{purchase.plant_name}</dd></div>
+        <div><dt>Vehicle</dt><dd>{purchase.vehicle_name ?? 'Not assigned'}</dd></div>
+      </>}
       <div><dt>Created</dt><dd>{purchaseDate(purchase.created_at)}</dd></div>
       {purchase.dispatched_at && <div><dt>Dispatched</dt><dd>{purchaseDate(purchase.dispatched_at)}</dd></div>}
       {purchase.received_at && <div><dt>Received</dt><dd>{purchaseDate(purchase.received_at)}</dd></div>}
       {purchase.paid_at && <div><dt>Paid</dt><dd>{purchaseDate(purchase.paid_at)}</dd></div>}
       {Number(purchase.operating_cost) > 0 && <div><dt>Logistics operating costs</dt><dd>{formatBDT(Number(purchase.operating_cost))}</dd></div>}
     </dl>
-    {Number(purchase.operating_cost) > 0 && <p className="purchase-hint">Operating costs are recorded against the logistics wallet separately from purchase transport and labour charges.</p>}
+    {Number(purchase.operating_cost) > 0 && <p className="purchase-hint">Transit costs are incurred separately and paid from real wallets. The purchase transport charge is an internal revenue allocation.</p>}
   </section>;
 }
 
@@ -29,10 +32,10 @@ export function PurchaseSummary({ purchase, showNotes = true }: { purchase: Purc
   return <>
     <section className="purchase-section"><h3>Products & inventory</h3>
       {purchase.items.length ? <div className="purchase-table-wrap"><table className="purchase-summary-table">
-        <thead><tr><th scope="col">Product</th><th scope="col">Empties sent</th><th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Billed</th><th scope="col">Unit price</th><th scope="col">Amount</th></tr></thead>
+        <thead><tr><th scope="col">Product</th>{purchase.business_category !== 'stove' && <th scope="col">Empties sent</th>}<th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Billed</th><th scope="col">Unit price</th><th scope="col">Amount</th></tr></thead>
         <tbody>{paging.entries.map(item => <tr key={item.purchase_item_id}>
-          <td>{item.brand_name} {item.size_kg} kg {item.mouth_size}<small>{item.type === 'refill' ? 'Refill' : 'New cylinders'}</small></td>
-          <td data-label="Empties sent">{item.empty_dispatched}</td><td data-label="Expected">{item.quantity}</td><td data-label="Received">{item.received_quantity ?? 'Pending'}</td><td data-label="Billed">{item.billed_quantity}</td>
+          <td><div className="product-with-image">{item.image_url && <ProductImage path={item.image_url} name={item.product_name || item.brand_name} />}<div>{item.product_name || `${item.brand_name} ${item.size_kg} kg ${item.mouth_size ?? ''}`}<small>{purchase.business_category === 'stove' ? 'Product' : item.type === 'refill' ? 'Refill' : 'New cylinders'}</small></div></div></td>
+          {purchase.business_category !== 'stove' && <td data-label="Empties sent">{item.empty_dispatched}</td>}<td data-label="Expected">{item.quantity}</td><td data-label="Received">{item.received_quantity ?? 'Pending'}</td><td data-label="Billed">{item.billed_quantity}</td>
           <td data-label="Unit price">{formatBDT(Number(item.unit_price))}</td><td data-label="Amount">{formatBDT(Number(item.line_total))}</td>
         </tr>)}</tbody>
       </table></div> : <p className="purchase-hint">Products have not been added.</p>}
@@ -41,7 +44,7 @@ export function PurchaseSummary({ purchase, showNotes = true }: { purchase: Purc
       {purchase.items.some(item => item.received_quantity !== null && item.received_quantity !== item.billed_quantity) &&
         <p className="purchase-alert">Delivery quantities differ from the prepaid bill. Inventory reflects the actual delivery; the settled financial amount is unchanged.</p>}
     </section>
-    <PurchaseFinancials draft={purchaseDraft(purchase)} totals={purchase} />
+    <PurchaseFinancials draft={purchaseDraft(purchase)} totals={purchase} businessCategory={purchase.business_category} />
     {showNotes && purchase.notes && <section className="purchase-section"><h3>Notes</h3><p style={{ whiteSpace: 'pre-wrap', fontSize: '.875rem' }}>{purchase.notes}</p></section>}
   </>;
 }

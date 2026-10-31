@@ -22,14 +22,7 @@ export interface ProductPrice {
   effective_from: string;
 }
 
-export interface ProductBuyingCost {
-  type: PriceType;
-  received_at: string | null;
-  bottle_cost: number;
-  overhead_per_unit: number;
-  commission_per_unit: number;
-  estimated_unit_cost: number;
-}
+export interface InventoryValuation { known_value: number; filled_value: number; empty_value: number; reconstructed_products: number; lpg_value: number; stove_value: number }
 
 export interface ProductWeek {
   start_date: string;
@@ -45,9 +38,18 @@ export interface ProductInventory {
   can_manage_prices: boolean;
   commission: { refill_rate: number; package_rate: number; version: string | null };
   prices: ProductPrice[];
-  buying_costs: ProductBuyingCost[];
+  buying_prices: BuyingPrice[];
+  valuation: import('./accounting.ts').CostPool;
   weeks: ProductWeek[];
 }
+
+export interface BuyingPrice {
+  history_id: string; price_type: PriceType; new_price: number | null; previous_price: number | null;
+  automatic_price: number | null; is_manual: boolean; bottle_cost: number | null; overhead_per_unit: number | null;
+  commission_per_unit: number | null; purchase_id: string | null; source: string; reason: string; effective_at: string;
+  actor?: string; reconstructed: boolean;
+}
+export interface CommissionHistory { rate_id: string; refill_commission_per_unit: number; package_commission_per_unit: number; created_at: string; actor: string }
 
 export interface SetProductCommission {
   itemId: string;
@@ -74,6 +76,7 @@ export interface LPGBrand {
 }
 
 export interface Item {
+  image_url?: string | null;
   tenant_id: string;
   item_id: string;
   brand_id: string;
@@ -90,7 +93,7 @@ export interface ItemWithBrand extends Item {
 }
 
 /** Product identity can be shared without granting access to current stock balances. */
-export type InventoryProductIdentity = Pick<Item, 'item_id' | 'brand_id' | 'size_kg' | 'mouth_size'> & {
+export type InventoryProductIdentity = Pick<Item, 'item_id' | 'brand_id' | 'size_kg' | 'mouth_size' | 'image_url'> & {
   lpg_brands: Pick<LPGBrand, 'brand_id' | 'brand_name'> | null;
 };
 
@@ -106,11 +109,12 @@ export interface InventoryMovement {
   reference_id: string | null;
   created_by: string | null;
   created_at: string;
-  items: (Pick<Item, 'size_kg' | 'filled_quantity' | 'empty_quantity' | 'mouth_size'> & { lpg_brands: LPGBrand | null }) | null;
+  items: ({ product_name?: string | null } & Pick<Item, 'size_kg' | 'filled_quantity' | 'empty_quantity' | 'mouth_size'> & { lpg_brands: LPGBrand | null }) | null;
   user_profiles: { email: string | null } | null;
 }
 
 export interface CreateItemPayload {
+  image_url?: string | null;
   brand_id: string;
   size_kg: number;
   mouth_size?: MouthSize | null;

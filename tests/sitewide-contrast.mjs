@@ -9,13 +9,13 @@ assert(process.argv.includes('--vps'), 'Explicit --vps target required');
 const phase = process.argv.includes('--before') ? 'before' : 'after';
 const frontend = parseEnv(readFileSync('deploy/.env.frontend','utf8'));
 const secret = {...parseEnv(readFileSync('.env.live-test','utf8')),...process.env};
-const api = 'https://api.lpg.144.79.249.4.sslip.io', worker = 'https://floral-dew-443b.khandakarsifat.workers.dev';
+const api = 'https://api.lpg.144.79.249.4.sslip.io', worker = process.env.LPG_BROWSER_BASE ?? 'https://floral-dew-443b.khandakarsifat.workers.dev';
 assert.equal(frontend.VITE_SUPABASE_URL,api);assert.equal(secret.LPG_TEST_EMAIL,'sifatsiam244@gmail.com');
 const folder = `.temp/sitewide-contrast/${phase}`;mkdirSync(folder,{recursive:true});
 const client = createClient(api,frontend.VITE_SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
-const pages = [['','Dashboard'],['inventory','Inventory'],['pos','Point of Sale'],['sales','Sales'],['purchases','Purchases'],['customers','Customers'],['employees','Employees'],['finance','Finance'],['logistics','Logistics'],['gas-plants','Gas Plants'],['settings','Settings']];
-const modalActions = {inventory:'Add Item',purchases:'New Purchase',customers:'Add customer',finance:'Add wallet',logistics:'Add Truck','gas-plants':'Add Gas Plant'};
-const pageRoots = {'':'.dashboard-workspace',inventory:'.inventory-page',pos:'.pos-page',sales:'.sales-page',purchases:'.purchases-page',customers:'.customers-page',employees:'.employee-page',finance:'.finance-page',logistics:'.logistics-header','gas-plants':'.inventory-page',settings:'.settings-header'};
+const pages = [['','Dashboard'],['inventory','Inventory'],['pos','Point of Sale'],['sales','Sales'],['purchases','Purchases'],['customers','Customers'],['employees','Employees'],['finance','Finance'],['logistics','Logistics'],['settings','Settings']];
+const modalActions = {inventory:'Add Item',purchases:'New Purchase',customers:'Add customer',finance:'Add wallet',logistics:'Add vehicle','gas-plants':'Add Gas Plant'};
+const pageRoots = {'':'.dashboard-workspace',inventory:'.inventory-page',pos:'.pos-page',sales:'.sales-page',purchases:'.purchases-page',customers:'.customers-page',employees:'.employee-page',finance:'.finance-page',logistics:'.logistics-page','gas-plants':'.inventory-page',settings:'.settings-workspace'};
 const luminance = hex => { const raw=hex.replace('#','');const v=raw.length===3?[...raw].map(x=>x+x).join(''):raw;assert.match(v,/^[a-f0-9]{6}$/i,'Expected opaque hex colour');const rgb=[0,2,4].map(i=>parseInt(v.slice(i,i+2),16)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722; };
 const contrast = (a,b) => {const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
 const settleDialog = async page => {
@@ -37,8 +37,9 @@ try {
    await page.getByRole('heading',{name:title,exact:true}).first().waitFor();
    await page.locator(pageRoots[route]).waitFor();
    await page.waitForLoadState('networkidle');
-   await page.waitForFunction(()=>!Array.from(document.querySelectorAll('.page-content [role="status"]')).some(el=>el.textContent.toLowerCase().includes('loading')));
-   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${route||'dashboard'} overflow at ${width}`);
+   await page.waitForFunction(()=>!Array.from(document.querySelectorAll('.page-content')).some(el=>/\bLoading\b/i.test(el.innerText)));
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1 && Array.from(document.querySelectorAll('.page-content')).every(e=>e.scrollWidth<=e.clientWidth+1)),`${route||'dashboard'} overflow at ${width}`);
+   await page.evaluate(theme=>document.documentElement.setAttribute('data-theme',theme),theme);
    const filename=`${route||'dashboard'}-${width}-${theme}.png`;await page.screenshot({path:`${folder}/${filename}`,animations:'disabled'});
    const palette = await page.evaluate(()=>{const css=getComputedStyle(document.documentElement);return Object.fromEntries(['--primary','--app-bg','--surface','--input-bg','--border-subtle','--border-strong','--text-main','--text-muted','--text-soft'].map(name=>[name,css.getPropertyValue(name).trim()]));});
    const ratios={text:contrast(palette['--text-main'],palette['--surface']),supportingText:contrast(palette['--text-muted'],palette['--surface']),fieldBorder:contrast(palette['--border-strong'],palette['--input-bg'])};
@@ -65,8 +66,13 @@ try {
      results.push({modal:route,width,theme});
     }
    } else if(route==='settings') {
-    await page.getByRole('button',{name:'Attendance',exact:true}).click();await page.getByRole('region',{name:'Attendance settings'}).waitFor();
+    await page.getByRole('button',{name:'Business profile',exact:true}).click();await page.getByRole('region',{name:'Attendance settings'}).waitFor();
     await page.screenshot({path:`${folder}/attendance-settings-${width}-${theme}.png`,animations:'disabled'});results.push({page:'attendance-settings',width,theme});
+    for(const name of ['Stove product types','Vehicle expenses','Spending categories','Gas plants','LPG brands','Employee roles','Cylinder weights','Appearance']) {
+      await page.getByRole('navigation',{name:'Settings sections'}).getByRole('button',{name,exact:true}).click();await page.waitForLoadState('networkidle');
+      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1 && Array.from(document.querySelectorAll('.page-content')).every(e=>e.scrollWidth<=e.clientWidth+1)),`${name} overflow at ${width}`);
+      await page.screenshot({path:`${folder}/settings-${name.toLowerCase().replaceAll(' ','-')}-${width}-${theme}.png`,animations:'disabled'});results.push({page:'settings-'+name,width,theme});
+    }
    }
   }
   await context.close();

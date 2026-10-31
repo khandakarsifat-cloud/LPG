@@ -46,9 +46,10 @@ test('partial and normalized receipts preserve bottle facts and payment provenan
   assert(historical.some(l => l.text === 'Paid without recorded payment methods'));
 });
 
-test('acknowledged over-receipts and alternate checkout products are accepted', () => {
+test('different products require later Bottle Settlement; expected checkout over-receipts retain acknowledgement', () => {
   const actual = { item_id: 'b', name: 'Other 5kg 20mm', size_kg: 5, mouth_size: '20mm' };
   assert.equal(validateBottles([product], [product, actual], [{ received_item_id: 'b', quantity: 8, acknowledged: true }], true).error, undefined);
-  assert.equal(validateBottles([product], [product, actual], [{ received_item_id: 'b', quantity: 2, acknowledged: true }]).error, undefined);
+  assert.match(validateBottles([product], [product, actual], [{ received_item_id: 'b', quantity: 2, acknowledged: true }]).error ?? '', /only expected/);
+  assert.equal(validateBottles([product], [product], [{ received_item_id: 'a', quantity: 8, acknowledged: true }]).error, undefined);
   assert.match(validateBottles([product], [product, actual], [{ received_item_id: 'b', quantity: 8 }], true).error ?? '', /Acknowledge/);
 });

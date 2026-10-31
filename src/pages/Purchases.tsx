@@ -1,3 +1,5 @@
+import { CreateStovePurchaseModal } from '../components/purchases/StovePurchaseForm';
+import type { BusinessCategory } from '../types/accounting';
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { PurchasesList } from '../components/purchases/PurchasesList';
@@ -7,13 +9,14 @@ import { formatBDT } from '../lib/formatBDT';
 import { usePurchaseOverview } from '../hooks/usePurchases';
 
 export const PurchasesPage = () => {
+  const [category, setCategory] = useState<BusinessCategory>('lpg');
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const { can } = useAuth();
-  const purchasesQuery = usePurchaseOverview();
+  const purchasesQuery = usePurchaseOverview(category);
   const summaryValue = (value: number | string) => purchasesQuery.isLoading ? '…' : purchasesQuery.isError ? '—' : value;
 
   return (
-    <div className="purchases-page">
+    <div className="purchases-page"><div className="finance-actions business-switch" role="group" aria-label="Purchase business category">{(['lpg','stove'] as const).map(c => <button key={c} className={`btn ${category === c ? 'btn-primary' : 'btn-secondary'}`} aria-pressed={category === c} onClick={() => setCategory(c)}>{c === 'lpg' ? 'LPG Business' : 'Stove Business'}</button>)}</div>
       {/* ── Page Header ── */}
       <div className="page-header purchases-header">
         <dl className="purchase-list-summary" aria-label="Purchase overview">
@@ -36,10 +39,11 @@ export const PurchasesPage = () => {
 
       {/* ── Purchases List ── */}
       <div className="purchase-list-panel">
-        <PurchasesList totalPurchases={purchasesQuery.data?.total} />
+        <PurchasesList key={category} category={category} totalPurchases={purchasesQuery.data?.total} />
       </div>
 
-      <CreatePurchaseModal open={purchaseOpen} onClose={() => setPurchaseOpen(false)} />
+      {purchaseOpen && category === 'stove' && <CreateStovePurchaseModal onClose={() => setPurchaseOpen(false)} />}
+      <CreatePurchaseModal open={purchaseOpen && category === 'lpg'} onClose={() => setPurchaseOpen(false)} />
     </div>
   );
 };

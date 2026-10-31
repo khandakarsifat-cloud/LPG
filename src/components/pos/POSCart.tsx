@@ -1,3 +1,5 @@
+import { useStoveProducts } from '../../hooks/useAccounting';
+import type { BusinessCategory } from '../../types/accounting';
 import { PurchaseNumber } from '../purchases/PurchaseControls';
 import { AlertTriangle, Minus, Plus, ShoppingCart } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -8,6 +10,7 @@ import { useLPGBrands } from '../../hooks/useBrands';
 import { groupInventoryByBrand, orderSaleLines } from '../../lib/inventoryGroups';
 
 interface POSCartProps {
+  category?: BusinessCategory;
   items: POSSalePayload['items'];
   onChangeItems: (items: POSSalePayload['items']) => void;
   discount: number;
@@ -19,6 +22,7 @@ interface POSCartProps {
 }
 
 export const POSCart = ({
+  category = 'lpg',
   items,
   onChangeItems,
   discount,
@@ -29,6 +33,8 @@ export const POSCart = ({
   onChangeNotes,
 }: POSCartProps) => {
   const { data: inventoryItems } = useInventoryBalances();
+  const stoves = useStoveProducts(category === 'stove');
+  const stock = category === 'stove' ? stoves.data : inventoryItems;
   const { data: brands } = useLPGBrands();
   const orderedItems = orderSaleLines(items, groupInventoryByBrand(inventoryItems ?? [], brands ?? []).flatMap(group => group.items.map(item => item.item_id)));
 
@@ -46,7 +52,7 @@ export const POSCart = ({
     }
 
     if (type === 'refill' || type === 'package') {
-      const invItem = inventoryItems?.find(i => i.item_id === item_id);
+      const invItem = stock?.find(i => i.item_id === item_id);
       const maxStock = invItem?.filled_quantity || 0;
 
       const currentOtherQty = items
@@ -76,7 +82,7 @@ export const POSCart = ({
         ) : (
           orderedItems.map((item, index) => {
             const invItem = inventoryItems?.find(i => i.item_id === item.item_id);
-            const name = invItem ? `${invItem.lpg_brands?.brand_name} ${invItem.size_kg}kg` : 'Unknown';
+            const name = category === 'stove' ? stoves.data?.find(i => i.item_id === item.item_id)?.product_name ?? 'Loading product…' : invItem ? `${invItem.lpg_brands?.brand_name} ${invItem.size_kg}kg` : 'Unknown';
 
             return (
               <div className="pos-cart-line" key={`${item.item_id}-${item.type}-${index}`} style={{
@@ -124,7 +130,7 @@ export const POSCart = ({
 
       <div className="pos-cart-fields">
         <PurchaseNumber label="Discount (Tk)" money value={discount} onChange={value => onChangeDiscount(value ?? 0)} />
-        <PurchaseNumber label="Exchange Cost (Tk)" money value={exchangeFee} onChange={value => onChangeExchangeFee(value ?? 0)} />
+        {category === 'lpg' && <PurchaseNumber label="Exchange Cost (Tk)" money value={exchangeFee} onChange={value => onChangeExchangeFee(value ?? 0)} />}
         <label className="pos-cart-field pos-cart-notes">
           <span>Notes</span>
           <textarea

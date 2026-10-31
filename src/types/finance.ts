@@ -1,4 +1,4 @@
-export type WalletKind = 'cash' | 'bkash' | 'nagad' | 'bank' | 'other' | 'logistics';
+export type WalletKind = 'cash' | 'bkash' | 'nagad' | 'bank' | 'other';
 export interface PaymentWallet { wallet_id: string; name: string; kind: WalletKind; type: string }
 export interface FinanceWallet extends PaymentWallet {
   tenant_id: string; balance: number; opening_balance: number; details: string;
@@ -11,6 +11,7 @@ export interface SalePayment {
 export interface PaymentInput { wallet_id: string; amount: number; reference?: string }
 export interface PaymentDraft { id: string; wallet_id: string; amount: string; reference: string }
 export interface SaleSettlement {
+  status?: 'completed' | 'voided'; refund_due?: number;
   original_total?: number; additional_charges?: number;
   sale_id: string; unattributed_paid: number; total: number; paid: number; due: number;
   paid_at_checkout: number; checkout_payments: SalePayment[]; payment_count: number;

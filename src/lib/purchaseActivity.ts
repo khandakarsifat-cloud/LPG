@@ -15,6 +15,7 @@ const titles: Record<string, string> = {
   cancellation_confirmed: 'Owner confirmed cancellation', cancellation_initiated: 'Cancellation initiated',
   refund_recorded: 'Refund / funding reversal recorded', refund_completed: 'Refunds completed', financially_closed: 'Purchase financially closed',
   wallet_entry: 'Wallet transaction',
+  archived_accounting_evidence: 'Archived accounting evidence',
 };
 
 /** Describe recorded evidence only; current purchase values are used for labels, never historical amounts. */
@@ -68,6 +69,14 @@ export function describePurchaseActivity(activity: PurchaseActivity, purchase: P
       ? 'Purchase saved. Product quantities and prices are recorded below; earlier product values were not captured in this entry.'
       : 'Purchase saved; no recorded field changes.');
   } else {
+    if (activity.action === 'archived_accounting_evidence') {
+      const original = record(details.original);
+      changes.push(String(details.reason ?? 'Original accounting evidence retained'));
+      changes.push(`${String(original.wallet_name_snapshot ?? 'Original wallet')} · ${amount(original.amount) ?? 'Unknown amount'} · ${String(original.type ?? 'Historical entry')}`);
+      if (original.description) changes.push(String(original.description));
+      if (original.transaction_id) changes.push(`Original ledger: ${String(original.transaction_id)}`);
+      if (original.balance_after !== undefined) changes.push(`Original recorded balance: ${amount(original.balance_after)}`);
+    }
     if (!activity.wallet_entries?.length && Array.isArray(details.payments)) for (const value of details.payments) {
       const payment = record(value);
       changes.push(`${String(payment.wallet_name ?? 'Wallet')} · ${String(payment.component ?? 'payment')}: ${amount(payment.amount) ?? 'Unknown amount'}${payment.reference ? ` · Ref: ${String(payment.reference)}` : ''}`);

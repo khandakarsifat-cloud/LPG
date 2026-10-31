@@ -12,7 +12,7 @@ import './purchases.css';
 import { Pagination } from '../ui/Pagination';
 import { CardProductPreview } from '../ui/CardProductPreview';
 
-export function PurchasesList({ totalPurchases }: { totalPurchases?: number }) {
+export function PurchasesList({ totalPurchases, category = 'lpg' }: { totalPurchases?: number; category?: 'lpg' | 'stove' }) {
   const [selected, setSelected] = useState<Purchase | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
@@ -23,7 +23,7 @@ export function PurchasesList({ totalPurchases }: { totalPurchases?: number }) {
   const hasFilters = search.trim() !== '' || status !== 'all' || payment !== 'all' || from !== '' || to !== '' || sort !== 'date_desc';
   const resetFilters = () => { setSearch(''); setStatus('all'); setPayment('all'); setFrom(''); setTo(''); setSort('date_desc'); };
   const deferredSearch = useDeferredValue(search);
-  const deferred = { search: deferredSearch, status, payment, from, to, sort };
+  const deferred = { business_category: category, search: deferredSearch, status, payment, from, to, sort };
   const { grid, pageSize } = useGridPageSize();
   const query = usePurchaseDirectory(deferred, pageSize);
   const { page, setPage } = query;
@@ -60,14 +60,14 @@ export function PurchasesList({ totalPurchases }: { totalPurchases?: number }) {
       <div className="purchase-card-header"><div><strong>{purchase.company_name ?? 'Historical purchase'}</strong><small>{purchase.plant_name}</small></div></div>
       <div className="record-statuses"><PurchaseStatuses purchase={purchase} /></div>
       <div className="purchase-card-meta"><div className="purchase-info-row"><Calendar size={14} /><span>{new Date(purchase.created_at).toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
-        <div className="purchase-info-row"><Truck size={14} /><span>{purchase.vehicle_name ?? 'Vehicle not assigned'}</span></div></div>
+        <div className="purchase-info-row"><Truck size={14} /><span>{purchase.business_category === 'stove' ? 'Direct inventory receipt' : purchase.vehicle_name ?? 'Vehicle not assigned'}</span></div></div>
       <CardProductPreview label="Purchased products">
         {purchase.items.map(item => <div key={item.purchase_item_id} className="purchase-item-pill">
           <span className="pill-qty">{purchase.status === 'received' ? item.received_quantity ?? item.quantity : item.quantity}×</span>
-          <span className="pill-name">{item.size_kg} kg {item.mouth_size} {item.type === 'refill' ? 'refills' : 'new cylinders'}</span>
+          <span className="pill-name">{item.product_name || `${item.size_kg} kg ${item.mouth_size ?? ''} ${item.type === 'refill' ? 'refills' : 'new cylinders'}`}</span>
         </div>)}
       </CardProductPreview>
-      <div className="sale-money"><span>{purchase.status === 'cancelled' ? 'Refunded' : 'Paid'} <strong>{formatBDT(Number(purchase.status === 'cancelled' ? purchase.refunded_amount ?? 0 : purchase.paid_amount ?? 0))}</strong></span><span>{purchase.status === 'cancelled' ? 'Refund due' : 'Due'} <strong>{formatBDT(purchase.status === 'cancelled' ? Number(purchase.refund_due ?? 0) : Math.max(0, Number(purchase.total_cost) - Number(purchase.paid_amount ?? 0)))}</strong></span></div>
+      <div className="sale-money"><span>{purchase.status === 'cancelled' ? 'Refunded' : 'Paid'} <strong>{formatBDT(Number(purchase.status === 'cancelled' ? purchase.refunded_amount ?? 0 : purchase.paid_amount ?? 0))}</strong></span><span>{purchase.status === 'cancelled' ? 'Refund due' : 'Due'} <strong>{formatBDT(purchase.status === 'cancelled' ? Number(purchase.refund_due ?? 0) : Math.max(0, Number(purchase.payable_amount) - Number(purchase.paid_amount ?? 0)))}</strong></span></div>
       <div className="purchase-card-footer"><span className="purchase-total-label">Total purchase cost</span>
         <strong className="purchase-total-value">{formatBDT(Number(purchase.total_cost))}</strong></div>
     </button>)}</div>

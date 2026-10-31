@@ -3,5 +3,9 @@ dist
 .git
 .temp
 .local-backups
+docs/reports
+*.zip
+.codex-attachments
+.codex-remote-attachments
 .env*
 supabase/docker/volumes

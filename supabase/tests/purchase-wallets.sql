@@ -103,19 +103,19 @@ begin
  perform pg_temp.purchase_fails(format('select public.record_purchase_payment(%L,%L,%L)',id,jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',1)),gen_random_uuid()),'dispatched');
  perform public.dispatch_purchase(id,1); perform public.dispatch_purchase(id,1);
  p:=pg_temp.purchase_header(id);
- perform pg_temp.check_purchase(p.total_cost=780 and p.paid_amount=20,'dispatch funding counted once');
+ perform pg_temp.check_purchase(p.total_cost=780 and p.payable_amount=760 and p.paid_amount=0,'dispatch allocation creates no cash payment');
  select transit_id into tr from public.transits where purchase_id=id and tenant_id=app_private.current_tenant_id();
  perform public.save_transit_costs(tr,'{"driver_cost":0,"helper_cost":0,"oil_cost":15,"others_cost":0}',1);
  args:=jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',100),jsonb_build_object('wallet_id',bk,'amount',200,'reference','PURCHASE-BK-123'));
  key:=gen_random_uuid();result:=public.record_purchase_payment(id,args,key);
  perform pg_temp.check_purchase(result=public.record_purchase_payment(id,args,key),'multi-wallet retry returns original response');
- perform pg_temp.check_purchase((result->>'paid_amount')::numeric=320 and (result->>'due')::numeric=460,'partial split settlement');
+ perform pg_temp.check_purchase((result->>'paid_amount')::numeric=300 and (result->>'due')::numeric=460,'partial split settlement');
  perform pg_temp.purchase_fails(format('select public.record_purchase_payment(%L,%L,%L)',id,args||jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',1)),key),'different details');
  perform pg_temp.purchase_fails(format('select public.update_purchase(%L,%L,3)',id,'{"labour_cost":11}'),'lock after');
  perform public.update_purchase(id,'{"notes":"Partial settlement retained"}',3);
  select count(*) into n from public.purchase_activity where purchase_id=id;
  perform pg_temp.purchase_fails(format('select public.record_purchase_payment(%L,%L,%L)',id,jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',100),jsonb_build_object('wallet_id',bk,'amount',500)),gen_random_uuid()),'exceed');
- perform pg_temp.check_purchase((pg_temp.purchase_header(id)).paid_amount=320 and (select count(*) from public.purchase_activity where purchase_id=id)=n,'overpayment rolls back entire split');
+ perform pg_temp.check_purchase((pg_temp.purchase_header(id)).paid_amount=300 and (select count(*) from public.purchase_activity where purchase_id=id)=n,'overpayment rolls back entire split');
  perform pg_temp.purchase_fails(format('select public.record_purchase_payment(%L,%L,%L)',id,jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',1.001)),gen_random_uuid()),'two decimal');
  perform pg_temp.purchase_fails(format('select public.record_purchase_payment(%L,%L,%L)',id,jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',0)),gen_random_uuid()),'positive');
  perform public.save_finance_wallet(jsonb_build_object('wallet_id',cash,'revision',1,'name','Renamed cash','kind','cash','is_active',true));
@@ -127,21 +127,22 @@ begin
  perform pg_temp.purchase_fails(format('select public.initiate_purchase_cancellation(%L,5,%L,%L)',id,'CANCEL',gen_random_uuid()),'OWNER');
  perform set_config('request.jwt.claim.sub','aa000000-0000-4000-8000-000000000001',true);
  p:=pg_temp.purchase_header(id); key:=gen_random_uuid();result:=public.initiate_purchase_cancellation(id,p.revision,'CANCEL',key);
- perform pg_temp.check_purchase((result->>'refund_due')::numeric=780 and not (result->>'financially_closed')::boolean,'cancellation creates pending obligations without moving money');
+ perform pg_temp.check_purchase((result->>'refund_due')::numeric=760 and not (result->>'financially_closed')::boolean,'cancellation creates pending obligations without moving money');
  perform pg_temp.check_purchase((select empty_quantity=10 from public.items where tenant_id=app_private.current_tenant_id() and item_id='ff000000-0000-4000-8000-000000000001'),'cancellation returns dispatched empties');
  perform pg_temp.check_purchase((select status='idle' from public.vehicles where tenant_id=app_private.current_tenant_id() and vehicle_id='ee000000-0000-4000-8000-000000000001'),'cancellation releases vehicle');
  perform pg_temp.purchase_fails(format('select public.receive_purchase(%L,6)',id),'In Transit');
  perform pg_temp.purchase_fails(format('select public.record_purchase_payment(%L,%L,%L)',id,args,gen_random_uuid()),'non-cancelled');
  perform pg_temp.purchase_fails(format('select public.update_purchase(%L,%L,6)',id,'{"notes":"no"}'),'locked');
  perform pg_temp.check_purchase((select total_cost=15 and closed_at is null and status='cancelled' from public.transits where tenant_id=app_private.current_tenant_id() and transit_id=tr),'incurred costs preserved');
- perform public.transition_transit(tr,'complete',3);
- perform pg_temp.check_purchase((select balance=5 from public.wallets where tenant_id=app_private.current_tenant_id() and type='logistics'),'operating costs close independently before refunds');
- select * into o from jsonb_to_recordset(public.get_purchase_settlement(id)->'obligations') as q(obligation_id uuid,component text,amount numeric,remaining numeric) where component='company';
+ perform public.record_operating_payment(jsonb_build_object('transit_id',tr,'kind','expense','payment_date',(now() at time zone 'Asia/Dhaka')::date,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',15))),gen_random_uuid());
+ perform public.transition_transit(tr,'complete',4);
+ perform pg_temp.check_purchase(not exists(select 1 from public.wallets where type='logistics'),'operating costs close independently before refunds');
+ select * into o from jsonb_to_recordset(public.get_purchase_settlement(id)->'obligations') as q(obligation_id uuid,component text,amount numeric,remaining numeric) where component='purchase';
  args:=jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',200),jsonb_build_object('wallet_id',bk,'amount',100));key:=gen_random_uuid();
  result:=public.refund_purchase(id,o.obligation_id,args,key);
  perform pg_temp.check_purchase(result=public.refund_purchase(id,o.obligation_id,args,key),'partial multi-wallet refund retries once');
- perform pg_temp.check_purchase((result->>'refund_due')::numeric=480,'partial refund remains pending');
- perform pg_temp.purchase_fails(format('select public.refund_purchase(%L,%L,%L,%L)',id,o.obligation_id,jsonb_build_array(jsonb_build_object('wallet_id',ng,'amount',451)),gen_random_uuid()),'exceeds');
+ perform pg_temp.check_purchase((result->>'refund_due')::numeric=460,'partial refund remains pending');
+ perform pg_temp.purchase_fails(format('select public.refund_purchase(%L,%L,%L,%L)',id,o.obligation_id,jsonb_build_array(jsonb_build_object('wallet_id',ng,'amount',461)),gen_random_uuid()),'exceeds');
  for o in select * from jsonb_to_recordset(public.get_purchase_settlement(id)->'obligations') as q(obligation_id uuid,component text,remaining numeric) where remaining>0 loop
   if o.component='transport' then
    result:=public.refund_purchase(id,o.obligation_id,jsonb_build_array(jsonb_build_object('wallet_id',ng,'amount',10)),gen_random_uuid());
@@ -151,9 +152,9 @@ begin
   result:=public.refund_purchase(id,o.obligation_id,jsonb_build_array(jsonb_build_object('wallet_id',ng,'amount',o.remaining)),gen_random_uuid());
  end loop;
  p:=pg_temp.purchase_header(id);
- perform pg_temp.check_purchase(p.refund_due=0 and p.refunded_amount=780 and p.financial_closed_at is not null,'final closure requires all refunds');
- perform pg_temp.check_purchase((select balance=-15 from public.wallets where tenant_id=app_private.current_tenant_id() and type='logistics'),'transport reversal preserves actual expense');
- perform pg_temp.check_purchase((select sum(balance)=0 from public.wallets where tenant_id=app_private.current_tenant_id() and type<>'logistics'),'refund destinations reconcile purchasing balances');
+ perform pg_temp.check_purchase(p.refund_due=0 and p.refunded_amount=760 and p.financial_closed_at is not null,'final closure requires all refunds');
+ perform pg_temp.check_purchase(not exists(select 1 from public.wallets where type='logistics'),'transport reversal preserves actual expense');
+ perform pg_temp.check_purchase((select sum(balance)=-15 from public.wallets where tenant_id=app_private.current_tenant_id() and type<>'logistics'),'refund destinations reconcile purchasing balances');
  perform pg_temp.check_purchase((public.get_purchase_directory('{"status":"closed"}')->>'total')::int=2,'closed filtering');
  received_id:=(public.create_purchase(jsonb_build_object('plant_id','dd000000-0000-4000-8000-000000000001','vehicle_id','ee000000-0000-4000-8000-000000000001','request_id',gen_random_uuid(),
  'items','[{"item_id":"ff000000-0000-4000-8000-000000000001","type":"refill","quantity":1,"unit_price":100}]'::jsonb))->>'purchase_id')::uuid;

@@ -1,3 +1,4 @@
+import { SaleReversal } from '../finance/SaleReversal';
 import { useListPage } from '../../hooks/useListPage';
 import { useState } from 'react';
 import { ArrowLeft, Box } from 'lucide-react';
@@ -12,6 +13,7 @@ import { SaleBottles } from './SaleBottles';
 import { useSaleBottles } from '../../hooks/useSales';
 import { useAuth } from '../../contexts/AuthContext';
 import { ReceiptPrintModal } from '../pos/ReceiptPrintModal';
+import { ProductImage } from '../inventory/ProductImage';
 
 /** Saved transaction inspection, independent of POS receipt and printer controls. */
 export function TransactionDetailsModal({ saleId, onClose, returnLabel = 'Back' }: { saleId: string; onClose: () => void; returnLabel?: string }) {
@@ -27,22 +29,22 @@ export function TransactionDetailsModal({ saleId, onClose, returnLabel = 'Back' 
       {query.isPending && <p role="status" className="transaction-empty">Loading transaction…</p>}
       {query.isError && <p role="alert" className="purchase-error">This transaction could not be loaded. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></p>}
       {sale && <>
-        <div className="transaction-badges"><span className="transaction-badge success">Completed</span><span className="transaction-badge">{sale.sale_tier === 'wholesale' ? 'Wholesale' : 'Retail'} sale</span></div>
+        <div className="transaction-badges"><span className="transaction-badge success">{sale.status === 'voided' ? 'Cancelled' : 'Completed'}</span><span className="transaction-badge">{sale.sale_tier === 'wholesale' ? 'Wholesale' : 'Retail'} sale</span></div>
         <div className="transaction-info-grid"><section><span>Customer</span><strong>{sale.customers?.shop_name && sale.sale_tier === 'wholesale' ? sale.customers.shop_name : sale.customers?.name || 'Customer unavailable'}</strong><p>{sale.customers?.name} {sale.customers?.phone && ` · ${sale.customers.phone}`}</p>{sale.customers?.address && <p>{sale.customers.address}</p>}</section>
           <section className="transaction-record"><div><span>Recorded by</span><strong>{sale.user_profiles?.full_name || sale.user_profiles?.email || 'Unavailable'}</strong></div><div><span>Sale type</span><strong>{sale.sale_tier === 'wholesale' ? 'Wholesale' : 'Retail'}</strong></div></section></div>
         <div className="transaction-section-heading"><h3>Products</h3><span>{formatBDQty(refill)} refills + {formatBDQty(packages)} packages</span></div>
         <div className="transaction-line-head"><span>Product</span><span>Qty</span><span className="transaction-unit-price">Unit price</span><span>Amount</span></div>
         {paging.entries.map((line, index) => <div className="transaction-line" key={paging.page * paging.pageSize + index}>
-          <div><strong>{line.items?.lpg_brands?.brand_name ?? 'Product unavailable'} {line.items?.size_kg && `${line.items.size_kg} kg`}</strong><p>{line.items?.mouth_size}<span className={`transaction-badge ${line.type === 'empty_return' ? 'neutral' : ''}`}>{line.type === 'refill' ? 'Refill' : line.type === 'package' ? 'Package' : 'Expected empty'}</span></p><small className="transaction-mobile-price">{line.type === 'empty_return' ? 'No charge' : `${formatBDT(Number(line.unit_price))} each`}</small></div>
+          <div className="product-with-image">{line.items?.image_url && <ProductImage path={line.items.image_url} name={line.items.product_name || line.items.lpg_brands?.brand_name || 'Product'} />}<div><strong>{line.items?.product_name || `${line.items?.lpg_brands?.brand_name ?? 'Product unavailable'} ${line.items?.size_kg ?? ''} kg`}</strong><p>{line.items?.mouth_size}<span className={`transaction-badge ${line.type === 'empty_return' ? 'neutral' : ''}`}>{line.type === 'refill' ? 'Refill' : line.type === 'package' ? 'Package' : 'Expected empty'}</span></p><small className="transaction-mobile-price">{line.type === 'empty_return' ? 'No charge' : `${formatBDT(Number(line.unit_price))} each`}</small></div></div>
           <span>×{formatBDQty(line.quantity)}</span><span className="transaction-unit-price">{line.type === 'empty_return' ? '—' : formatBDT(Number(line.unit_price))}</span><strong>{line.type === 'empty_return' ? '—' : formatBDT(Number(line.line_total))}</strong>
         </div>)}
         <Pagination {...paging} onChange={paging.setPage} label="product lines" />
         <div className="transaction-totals-area">{sale.notes ? <div className="transaction-note"><strong>Note</strong><p>{sale.notes}</p></div> : <div />}
           <dl className="transaction-totals"><div><dt>Subtotal</dt><dd>{formatBDT(Number(sale.subtotal))}</dd></div><div><dt>Discount</dt><dd>− {formatBDT(Number(sale.discount_amount))}</dd></div><div><dt>Exchange Cost</dt><dd>{formatBDT(Number(sale.exchange_fee))}</dd></div><div className="transaction-grand-total"><dt>Sale total</dt><dd>{formatBDT(Number(sale.total_amount))}</dd></div></dl></div>
-        <SalePayments saleId={sale.sale_id} showHistory={false} />
-        <SaleBottles saleId={sale.sale_id} />
-        <p className="transaction-stock-note"><Box size={15} />Stock movement: {formatBDQty(refill + packages)} filled out · {bottles.isPending ? 'Loading physical empties…' : bottles.isError || !bottles.data ? 'Physical empty count unavailable' : `${formatBDQty(bottles.data.received)} empty bottles physically received · ${formatBDQty(packages)} empties out for packages`}</p>
+        <SalePayments saleId={sale.sale_id} showHistory={false} /><SaleReversal saleId={sale.sale_id} />
+        {sale.business_category !== 'stove' && sale.status !== 'voided' && <SaleBottles saleId={sale.sale_id} />}
+        {sale.business_category !== 'stove' && <p className="transaction-stock-note"><Box size={15} />Stock movement: {formatBDQty(refill + packages)} filled out · {bottles.isPending ? 'Loading physical empties…' : bottles.isError || !bottles.data ? 'Physical empty count unavailable' : `${formatBDQty(bottles.data.received)} empty bottles physically received · ${formatBDQty(packages)} empties out for packages`}</p>}
       </>}
-    </div><div className="modal-footer"><small>Original invoice and immutable settlements</small>{can('receipts:print') && <button className="btn btn-secondary" disabled={!sale} onClick={() => setPrintOpen(true)}>Print receipt</button>}<button className="btn btn-secondary" onClick={onClose}><ArrowLeft size={14} />{returnLabel}</button></div>
+    </div><div className="modal-footer"><small>Original invoice and immutable settlements</small>{can('receipts:print') && <button className="btn btn-secondary" disabled={!sale || sale.status === 'voided'} onClick={() => setPrintOpen(true)}>Print receipt</button>}<button className="btn btn-secondary" onClick={onClose}><ArrowLeft size={14} />{returnLabel}</button></div>
   </PurchaseDialog>{printOpen && can('receipts:print') && <ReceiptPrintModal saleId={saleId} onClose={() => setPrintOpen(false)} />}</>;
 }

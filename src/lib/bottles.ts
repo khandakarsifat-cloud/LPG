@@ -7,6 +7,7 @@ export function validateBottles(obligations: readonly BottleObligation[], produc
   const expected = obligations.find(o => o.item_id === line.received_item_id);
   const actual = products.find(p => p.item_id === line.received_item_id);
   if (!actual) return { error: 'Select a valid received product.', received };
+  if (!collection && !expected) return { error: 'Checkout accepts only expected empty-cylinder products. Use Bottle Settlement for other products.', received };
   if (used.has(line.received_item_id)) return { error: 'Use one quantity per received product.', received };
   used.add(line.received_item_id);
   if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0 || line.quantity > 2147483647) return { error: 'Received quantities must be positive whole numbers.', received };
