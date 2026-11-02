@@ -13,8 +13,8 @@ import sys
 import urllib.request
 import urllib.error
 
-SERVICES = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'attendance-receiver', 'caddy']
-CORE_SERVICES = set(SERVICES) - {'studio', 'meta', 'attendance-receiver'}
+SERVICES = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'attendance-receiver', 'account-service', 'caddy']
+CORE_SERVICES = set(SERVICES) - {'studio', 'meta', 'attendance-receiver', 'account-service'}
 EXCLUDED = ['frontend', 'functions', 'supavisor', 'mailpit']
 
 
@@ -153,6 +153,24 @@ def validate_proxy(model, source):
          'validate', '--config', '/etc/caddy/Caddyfile'], 'Validate proxy configuration before activation')
 
 
+def configure_account_service(root, model, write=True):
+    gateway = model['services']['api-gw']['environment']
+    settings = {'apiURL': 'http://api-gw:8000', 'publicKey': gateway['ANON_KEY'],
+                'serviceKey': gateway['SERVICE_ROLE_KEY'],
+                'origins': ['https://floral-dew-443b.khandakarsifat.workers.dev',
+                            model['services']['api-gw']['environment']['SUPABASE_PUBLIC_URL'].rstrip('/')]}
+    target = root / 'deploy/.account-service.json'
+    desired = json.dumps(settings, sort_keys=True) + '\n'
+    changed = not target.exists() or content(target) != desired
+    if changed and write:
+        temporary = target.with_suffix('.new')
+        temporary.write_text(desired, encoding='utf-8')
+        temporary.chmod(0o400)
+        os.chown(temporary, 1000, 1000)
+        temporary.replace(target)
+    return changed
+
+
 def verify_health(model, api_url):
     key = model['services']['api-gw']['environment']['ANON_KEY']
     for path in ['/auth/v1/health', '/rest/v1/items?select=*&limit=0', '/storage/v1/status']:
@@ -217,7 +235,7 @@ def update(root, stage, project, api_url, approval):
     require(old['volumes'] == candidate['volumes'], 'Compose volume definitions changed. Separate review required.')
     for name in SERVICES:
         if name not in old['services']:
-            require(name == 'attendance-receiver', 'Unexpected new backend service.')
+            require(name in ('attendance-receiver', 'account-service'), 'Unexpected new backend service.')
             continue
         before, after = old['services'][name], candidate['services'][name]
         require(before.get('volumes') == after.get('volumes'), f'{name} mount definitions changed. Separate review required.')
@@ -274,6 +292,8 @@ def update(root, stage, project, api_url, approval):
                 affected.add(name)
     if configure_attendance_token(root, candidate, write=False):
         affected.add('attendance-receiver')
+    if configure_account_service(root, candidate, write=False):
+        affected.add('account-service')
     excluded_ids = run(old_cmd + ['--profile', '*', 'ps', '-q', *EXCLUDED], 'Excluded service discovery').split()
     changes_runtime = bool(affected or pending or excluded_ids)
     print('Affected services: ' + (', '.join(name for name in SERVICES if name in affected) or 'none'), flush=True)
@@ -308,6 +328,7 @@ def update(root, stage, project, api_url, approval):
     if 'caddy' in affected:
         validate_proxy(candidate, stage)
     configure_attendance_token(root, candidate)
+    configure_account_service(root, candidate)
     # Persist affected services before replacing bind files so an interrupted
     # deployment can retry them even when source files already match next time.
     if affected:
@@ -347,7 +368,7 @@ def update(root, stage, project, api_url, approval):
     verify_health(candidate, api_url)
     run(['python3', '-B', str(root / 'deploy/backup.py'), '--configure'], 'Verify daily backup scheduling')
     pending_file.unlink(missing_ok=True)
-    print('Eleven backend services verified; data volumes and VPS environment preserved.', flush=True)
+    print('Twelve backend services verified; data volumes and VPS environment preserved.', flush=True)
 
 
 if __name__ == '__main__':

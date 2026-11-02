@@ -27,7 +27,7 @@ export function SalePayments({ saleId, showHistory = true }: { saleId: string; s
   const { can } = useAuth(); const [page, setPage] = useState(0); const query = useSaleSettlement(saleId, page); const [collect, setCollect] = useState(false); const data = query.data;
   const recovery = useFinanceOperation();
   return <section className="settlement-panel">
-    <div className="settlement-heading"><h3>Payments</h3>{data && (data.due > 0 || recovery.hasPending) && can('finance:manage') && <button className="btn btn-primary" onClick={() => setCollect(true)}>{recovery.hasPending ? 'Recover payment' : 'Collect payment'}</button>}</div>
+    <div className="settlement-heading"><h3>Payments</h3>{data && (data.due > 0 || recovery.hasPending) && can('sales:collect_money') && <button className="btn btn-primary" onClick={() => setCollect(true)}>{recovery.hasPending ? 'Recover payment' : 'Collect payment'}</button>}</div>
     {query.isPending && <p role="status">Loading payments…</p>}{query.error && <p role="alert" className="payment-error">Payments could not be loaded. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></p>}
     {data && <><dl className="payment-totals"><div><dt>Sale total</dt><dd>{formatBDT(data.total)}</dd></div><div><dt>Total paid</dt><dd>{formatBDT(data.paid)}</dd></div><div className={data.due > 0 ? 'payment-due' : ''}><dt>{data.due > 0 ? 'Remaining due' : 'Fully paid'}</dt><dd>{formatBDT(data.due)}</dd></div></dl>
       {data.unattributed_paid > 0 && <p className="payment-hint">{formatBDT(data.unattributed_paid)} paid without recorded payment methods.</p>}

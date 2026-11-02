@@ -21,7 +21,7 @@ const owner=make(),burner=make(),anon=make();
 const folder='.temp/sale-cancellation';mkdirSync(folder,{recursive:true});
 const tables=['public.items','public.inventory_movements','public.inventory_costs','public.sales','public.sale_items','public.customers','public.purchases','public.wallets','public.wallet_transactions','public.accounting_journals','public.accounting_lines','app_private.fifo_layers','app_private.fifo_consumptions'];
 const preservation='select jsonb_build_array('+tables.map(t=>`(select md5(coalesce(jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text)::text,'')) from ${t} r)`).join(',')+');';
-const before=sql(preservation),manifest={tenant:null,user:null,sales:[],products:[]};let browser;
+const before=sql(preservation),manifest={tenant:null,user:null,sales:[],stove_types:[]};let browser;
 const password=randomUUID()+'Aa1!';
 try {
  const auth=await checked(burner.auth.signInWithPassword({email:credentials.LPG_TEST_EMAIL,password:credentials.LPG_TEST_PASSWORD}));

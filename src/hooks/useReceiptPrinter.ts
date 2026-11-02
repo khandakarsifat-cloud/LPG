@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { discoverPrinters, sendReceipt } from '../lib/printBridge';
+import { discoverPrinters, discoverNetworkPrinters, sendReceipt, testNetworkPrinter } from '../lib/printBridge';
 import type { ReceiptPrinterConfig, ReceiptPrintMethod } from '../types/printing';
 import { readReceiptPrintMethod, writeReceiptPrintMethod, readBrowserPaperWidth, writeBrowserPaperWidth } from '../lib/receiptPrintPreference';
 import { printBrowserReceipt } from '../lib/browserPrint';
@@ -60,10 +60,10 @@ export function useReceiptPrintMethod() {
   const queryKey = ['receipt_print_method', tenantId] as const;
   const preference = useQuery<ReceiptPrintMethod>({
     queryKey, enabled: Boolean(tenantId), staleTime: 0,
-    queryFn: () => tenantId ? readReceiptPrintMethod(tenantId) : 'windows_usb',
+    queryFn: () => tenantId ? readReceiptPrintMethod(tenantId) : 'bridge',
   });
   return {
-    method: preference.data ?? 'windows_usb',
+    method: preference.data ?? 'bridge',
     setMethod: (method: ReceiptPrintMethod) => {
       if (!tenantId) throw new Error('Business profile unavailable.');
       writeReceiptPrintMethod(tenantId, method);
@@ -112,6 +112,21 @@ export function useSaveReceiptPrinter() {
 
 // Each modal open/Refresh calls the host; discovered hardware is never saved configuration.
 export const usePrinterDiscovery = () => useMutation({ mutationFn: discoverPrinters, retry: false });
+export const useNetworkPrinterDiscovery = () => useMutation({ mutationFn: ({ subnet, port }: { subnet: string; port: number }) => discoverNetworkPrinters(subnet, port), retry: false });
+export const useNetworkPrinterTest = () => useMutation({ mutationFn: ({ ip, port }: { ip: string; port: number }) => testNetworkPrinter(ip, port), retry: false });
+export function usePrinterTestReceipt() {
+  const { profile } = useAuth();
+  return useMutation({ retry: false, mutationFn: async (config: Omit<ReceiptPrinterConfig, 'tenant_id'>) => {
+    if (!profile) throw new Error('Business profile unavailable.');
+    return sendReceipt({ ...config, tenant_id: profile.tenant_id }, {
+      sale_id: crypto.randomUUID(), created_at: new Date().toISOString(), shop_name: profile.business_name,
+      customer_name: 'PRINTER TEST — NOT A SALE', customer_phone: '', customer_tier: 'retail',
+      items: [{ name: 'বাংলা / ESC-POS test receipt', quantity: 1, type: 'refill', unit_price: 0, line_total: 0 }],
+      subtotal: 0, discount_amount: 0, exchange_fee: 0, total_amount: 0, paid_amount: 0, due_amount: 0,
+      payments: [], unattributed_paid: 0, notes: 'Printer configuration test only. No sale, stock movement or payment was recorded.',
+    });
+  } });
+}
 
 // Both checkout and reprinting read committed sale data; this path never creates sales.
 export function usePrintSale() {

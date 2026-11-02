@@ -7,11 +7,11 @@ import { ProductHistoryModal } from './ProductHistoryModal';
 import type { InventoryProductIdentity, ItemWithBrand } from '../../types/inventory';
 
 // ── Status helpers ────────────────────────────────────────────────────────────
-const getStockStatus = (filled: number, empty: number) => {
+const getStockStatus = (filled: number, empty: number, threshold: number) => {
   const total = filled + empty;
   if (total === 0) return 'out';
   if (filled === 0) return 'no-filled';
-  if (filled <= 5) return 'low';
+  if (filled < threshold) return 'low';
   return 'ok';
 };
 
@@ -31,7 +31,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 // ── Single compact tile ───────────────────────────────────────────────────────
 interface TileProps {
-  item: InventoryProductIdentity & Partial<Pick<ItemWithBrand, 'filled_quantity' | 'empty_quantity'>>;
+  item: InventoryProductIdentity & Partial<Pick<ItemWithBrand, 'filled_quantity' | 'empty_quantity' | 'low_stock_threshold'>>;
   onClick: () => void;
   selected?: boolean;
   showStock?: boolean;
@@ -41,7 +41,7 @@ interface TileProps {
 export const ProductTile = ({ item, onClick, selected, showStock = true, startsBrand = false }: TileProps) => {
   const filled  = item.filled_quantity ?? 0;
   const empty   = item.empty_quantity  ?? 0;
-  const status  = getStockStatus(filled, empty);
+  const status  = getStockStatus(filled, empty, item.low_stock_threshold ?? 5);
   const color   = STATUS_COLOR[status];
   const brandName = item.lpg_brands?.brand_name ?? 'Product unavailable';
 

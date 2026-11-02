@@ -49,7 +49,7 @@ async page => {
       case 'get_my_preferences': data={theme:null}; break;
       case 'get_business_catalogs': data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))}; break;
       case 'get_my_permissions': data = ['dashboard:view', 'sales:view', 'receipts:print', 'pos:sell']; break;
-      case 'get_dashboard_stats': data = { todayRevenue: 0, todayMovements: 0, totalCustomers: 1 }; break;
+      case 'get_dashboard_snapshot': data={date:new Date().toISOString().slice(0,10),finance_visible:false,days:[],sales:[],bottles:[],stove_types:[],attention:{},activity:{entries:[],hasMore:false}}; break;
       case 'items': data = items; break;
       case 'price_books': data = prices; break;
       case 'customers': data = [customer]; break;

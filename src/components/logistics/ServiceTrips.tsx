@@ -77,7 +77,7 @@ export function ServiceTrips({ vehicleId }: { vehicleId: string }) {
           value={filters.to}
           onChange={(v) => change('to', v)}
         />
-        {can('logistics:manage') && (
+        {can('logistics:services') && (
           <button
             type="button"
             className="btn btn-primary"
@@ -223,7 +223,7 @@ export function ServiceTripDetails({
                       : 'Open for expenses and payments'}
                   </p>
                 </div>
-                {can('logistics:manage') && !s.finalized_at && (
+                {can('logistics:services') && !s.finalized_at && (
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -330,7 +330,7 @@ export function ServiceTripDetails({
           <button className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
-          {s && !s.finalized_at && can('logistics:manage') && (
+          {s && !s.finalized_at && can('logistics:services') && (
             <button
               className="btn btn-primary"
               disabled={

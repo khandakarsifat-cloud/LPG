@@ -1,7 +1,7 @@
 import { useDeferredValue, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Calendar, Plus, ReceiptText, RotateCcw, Search } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { defaultSalesFilters, useCollectBottles, useSalesDirectory, useSalesOverview } from '../hooks/useSales';
 import { useGridPageSize } from '../hooks/useListPage';
@@ -16,7 +16,8 @@ import '../components/purchases/purchases.css';
 import './sales.css';
 
 export function SalesPage() {
- const { can } = useAuth(); const [filters,setFilters] = useState(defaultSalesFilters); const [saleId,setSaleId] = useState<string | null>(null);
+ const [params] = useSearchParams();
+ const { can } = useAuth(); const [filters,setFilters] = useState(() => ({ ...defaultSalesFilters, from: /^\d{4}-\d{2}-\d{2}$/.test(params.get('from') ?? '') ? params.get('from')! : '', to: /^\d{4}-\d{2}-\d{2}$/.test(params.get('to') ?? '') ? params.get('to')! : '' })); const [saleId,setSaleId] = useState<string | null>(null);
  const overview = useSalesOverview(); const search = useDeferredValue(filters.search); const applied = { ...filters, search };
  const recovery = useCollectBottles();
  const { grid,pageSize } = useGridPageSize();

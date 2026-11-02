@@ -61,7 +61,7 @@ async page => {
       const s = sales.find(s => s.sale_id === args.p_sale_id);
       data = s ? { sale_id: s.sale_id, total: s.total_amount, paid: s.paid_amount, due: s.due, paid_at_checkout: s.paid_amount, payments: [], payment_count: 0, receipt_payments: s.payments.map(p => ({ ...p, wallet_name: wallets.find(w => w.wallet_id === p.wallet_id).name, method: wallets.find(w => w.wallet_id === p.wallet_id).kind })) } : { paid: 1500, due: 0, total: 1500, payment_count: 0, payments: [], receipt_payments: [] };
     } else if (name === 'sales') data = url.searchParams.has('sale_id') ? sales.find(s => s.sale_id === url.searchParams.get('sale_id').replace('eq.', '')) : sales;
-    else if (name === 'get_dashboard_stats') data = { todayRevenue: 0, todayMovements: 0, totalCustomers: 1 };
+    else if (name === 'get_dashboard_snapshot') data={date:new Date().toISOString().slice(0,10),finance_visible:false,days:[],sales:[],bottles:[],stove_types:[],attention:{},activity:{entries:[],hasMore:false}};
     await route.fulfill({ json: data });
   });
   const check = (condition, message) => { if (!condition) throw Error(message); };

@@ -114,6 +114,22 @@ resources:
                                     principals:
                                       - any: true
 
+                      # Account mutations require the server-only service key. Normal
+                      # clients use the reauthenticated account-service endpoints.
+                      - match:
+                          prefix: /auth/v1/
+                          headers:
+                            - name: ':method'
+                              string_match:
+                                safe_regex:
+                                  regex: 'PUT|PATCH|DELETE'
+                            - name: authorization
+                              string_match:
+                                exact: 'Bearer ${SERVICE_ROLE_KEY}'
+                              invert_match: true
+                        direct_response:
+                          status: 403
+
                       - match:
                           prefix: /auth/v1/authorize
                         route:
@@ -288,6 +304,38 @@ resources:
                                     principals:
                                       - any: true
 
+                      # Account service independently validates the real Auth bearer/session.
+                      - match:
+                          prefix: /accounts/v1/
+                        route:
+                          cluster: account-service
+                          timeout: 65s
+                        typed_per_filter_config:
+                          envoy.filters.http.basic_auth:
+                            '@type': type.googleapis.com/envoy.config.route.v3.FilterConfig
+                            disabled: true
+                          envoy.filters.http.rbac:
+                            '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBACPerRoute
+                            rbac:
+                              rules:
+                                action: ALLOW
+                                policies:
+                                  allow_all:
+                                    permissions:
+                                      - any: true
+                                    principals:
+                                      - any: true
+
+                      # Bearer-authorized downloads recheck session, status and RLS.
+                      # Signed tokens must not outlive a business/account suspension.
+                      - match:
+                          prefix: /storage/v1/object/sign
+                        direct_response:
+                          status: 403
+                      - match:
+                          prefix: /storage/v1/render/image/sign
+                        direct_response:
+                          status: 403
                       - match:
                           prefix: /storage/v1/
                         route:

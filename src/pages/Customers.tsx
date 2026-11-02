@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Box, Clock3, Droplets, MapPin, Phone, Plus, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCustomerDirectory, useCustomerOverview } from '../hooks/useCustomerDirectory';
@@ -14,8 +15,9 @@ import type { CustomerFilters, CustomerSummary } from '../types/customer';
 import '../components/customers/customers.css';
 
 export const CustomersPage = () => {
+  const [params] = useSearchParams();
   const { can } = useAuth();
-  const [filters, setFilters] = useState(defaultCustomerFilters);
+  const [filters, setFilters] = useState<CustomerFilters>(() => ({ ...defaultCustomerFilters, dues: params.get('dues') === 'payment' ? 'payment' : params.get('dues') === 'bottle' ? 'bottle' : 'all' }));
   const [deferred, setDeferred] = useState(filters);
   useEffect(() => {
     const timer = setTimeout(() => setDeferred(filters), 200);
@@ -41,7 +43,7 @@ export const CustomersPage = () => {
       <div className="customer-metric"><span>Retail customers</span><strong>{metric(overview.data?.retail)}</strong></div>
       <div className="customer-metric fresh" title={overview.data ? `Since Saturday ${overview.data.week_start}, Bangladesh time` : undefined}><span>New this week</span><div className="customer-metric-pair"><div><strong>{metric(overview.data?.new_wholesale)}</strong><span>Wholesale</span></div><div><strong>{metric(overview.data?.new_retail)}</strong><span>Retail</span></div></div></div>
       <div className="customer-metric inactive" title={overview.data ? `No completed transactions since ${overview.data.inactive_since}. Includes older customers who have never bought.` : undefined}><span>No transactions in 2 months</span><div className="customer-metric-pair"><div><strong>{metric(overview.data?.inactive_wholesale)}</strong><span>Wholesale</span></div><div><strong>{metric(overview.data?.inactive_retail)}</strong><span>Retail</span></div></div></div>
-    </div>{can('customers:manage') && <button className="btn btn-primary customer-add" aria-label="Add customer" onClick={() => setAdd(true)}><Plus size={16} /><span>Add customer</span></button>}</div>
+    </div>{can('customers:create') && <button className="btn btn-primary customer-add" aria-label="Add customer" onClick={() => setAdd(true)}><Plus size={16} /><span>Add customer</span></button>}</div>
     {overview.isError && <p role="alert" className="purchase-error">Customer overview could not be loaded. <button className="btn btn-secondary" onClick={() => void overview.refetch()}>Retry overview</button></p>}
     <div className="customer-toolbar filter-toolbar" data-filtered={hasFilters} aria-label="Customer filters"><div className="customer-toolbar-main">
       <div className="input-group customer-search"><label className="input-label" htmlFor="customer-search">Search customers <span id="customer-search-help">Spaces = AND · Commas = OR</span></label><div className="customer-search-field"><Search size={16} /><input id="customer-search" aria-describedby="customer-search-help" className="input-field" placeholder="Name, shop, number or address…" maxLength={500} value={filters.search} onChange={event => set({ ...filters, search: event.target.value })} /></div></div>

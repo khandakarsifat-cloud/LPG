@@ -10,9 +10,9 @@ export interface USBDevice {
 }
 
 // The output choice belongs to this browser; USB hardware settings remain tenant-wide.
-export type ReceiptPrintMethod = 'browser' | 'windows_usb';
+export type ReceiptPrintMethod = 'browser' | 'bridge';
 
-export interface PrinterIdentity {
+export interface USBPrinterIdentity {
   queue_id: string;
   host_id: string;
   queue_name: string;
@@ -22,16 +22,26 @@ export interface PrinterIdentity {
   device: USBDevice | null;
 }
 
-export interface DiscoveredPrinter extends PrinterIdentity {
+export interface NetworkPrinterIdentity extends Omit<USBPrinterIdentity, 'transport' | 'device'> {
+  transport: 'network_tcp';
+  device: null;
+  ip_address: string;
+  port: number;
+  protocol: 'escpos';
+}
+export type PrinterIdentity = USBPrinterIdentity | NetworkPrinterIdentity;
+
+export type DiscoveredPrinter = PrinterIdentity & {
   supported: boolean;
   available: boolean;
   unavailable_reason: string | null;
-}
+};
 
 export interface PrinterDiscovery {
   printers: DiscoveredPrinter[];
   usb_devices: USBDevice[];
   warnings?: string[];
+  network_subnets?: string[];
 }
 
 export interface PrinterSettings {

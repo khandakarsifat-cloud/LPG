@@ -44,7 +44,7 @@ async page => {
       case 'get_my_preferences': data={theme:null}; break;
       case 'get_business_catalogs': data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))}; break;
       case 'get_my_permissions': data = ['dashboard:view', 'sales:view', 'pos:sell', 'inventory:view', 'customers:view', 'receipts:print', ...(!cashier ? ['printers:manage'] : [])]; break;
-      case 'get_dashboard_stats': data = { todayRevenue: 1150, todayMovements: 1, totalCustomers: 1 }; break;
+      case 'get_dashboard_snapshot': data = { date: new Date().toISOString().slice(0,10), days: Array.from({length:7},()=>({revenue:1150,expense:null,collected:1150,sales:1})), finance_visible:false, sales:[{sale_id:saleId,created_at:sale.created_at,amount:1150,customer:'Receipt Customer বাংলা',items:'Fixture Gas 12kg × 1'}], bottles:[],stove_types:[],attention:{},activity:{entries:[],hasMore:false} }; break;
       case 'receipt_printers':
         if (req.method() === 'POST') { configWrites++; config = req.postDataJSON(); }
         data = config ? [config] : []; break;
@@ -95,13 +95,13 @@ async page => {
     check(printed.length === count, `Expected ${count} browser receipts, got ${printed.length}`);
   };
   await page.goto(appUrl + '/?printing-fixtures=1#/');
-  await page.getByRole('button', { name: 'Receipt Printer', exact: true }).click();
-  await page.getByLabel('Printer', { exact: true }).selectOption('browser');
+  await page.getByRole('button', { name: 'POS Printer', exact: true }).click();
+  await page.getByRole('button', { name: /^Browser/ }).click();
   await page.getByRole('button', { name: 'Save Printer' }).click();
   check(configWrites === 0, 'Browser preference must preserve shared USB settings');
   await page.reload();
-  await page.getByRole('button', { name: 'Receipt Printer', exact: true }).click();
-  check(await page.getByLabel('Printer', { exact: true }).inputValue() === 'browser', 'Browser choice must survive reload');
+  await page.getByRole('button', { name: 'POS Printer', exact: true }).click();
+  check(await page.getByRole('button', { name: /^Browser/ }).getAttribute('aria-pressed') === 'true', 'Browser choice must survive reload');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await openReceipt();
   await receiptDialog.getByRole('button', { name: 'Print receipt', exact: true }).click();
@@ -113,7 +113,8 @@ async page => {
   await closeReceipt();
   // USB selection, discovery and transport continue through the original boundary.
   bridgeRunning = true;
-  await page.getByRole('button', { name: 'Receipt Printer', exact: true }).click();
+  await page.getByRole('button', { name: 'POS Printer', exact: true }).click();
+  await page.getByRole('button', { name: /^USB printer/ }).click();
   await page.getByLabel('Printer', { exact: true }).selectOption(printer.queue_id);
   await page.getByRole('button', { name: 'Save Printer' }).click();
   check(configWrites === 1, 'USB configuration must still save through the existing upsert');

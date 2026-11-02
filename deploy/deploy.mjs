@@ -6,7 +6,7 @@ import { parseEnv } from 'node:util';
 import { validatePWA } from './pwa.mjs';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const services = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'attendance-receiver', 'caddy'];
+export const services = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'attendance-receiver', 'account-service', 'caddy'];
 export const workerURL = 'https://floral-dew-443b.khandakarsifat.workers.dev';
 const backendNames = ['VPS_HOST', 'VPS_USER', 'VPS_PORT', 'VPS_SSH_KEY', 'VPS_PROJECT_DIR', 'VPS_COMPOSE_PROJECT', 'PRODUCTION_API_URL'];
 const frontendNames = ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
@@ -106,7 +106,7 @@ export function backendFiles(bootstrap = false) {
     if (!match || versions.has(match[1])) throw new Error(`Invalid or duplicate migration version: ${name}`);
     versions.add(match[1]);
   }
-  const files = ['compose.yml', 'compose.vps.yml', 'deploy/Caddyfile', 'deploy/backend.py', 'deploy/backup.py', 'deploy/restore-check.py', 'attendance-receiver/server.mjs',
+  const files = ['compose.yml', 'compose.vps.yml', 'deploy/Caddyfile', 'deploy/backend.py', 'deploy/backup.py', 'deploy/restore-check.py', 'attendance-receiver/server.mjs', 'account-service/server.mjs', 'account-service/initialize-platform.mjs',
     ...readdirSync(resolve(root, 'supabase/docker/volumes/api/envoy')).filter(name => /\.(yaml|sh)$/.test(name)).map(name => `supabase/docker/volumes/api/envoy/${name}`),
     ...migrations.map(name => `supabase/migrations/${name}`),
     ...(bootstrap ? ['.env.example', 'deploy/bootstrap.py', 'deploy/docker-firewall.sh',

@@ -15,7 +15,7 @@ const folder = `.temp/sitewide-contrast/${phase}`;mkdirSync(folder,{recursive:tr
 const client = createClient(api,frontend.VITE_SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 const pages = [['','Dashboard'],['inventory','Inventory'],['pos','Point of Sale'],['sales','Sales'],['purchases','Purchases'],['customers','Customers'],['employees','Employees'],['finance','Finance'],['logistics','Logistics'],['settings','Settings']];
 const modalActions = {inventory:'Add Item',purchases:'New Purchase',customers:'Add customer',finance:'Add wallet',logistics:'Add vehicle','gas-plants':'Add Gas Plant'};
-const pageRoots = {'':'.dashboard-workspace',inventory:'.inventory-page',pos:'.pos-page',sales:'.sales-page',purchases:'.purchases-page',customers:'.customers-page',employees:'.employee-page',finance:'.finance-page',logistics:'.logistics-page','gas-plants':'.inventory-page',settings:'.settings-workspace'};
+const pageRoots = {'':'.dashboard-columns',inventory:'.inventory-page',pos:'.pos-page',sales:'.sales-page',purchases:'.purchases-page',customers:'.customers-page',employees:'.employee-page',finance:'.finance-page',logistics:'.logistics-page','gas-plants':'.inventory-page',settings:'.settings-workspace'};
 const luminance = hex => { const raw=hex.replace('#','');const v=raw.length===3?[...raw].map(x=>x+x).join(''):raw;assert.match(v,/^[a-f0-9]{6}$/i,'Expected opaque hex colour');const rgb=[0,2,4].map(i=>parseInt(v.slice(i,i+2),16)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722; };
 const contrast = (a,b) => {const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
 const settleDialog = async page => {

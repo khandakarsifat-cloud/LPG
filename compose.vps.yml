@@ -114,6 +114,36 @@ services:
         condition: service_healthy
       attendance-receiver:
         condition: service_healthy
+      account-service:
+        condition: service_healthy
+  account-service:
+    image: node:24.20.0-alpine
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 32
+    logging: *bounded-logging
+    command: [node, --max-old-space-size=64, /app/server.mjs]
+    environment: !override {}
+    volumes:
+      - ./account-service/server.mjs:/app/server.mjs:ro
+      - ./account-service/initialize-platform.mjs:/app/initialize-platform.mjs:ro
+      - ./deploy/.account-service.json:/run/account-service.json:ro
+    depends_on:
+      auth:
+        condition: service_healthy
+      rest:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8081/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   attendance-receiver:
     image: node:24.20.0-alpine
     restart: unless-stopped

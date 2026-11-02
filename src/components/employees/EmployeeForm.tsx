@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import { BusinessAllocationEditor } from '../finance/BusinessAllocation';
 import { allocationText, validAllocation } from '../../lib/financial';
 import { useState, type FormEvent } from 'react';
@@ -21,6 +22,7 @@ export function EmployeeOperationNotice({ operation, onRecovered }: { operation:
 export function EmployeeForm({ profile, types, operation, onClose, inline = false }: { inline?: boolean; profile?: EmployeeProfile; types: string[]; operation: EmployeeOperationHandle; onClose: () => void }) {
  const e = profile?.employee; const latest = profile?.terms[0];
  const catalogs = useBusinessCatalogs();
+ const { can } = useAuth();
  const attendance = useEmployeeAttendance(e?.employee_id ?? '', employeeToday().slice(0, 7));
  const [linkChanges, setLinkChanges] = useState<NonNullable<EmployeeInput['attendance_links']>>([]);
  const [form, setForm] = useState<EmployeeInput>({ employee_id: e?.employee_id, revision: e?.revision, name: e?.name ?? '', address: e?.address ?? '', notes: e?.notes ?? '', employee_type_name: e?.employee_type_name ?? 'General Staff', business_unit: e?.business_unit ?? 'gas_business', business_allocations: e?.business_allocations ?? { lpg: 100 }, phones: e?.phones.map(p => ({ ...p })) ?? [{ phone: '', is_primary: true }] });
@@ -71,7 +73,7 @@ export function EmployeeForm({ profile, types, operation, onClose, inline = fals
     <label className="input-group"><span className="input-label">Address</span><input className="input-field" maxLength={1000} value={form.address} onChange={ev => setForm({ ...form, address: ev.target.value })} /></label>
     {e && <label className="employee-check"><input type="checkbox" checked={changeTerms} onChange={ev => setChangeTerms(ev.target.checked)} />Change salary or employment status</label>}
     {changeTerms && <section className="employee-terms-editor"><h3>{e ? 'New salary & employment terms' : 'Starting salary & employment'}</h3><div className="employee-form-grid"><PurchaseNumber label="Monthly salary (Tk)" money value={salary} onChange={value => { setSalary(value ?? 0); if (e) setDate(employeeToday()); }} /><PurchaseSelect label="Employment status" value={active ? 'active' : 'inactive'} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive / ended' }]} onChange={value => { setActive(value === 'active'); setDate(employeeToday()); }} /><label className="input-group"><span className="input-label">{e ? 'Effective from' : 'Joining date'}</span><DatePicker label="Salary effective date" value={date} onChange={setDate} /></label></div><p className="employee-hint">The latest active salary for a month applies to the full month. A month with a saved payment keeps its salary amount. Joining and leaving months use the full monthly salary; months with no active employment have no new salary due.</p>{e && <label className="input-group"><span className="input-label">Reason for change</span><input required className="input-field" maxLength={1000} value={reason} onChange={ev => setReason(ev.target.value)} /></label>}</section>}
-    <EmployeeDeviceLinks links={attendance.data?.links ?? []} changes={linkChanges} onChange={setLinkChanges} />
+    {can('attendance:manage') && <EmployeeDeviceLinks links={attendance.data?.links ?? []} changes={linkChanges} onChange={setLinkChanges} />}
     <label className="input-group"><span className="input-label">Notes (optional)</span><textarea className="input-field" rows={2} maxLength={2000} value={form.notes} onChange={ev => setForm({ ...form, notes: ev.target.value })} /></label>
    </fieldset>
    {error && <p role="alert" className="purchase-error">{error}</p>}<EmployeeOperationNotice operation={operation} onRecovered={onClose} />

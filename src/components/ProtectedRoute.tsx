@@ -12,7 +12,7 @@ interface ProtectedRouteProps {
  * Redirects to /login if unauthenticated.
  */
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { session, profile, permissions, isLoading, signOut } = useAuth();
+  const { session, profile, access, accessError, permissions, isLoading, signOut, refreshAccess } = useAuth();
   const { pathname } = useLocation();
 
   if (isLoading) {
@@ -38,6 +38,9 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
+  if (access?.must_change_password) return <Navigate to="/account" replace />;
+  if (access?.is_superadmin && !profile) return <Navigate to="/admin" replace />;
+
   const required = routePermissions[pathname];
   if (!profile || (required && !hasAnyPermission(permissions, required))) {
     const available = Object.entries(routePermissions).find(([, needed]) =>
@@ -45,8 +48,9 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return (
       <div className="empty-state" role="alert">
         <h2>Workspace access unavailable</h2>
-        <p>Your active business membership and permissions are required for this page.</p>
+        <p>{accessError ?? (access?.access_status === 'suspended' ? 'Your business is suspended. Contact the platform administrator.' : access?.access_status === 'disabled' ? 'Your account is disabled. Contact your business owner.' : 'Your active business membership and permissions are required for this page.')}</p>
         {available && <Link to={available[0]} className="btn btn-primary">Open workspace</Link>}
+        <button className="btn btn-secondary" onClick={() => void refreshAccess()}>Retry access</button>
         <button className="btn btn-secondary" onClick={() => void signOut()}>Sign Out</button>
       </div>
     );

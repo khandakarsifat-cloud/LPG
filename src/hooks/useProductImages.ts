@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -6,9 +6,12 @@ import { compressProductImage } from '../lib/imageCompression';
 
 export function useProductImage(path: string | null | undefined) {
   const { profile, user } = useAuth();
-  return useQuery({ queryKey: ['product-image', profile?.tenant_id, user?.id, path], enabled: Boolean(path && profile && user), staleTime: 30 * 60_000, gcTime: 60 * 60_000, refetchInterval: 30 * 60_000, retry: 1,
-    queryFn: async () => { if (!path) return null; const { data, error } = await supabase.storage.from('product-images').createSignedUrl(path, 3600); if (error) throw error; return data.signedUrl; },
+  const query = useQuery({ queryKey: ['product-image', profile?.tenant_id, user?.id, path], enabled: Boolean(path && profile && user), staleTime: 5 * 60_000, gcTime: 10 * 60_000, retry: 1,
+    queryFn: async () => { if (!path) return null; const { data, error } = await supabase.storage.from('product-images').download(path); if (error) throw error; return data; },
   });
+  const url = useMemo(() => query.data ? URL.createObjectURL(query.data) : null, [query.data]);
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  return { ...query, data: url };
 }
 
 export function useProductPhoto(initialPath: string | null = null) {
@@ -36,7 +39,7 @@ export function useProductPhoto(initialPath: string | null = null) {
     setBusy(true); setError('');
     try {
       const body = await compressProductImage(file); const objectPath = `${profile.tenant_id}/${crypto.randomUUID()}.webp`;
-      const { error: uploadError } = await supabase.storage.from('product-images').upload(objectPath, body, { contentType: 'image/webp', cacheControl: '3600', upsert: false });
+      const { error: uploadError } = await supabase.storage.from('product-images').upload(objectPath, body, { contentType: 'image/webp', cacheControl: '0', upsert: false });
       if (uploadError) throw uploadError;
       if (!mounted.current) { await supabase.storage.from('product-images').remove([objectPath]); throw new Error('The product dialog closed before its photo was saved.'); }
       uploaded.current = objectPath; return objectPath;

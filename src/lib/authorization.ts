@@ -10,6 +10,7 @@ export const routePermissions: Record<string, readonly string[]> = {
   '/employees': ['employees:view', 'employees:manage', 'payroll:view', 'payroll:pay'],
   '/settings': ['settings:manage', 'preferences:manage', 'gas_plants:view', 'gas_plants:manage'],
   '/finance': ['finance:view', 'finance:manage'],
+  '/users': ['users:manage'],
 };
 
 export const hasAnyPermission = (permissions: readonly string[], required: readonly string[]) =>

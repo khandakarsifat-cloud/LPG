@@ -1,139 +1,204 @@
-# Tenant authorization
+# Account, platform and tenant authorization
 
-Implemented and inspected on **2026-10-05 (Asia/Dhaka)**. This document describes
-the implemented authorization boundaries and their verification.
+The browser uses the public key and a normal Supabase Auth session. PostgreSQL is
+the authority for account status, business status, platform identity and effective
+permissions. User-editable Auth metadata, route visibility and client tenant IDs
+never grant access. Application authorization roles are unrelated to employee job
+titles in `employee_types`.
 
-## Authority and roles
+## Identity and sessions
 
-Financial Analysis and all financial entry/ledger RPCs derive the signed-in active membership and restrict every request to that trusted organization. LPG, Stove and Logistics are business-line scopes within that organization. Foreign organization IDs are rejected; there is no cross-organization grant model.
+- `user_profiles`, `user_roles`, `roles`, `permissions` and `role_permissions`
+  retain the existing single-business membership model. Each member has exactly
+  one OWNER, MANAGER or SALESMAN application role.
+- `app_private.platform_superadmins` is a separate platform identity registry.
+  A superadmin has no fabricated business membership or OWNER assignment.
+- `app_private.session_valid` requires the signed JWT's `session_id` to belong to
+  its actual Auth user, still exist in `auth.sessions`, remain unexpired and not
+  belong to a banned or anonymous identity. Missing/revoked sessions fail closed.
+- `account_security` gates first-login password changes and incomplete password
+  resets. Existing valid accounts are initialized without a forced reset.
+- `current_tenant_id()` requires a ready account and an active business/profile.
+  Superadmin tenancy comes exclusively from `admin_workspace_sessions`, keyed by
+  the verified Auth session. Browser headers and arbitrary tenant IDs cannot
+  select a workspace. The administrator may select only an active business.
+- Suspension deletes member sessions and any selected administrator workspace.
+  Deactivation deletes the affected member's sessions. Every subsequent RLS/RPC
+  request rechecks database state; reactivation never revives revoked tokens.
 
-Buying-price history, sale cost evidence, operating payments, incurred-cost events, service-trip activity and the financial source archive are immutable and RPC-only. Buying-price writes require the same trusted OWNER and inventory-management gate as selling prices. Service and operating payments derive tenant/actor and require Logistics management; linked crew payments retain the Payroll gate. Historical unknown real-wallet attribution cannot create a wallet refund.
+`get_access_context()` returns the caller's own account state and effective
+workspace. The frontend polls it every 15 seconds and on focus, clears domain
+caches when scope or permissions change, and broadcasts workspace switches to
+other tabs. The database enforces revocations independently of this UI interval.
+Previously downloaded information cannot be recalled from a user's device.
 
-`roles`, `permissions`, `role_permissions` and `user_roles` are the authorization
-source of truth. Operational access uses capabilities. Inventory price and commission
-writes additionally require trusted OWNER membership; the UI uses the server-returned
-`can_manage_prices` flag instead of inspecting role names. The initial mappings are:
+## Effective capabilities
 
-| Role | Initial capabilities |
-| --- | --- |
-| OWNER | All current tenant capabilities |
-| MANAGER | The same complete set, in its own role mapping |
-| SALESMAN | `dashboard:view`, `pos:sell`, `sales:view`, `receipts:print`, `preferences:manage` |
+OWNER always has the complete current permission catalog, even if its historical
+role mappings are incomplete. Owner-only capabilities cannot be delegated.
+Existing business owners are preserved; migration does not infer ownership from
+email, Auth metadata or employee records.
 
-The original view/manage pairs for inventory, customers, purchases, logistics,
-gas plants and finance remain, together with `settings:manage` and `pos:sell`.
-New capabilities cover Dashboard, sales history, printing, printer configuration,
-employees, payroll and audit reading. There is no platform ADMIN implementation.
+MANAGER defaults to all delegable capabilities. SALESMAN defaults to Dashboard,
+POS, saved sales, receipt printing and personal preferences. An OWNER may replace
+an individual staff member's role defaults with an explicit permission allowlist
+in `user_permission_sets`. Changing a role or permission set takes effect for
+existing JWTs on the next database request.
 
-Changing a trusted RBAC mapping immediately changes database access, including
-for existing access tokens. Adding a capability to the catalog also requires
-deliberately mapping it to existing roles. New-business setup copies the current
-catalog to OWNER/MANAGER and the five supported capabilities to SALESMAN.
-The browser refreshes effective permissions and its profile every 30 seconds
-and on query focus; the database remains authoritative between UI refreshes.
+The catalog includes module/view permissions and action capabilities:
 
-Membership admission, role/mapping administration, activation and tenant status
-changes are trusted database/server operations. No invitation, role-management,
-or activation UI/API is introduced. Browser roles cannot write
-any RBAC table or profile field, including their own tenant, identity or status.
+| Area | Delegable actions | Additional protected actions |
+| --- | --- | --- |
+| Sales | POS checkout, saved sales/receipts, bottle collection, money collection | Cancellation and customer refunds require OWNER |
+| Inventory | Product registration, product/photo edits, stock alerts | Selling/buying prices, monthly commissions and valued stock adjustments require OWNER |
+| Purchases | Create, edit, dispatch, receive, payments, supplier refunds | Cancellation and commission corrections require OWNER |
+| Customers | View, create, edit; POS includes checkout customer creation | All operations stay within trusted membership |
+| Logistics | Vehicle edits, transits, incurred costs, operating payments, service trips | Vehicle acquisition accounting, retirement and availability retain OWNER checks |
+| Employees | Create/edit profiles and dated terms; device links/attendance corrections | Job titles never affect application permissions |
+| Payroll | Read balances/history, pay, return/correct payments | Linked transit payments also require Logistics management |
+| Finance | View ledger/registers, financial entries and returns, wallet configuration/transfers | Loans, assets, capital, opening positions and balance corrections require OWNER |
+| Reports | Financial Analysis, breakdowns and reports | Requires Finance view |
+| Settings | Business profile, catalogs, financial types, brands, plants and printers | Configuration changes never rewrite historical accounting recognition |
+| Access | None for staff | Account creation, status, roles, permissions and resets require OWNER or superadmin |
 
-## Trusted membership and helpers
+Management capabilities are prerequisites for their action permissions; they do
+not substitute for the finer action gates. Catalog dependencies are validated
+server-side. The permission editor selects prerequisites and removes dependent
+permissions together. Unknown capabilities, missing dependencies, owner-only
+grants and staff promotion to OWNER are rejected. Owners cannot modify or disable
+their own account through staff administration. A business must retain an active
+OWNER; suspend the business to block everyone.
 
-The unexposed `app_private` schema contains:
+Supporting selector reads remain deliberate: POS can read product/price/customer
+identities, Purchases can read its products/plants/vehicles, and payment workflows
+can read active wallet destination names through `get_payment_wallets` without
+balances. Inventory view includes inventory valuation; purchase/logistics views
+include their own costs and settlements. Dashboard permission exposes bounded
+summary/feed RPCs, not direct full sales/payment tables. Wallet balances require
+Finance view/manage. Employee-only readers do not receive payroll balances.
 
-- `current_tenant_id()`: resolves the caller's database profile, requires its
-  Auth identity to exist, excludes anonymous Auth accounts, and requires an active
-  profile and an `active` tenant.
-- `has_permission(text)` and `has_any_permission(text[])`: join the caller's
-  assignments, tenant roles, permission mappings and catalog using tenant keys.
-- `require_permission(text)` and `require_any_permission(text[])`: reject
-  missing identity, inactive membership and missing capabilities with SQLSTATE
-  `42501`, and return the trusted tenant.
+## Platform administration and audit identity
 
-Only the three read helpers needed by RLS are executable by `authenticated`;
-schema USAGE does not expose the schema through PostgREST. Permission gates,
-inventory recording, wallet/category/type helpers and trigger functions are
-unavailable to browser callers. Public `get_my_permissions()` returns only
-the current caller's effective capabilities. An account without assignments has
-no operational permissions.
+`#/admin` contains platform totals, paged businesses/accounts, suspension and
+reactivation, storage measurement and access audit. Business entry gives the
+administrator exactly the target OWNER's effective capabilities. The account
+menu returns to the panel without signing in as another person.
 
-Auth user metadata is display data, never membership or permission authority.
-Profile identities reference Auth users. Role assignments and creator/actor
-relationships use composite tenant/profile foreign keys. Items, customers and
-audit records have tenant-root foreign keys; transit purchases are tenant-qualified
-parents. Reused entity UUIDs in different tenants are supported and isolated.
+Canonical business writes still use `auth.uid()`. Actor foreign keys now refer
+to the tenant-qualified private `tenant_actors` registry, populated from real
+memberships or an authenticated superadmin entry. It retains full name/email
+attribution without assigning the administrator a business role. Membership
+foreign keys remain attached to actual `user_profiles`. Existing journal, FIFO,
+stock, request and source locks are unchanged.
 
-## Browser access and workflow boundaries
+`access_audit` records bootstrap, workspace entry/exit, business/account status,
+role/permission changes, provisioning/reset requests and completions, email and
+password changes. Only the platform administrator or the relevant business OWNER
+can read its paged RPC. Credentials and tokens never enter audit payloads.
+Normal module activity retains its original source records and actual actor IDs.
 
-Every business read requires active trusted membership and a capability, except
-the caller's own profile/business identity needed to load the workspace.
+The backup panel is one reserved section. It implements no backup engine,
+Google Drive connection or recovery action. Existing infrastructure recovery
+backups remain outside this panel.
 
-| Capability / flow | Authorized access |
-| --- | --- |
-| Dashboard | `dashboard:view` gates `get_dashboard_stats`; the RPC returns totals/counts without opening inventory history or finance. The daily feed and receipts use tenant-scoped sales/line reads. |
-| POS | `pos:sell` supports product, brand and price reads, customer lookup/creation, and validated `create_pos_sale`. It gives no inventory adjustment, purchase, logistics, employee or finance management rights. |
-| Sales / printing | `sales:view` and `receipts:print` support saved sale details and their product/customer embeds; printing can read saved printer configuration. SALESMAN can read/reprint tenant sales. |
-| Printer settings | `printers:manage` gates configuration INSERT/UPDATE; configuration SELECT also allows `receipts:print`. PostgREST upserts can assign the tenant column, but old and new ownership must both match the trusted tenant. |
-| Inventory | View/manage capabilities permit registry/history reads and same-tenant creator attribution. `inventory:manage` allows registering zero-stock items through scoped column grants, including a validated tenant photo reference. Valued stock adjustments, prices and explicit commission writes additionally require an OWNER role assignment from tenant-qualified RBAC tables. Buying-price and commission histories are immutable and exposed through paged RPCs; direct stock and history writes remain denied. |
-| Customers | Customer view/manage allows reads; management or POS allows form creation. No direct update/delete path is exposed. |
-| Purchases | Purchase view/manage gates lists, activity and supporting product/truck/plant selectors. Create/edit/dispatch/receive/payments/refunds require `purchases:manage`; internal stock and wallet writes need no separate inventory/finance management grant. See [lifecycle and settlement](../docs/modules/purchases-and-logistics.md). |
-| Logistics | Logistics view/manage gates truck/transit/wallet reads; truck/custom-transit/cost mutations require `logistics:manage`. |
-| Brands / plants | `settings:manage` gates brand mutations. Plant/officer mutations require `gas_plants:manage`; plant view and purchase selectors retain their supporting reads. |
-| Employees | Employee or payroll capabilities permit bounded directory/profile reads. `employees:manage` gates profile and effective salary-term changes; employee-only readers receive no monthly balances or financial activity. |
-| Salary payments | `payroll:view` / `payroll:pay` gate salary-month and financial activity reads; `payroll:pay` gates salary, named bonus, linked trip payments and audited returns. The first salary payment establishes a fixed employee/month amount; multiple payments may settle it. Payroll-only users can read payment-wallet names without Finance balances. Linked trip payouts additionally require `logistics:manage`. |
-| Finance / audit | Finance view/manage allows same-tenant wallet/ledger/dues reads. `finance:manage` gates custom wallet management, transfers, adjustments and sale collections; browser ledger/payment/request writes remain denied. POS reads payment destinations without balances through a gated RPC. Saved-sale permissions allow payment attribution reads; customer view/manage permits aggregate outstanding balance. `audit:view` retains audit reads. |
+## Auth administration service
 
-Only item/customer registration and printer configuration have direct browser
-writes. Item INSERT grants exclude initial balances and timestamps. All other
-stock, ledger, purchase, transit, employee, phone and payment writes remain behind
-their existing validated RPCs. Actor fields come from `auth.uid()`; callers cannot
-choose their attribution.
+`account-service/server.mjs` is a small private-network Node HTTP service behind
+`/accounts/v1/*`. It validates the real bearer through GoTrue and then the current
+database account/session. It uses a bounded JSON body, fixed upstream paths,
+timeouts, verified-identity rate limits, an exact origin allowlist and no request
+or credential logging. There are no client-controlled upstream URLs or Auth
+administration attributes.
 
-Privileged routines use permission gates and tenant-qualified reads, joins,
-subqueries and writes. Public inventory adjustments gate `inventory:manage`;
-purchases insert referenced movement rows under their validated workflow; the movement trigger applies the stock delta once.
-POS applies stock changes through the movement trigger exactly once, locks each
-item, rejects invalid lines/negative totals and rolls back insufficient stock.
-Existing historical stock balances are not recalculated.
+The server-held service key is used only for official GoTrue administration and
+service-only provisioning/bootstrap database functions. On the VPS it is in the UID-1000, mode-400
+generated `deploy/.account-service.json` mount; this ignored file is never bundled
+into the frontend or uploaded from the workstation. Local Compose supplies it
+only to the server environment from the existing private `.env`.
 
-The obsolete four-argument truck-create and activation-boolean truck-update
-overloads and public `my_tenant_id` contract are removed. Current hook contracts,
-including the ten-argument POS customer-selection contract, remain.
+Provisioning is a retryable two-phase workflow:
 
-## Grants and deployment
+1. `prepare_account_operation` authorizes the real actor and trusted target,
+   validates an exact noncredential payload and reserves a request/Auth UUID.
+2. The service creates that UUID through GoTrue with a temporary password. It
+   never adopts an existing account by email. A retry finds the reserved Auth
+   UUID rather than creating another account or silently changing its password.
+3. `complete_account_operation`, executable only by `service_role`, revalidates
+   the original actor/session before committing the business/profile/role and
+   first-login restriction. No unfinished Auth identity has business access.
 
-The migration removes overlapping policies and all existing PUBLIC/anon/browser
-table privileges, then grants only documented SELECTs and three direct-write
-paths. No browser TRUNCATE, REFERENCES, TRIGGER or MAINTAIN privileges remain.
-All PUBLIC/anon function execution is revoked; browser RPC execution is an
-explicit allowlist. Function paths are pinned to `pg_catalog, public, pg_temp`
-and application table references are qualified. Browser CREATE on public is
-denied. Internal trigger functions retain their trusted invocation paths.
+The UI keeps only the request ID and noncredential operation in session storage
+for recovery; it never saves the temporary password. Retry an uncertain operation
+with its original request ID. A pending password reset blocks the target until
+completion. The initiating account can retry the original request, or another
+authorized administrator can start a new reset. A new reset supersedes the older
+generation, and delayed older password writes are rejected even after the new
+reset completes.
 
-Future table/sequence/function browser defaults are revoked for both `postgres`
-and `supabase_admin`, including global PUBLIC function execution. Creating a
-future object does not automatically expose it.
+Owners may create only MANAGER/SALESMAN accounts in their own business and reset
+only those accounts. Superadmin alone creates businesses and their initial OWNER
+and may reset business owners. The service checks current authorization again at
+completion, including if permission or status changed during an Auth request.
 
-Authorization is recorded by:
+Self password changes reauthenticate the current password and require a different
+12–128-character password with uppercase, lowercase and a number. The
+`auth.users` password-change trigger clears a first-login restriction only after
+a real hash change, preserves incomplete administrative reset restrictions,
+audits the change and atomically revokes all sessions. Direct public Auth account
+writes (PUT/PATCH/DELETE) are denied by the public proxy and by Envoy unless they
+carry the server-only service key. New/reset users must make
+that change before any business or platform access. SMTP is not configured;
+temporary credentials must be delivered securely outside the app, and automated
+recovery/invitation email is unavailable.
 
-1. `20261004192158_tenant_permission_authorization.sql`
-2. `20261004194235_receipt_printer_upsert_authorization.sql`
+Password writes also require a private, single-use transaction marker. The
+self-change nonce is issued only for a valid active account/session; resets use
+their current private operation generation. The service supplies the marker
+through GoTrue's server-only admin `role` parameter. A BEFORE trigger converts it
+to a transaction-local setting while preserving the actual Auth role unchanged;
+the password trigger consumes/checks it in that same transaction. No nonce role
+is ever stored, granted or used in a JWT, and no user-editable metadata authorizes
+a password write. This deliberately relies on the pinned GoTrue v2.196.0
+`adminUserUpdate` ordering (`SetRole` before `UpdatePassword`). Review that source
+and rerun the real API suite before upgrading GoTrue. A stale reset cannot consume
+a newer self-change nonce or overwrite a completed newer reset.
 
-Apply the authorization migration transactionally as `supabase_admin` or an
-equivalent platform superuser because it revokes that creator's default grants.
-Application functions remain owned by `postgres`. Apply the printer follow-up
-afterward. Do not reset existing data or repair historical migration records to
-deploy these changes.
+`initialize-platform.mjs` is a one-time stdin-only, server-side CLI, never an HTTP
+endpoint. Its preflight and permanently consumed `platform_bootstrap` record
+prevent another bootstrap. Do not save temporary credentials in code, migrations,
+shell arguments or tracked documentation. This is separate from VPS installation
+bootstrap; do not rerun the VPS bootstrap on an existing server.
 
-The two authorization migrations were applied to the repository's local Compose database and
-recorded with their actual SQL. All twelve migrations replayed against schema-only
-Supabase platform dependencies in a network-disabled scratch database; its
-`public`/`app_private` schema matches live. Historical application migrations
-run as `postgres`; the reconciliation/authorization defaults need the platform
-superuser. This validates application migration reproducibility against those
-dependencies, not provisioning a fresh complete Supabase stack.
+## Public registration, RLS, grants and Storage
 
-## Verification
+Public signup is disabled by literal `GOTRUE_DISABLE_SIGNUP=true` in Compose and
+disabled in Supabase CLI configuration. The registration form/Auth signup action
+and public `setup_business` RPC are removed. `#/register` redirects to login.
+Neither a public Auth endpoint nor an authenticated ordinary user can provision
+a business. Existing legitimate memberships and ownership are preserved.
+
+All public and private application tables have RLS. Direct browser writes remain
+limited to zero-stock product registration, permitted customer creation and
+printer configuration. RBAC/profile/auth/accounting/inventory-history writes are
+RPC/server-only. Public/anon function execution and future browser object grants
+remain revoked. Definer functions have pinned paths and trusted tenant gates;
+unexposed internal helpers are not browser-executable except the read predicates
+and pure constraint helpers required by RLS/direct registration.
+
+Product images remain in a private tenant-prefixed bucket. The browser uses
+authenticated downloads and releases local object URLs on scope changes. Both
+Envoy and the public proxy deny signed-download/signing routes, including existing
+signed URLs, so a signed token cannot outlive membership/session suspension.
+Upload/delete policies derive trusted tenancy and product permissions; deletion
+still rejects images referenced by a product. Storage totals count actual stored
+object byte sizes. Per-business database figures are explicitly row-payload
+estimates, excluding indexes, free space and shared platform overhead; the overall
+database total uses `pg_database_size`.
+
+## Verification and migration
+
+The forward migration is `20261102084622_platform_account_access.sql`. Applied
+migrations and their original replay boundaries are not rewritten.
 
 ```powershell
 npm run auth:test
@@ -141,39 +206,30 @@ npm run auth:db:test
 npm run auth:api:test
 ```
 
-Database tests use real `authenticated`/`anon` roles and roll back all fixtures.
-They exercise OWNER/MANAGER access, SALESMAN allow/deny paths, mapping-driven
-grant/revocation, membership/status rejection, escalation denial, internal
-execution restrictions, future-object defaults, direct-write denial and real
-POS/purchase/transit/employee/payment/printer workflows. Reused UUID tests include
-forcing a newly generated sale UUID to collide with another tenant's saved sale.
-The receipt suite asserts that stock changes are applied once.
+The database suite restores the primary database into a named disposable copy,
+applies pending migrations, verifies original stock/journal/business evidence,
+probes every authenticated application RPC under a revoked identity, checks RLS
+and grants, and exercises owner/staff/platform isolation and attribution. It also
+runs twelve existing current-state accounting/FIFO/dashboard regression suites
+using temporary trusted fixture provisioning and real session rows. Historical
+signup-era fixtures remain at their original replay boundary.
 
-The API suite needs the running local Compose stack and the root private `.env`
-with its local public/anon key. It creates disposable Auth accounts/businesses
-and cleans only those generated fixtures, using trusted database access for staff
-fixture membership and cleanup. It verifies real signup/setup, profile/receipt/
-inventory embeds, customer creation, checkout, printer upserts, all three roles,
-and metadata spoofing denial. It never contacts the printer bridge.
+The API suite starts isolated GoTrue/PostgREST containers against another
+disposable copy and runs the actual account service. It covers disabled signup,
+one-time bootstrap, first password change, metadata spoofing, both Auth-creation
+and completion retries, normal roles, individual capabilities, cross-business
+and direct-write denial, session/refresh revocation, reset, suspension,
+reactivation, workspace switching, audit and storage reports. It never changes
+the primary application's existing businesses or retained acceptance labs.
 
-The 2026-10-05 security advisor snapshot reported 29 authenticated definer RPC warnings and
-13 informational RLS-without-policy entries for tables intentionally accessible
-only through trusted workflows/helpers. Anonymous definer execution and mutable
-function-path findings are gone. These remaining diagnostics do not override
-the explicit RPC gates or justify adding browser policies to internal tables.
-
-Frontend build, focused changed-file lint, authorization tests, bridge typecheck
-and all twelve existing bridge/checkout tests pass. Browser UI interaction and
-physical printing are not part of these authorization tests; no physical print
-job was sent.
-
-Purchase cancellation additionally checks trusted OWNER membership and exact `CANCEL` in `initiate_purchase_cancellation`; received purchases always reject. Normal payments/refunds require `purchases:manage`. New purchase financial tables are RLS-enabled with no direct browser privileges; the bounded settlement RPC requires purchase view/manage access. `get_payment_wallets` also permits purchase managers, exposing only active destination identities.
-
-
-`20261023012148` adds `sales:collect_bottles`, mapped initially to OWNER/MANAGER and included in new-owner/manager setup. SALESMAN retains its four existing capabilities and can view the Sales directory through `sales:view`. Bottle collection alone grants neither customer settlement costs, monetary collection nor wallet balances; costs/payments require `finance:manage`. `20261026035440` rejects new expense funding and reuses the existing customer-charge mechanism. The tenant-gated `get_sale_receipt` requires `receipts:print` and reads one current transaction snapshot; its default PUBLIC/anon privileges are revoked. Aggregate settlement (`20261023150829`) validates actual products against trusted tenant catalog and original expected quantities, with explicit acknowledgement for unexpected or excess product receipts. New bottle evidence tables have RLS and no direct browser privileges. Bounded detail/directory/overview RPCs enforce trusted tenant and their read capabilities; customer bottle balance exposes only an aggregate under existing customer/Finance read permissions.
-
-## Canonical development contracts
-
-`20261026070000_canonical_development_model.sql` removes retired RPC overloads and the duplicated bottle-obligation table without adding browser grants. Expected returns now come from immutable `sale_items`; actual receipt lines retain their composite tenant/sale/receipt/product relationships. Brand identity is required and tenant-qualified. Existing permission gates, unexposed helpers, money/stock recorders and request locks remain authoritative.
-
-Personal appearance uses `preferences:manage` for Settings navigation, mapped to existing roles and seeded for SALESMAN at new-business setup. Personal preference RPCs derive the Auth identity and never accept another user's ID. Business settings retain `settings:manage`. Employee job-title management is a separate tenant catalog and cannot change RBAC assignments. Manual attendance correction additionally verifies trusted OWNER/MANAGER membership plus `employees:manage`; raw events and adjustment audits have no direct browser grants.
+`tests/account-access.browser.cjs` covers intercepted desktop/phone light/dark
+flows separately from real authenticated acceptance.
+`node tests/account-access-live.browser.mjs --vps` exercises the published Worker,
+normal Auth/PostgREST and private Storage using uniquely named disposable
+businesses and identities. It preserves the actual bootstrap account's forced
+password change and verifies original business records before and after cleanup.
+Its trusted SSH helper is fixture arrangement only and is never deployed.
+Physical Android behavior,
+physical printing and payment-provider settlement are separate checks. The
+application remains in development under `AGENTS.md`; this account system does
+not certify the rest of the infrastructure for production.

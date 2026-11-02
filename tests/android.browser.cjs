@@ -30,7 +30,7 @@ async page => {
     else if(name==='items')data=items;
     else if(name==='price_books')data=items.flatMap(item=>['refill','package'].map(type=>({item_id:item.item_id,price_type:type,customer_tier:'retail',price:type==='refill'?1250:3500,effective_from:'2020-01-01',effective_to:null})));
     else if(name==='sales')data=minimal?[]:Array.from({length:3},(_,n)=>({sale_id:id(1700+n),customer_name:'Fixture customer '+n,customers:{name:'Fixture customer '+n},sale_tier:'retail',created_at:now,total_amount:1250,status:'completed'}));
-    else if(name==='get_dashboard_stats')data={todayRevenue:123456,todayMovements:25,totalCustomers:35};
+    else if(name==='get_dashboard_snapshot')data={date:new Date().toISOString().slice(0,10),finance_visible:false,days:[],sales:[],bottles:[],stove_types:[],attention:{},activity:{entries:[],hasMore:false}};
     else if(name==='get_customer_directory')data={entries:Array.from({length:minimal?0:Number(route.request().postDataJSON()?.p_limit??6)},(_,n)=>({customer_id:id(1500+n),display_name:'Customer '+n,name:'Customer '+n,tier:'retail',phone:'01712345678',address:'Dhaka',created_at:now,transactions:10,refill:5,package:2,total_sold:7,last_transaction_at:now})),total:30};
     else if(name==='get_customer_overview')data={wholesale:15,retail:15,new_wholesale:2,new_retail:3,inactive_wholesale:1,inactive_retail:2,week_start:now,inactive_since:now};
     else if(name==='list_lpg_brands')data=brands;
@@ -51,7 +51,7 @@ async page => {
 
   const failures=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.emulateMedia({reducedMotion:'reduce'});
-  const routes=[['/','.dashboard-workspace'],['/inventory','.inventory-page'],['/purchases','.purchases-page'],['/customers','.customers-page'],['/employees','.employees-page'],['/gas-plants','.gas-plants-grid'],['/logistics','.inv-tabs'],['/settings','.settings-tabs'],['/finance','.empty-state'],['/pos','.pos-workspace']];
+  const routes=[['/','.dashboard-columns'],['/inventory','.inventory-page'],['/purchases','.purchases-page'],['/customers','.customers-page'],['/employees','.employees-page'],['/gas-plants','.gas-plants-grid'],['/logistics','.inv-tabs'],['/settings','.settings-tabs'],['/finance','.empty-state'],['/pos','.pos-workspace']];
   await page.goto(origin+'/?android-pages-fixtures=1#/');
   const sizes=[[320,568],[360,800],[390,844],[430,932],[768,1024],[800,600]];
   let layouts=0;
@@ -106,7 +106,7 @@ async page => {
     await page.goto(origin+'/?android-dialog-reset='+encodeURIComponent(route)+'#/pos');
     await page.setViewportSize({width:390,height:844});
   }
-  await page.goto(origin+'/#/');await page.locator('.dashboard-workspace').waitFor();await page.getByRole('button',{name:'Open navigation'}).click();
+  await page.goto(origin+'/#/');await page.locator('.dashboard-columns').waitFor();await page.getByRole('button',{name:'Open navigation'}).click();
   if(!await page.getByRole('navigation',{name:'Primary navigation'}).isVisible())failures.push('Navigation drawer missing');
   await page.getByRole('navigation',{name:'Primary navigation'}).getByRole('link',{name:'Inventory',exact:true}).click();
   if(await page.locator('.sidebar.mobile-open').count())failures.push('Drawer stays open after navigation');

@@ -7,8 +7,11 @@ import { useBatchedDirectory } from './useBatchedDirectory';
 import type { AdditionalCost, Assignment, LogisticsFilters, LogisticsSummary, Transit, Vehicle, VehicleInput, Wallet } from '../types/logistics';
 
 export const logisticsKeys = { all: ['logistics'] as const };
-export const useWallets = () => useQuery<Wallet[]>({ queryKey: ['logistics', 'wallets'], refetchInterval: 30_000,
+export const useWallets = () => {
+ const { can } = useAuth();
+ return useQuery<Wallet[]>({ queryKey: ['logistics', 'wallets'], enabled: can('finance:view') || can('finance:manage'), refetchInterval: 30_000,
  queryFn: async () => { const { data, error } = await supabase.from('wallets').select('*').order('created_at').order('wallet_id'); if (error) throw error; return data ?? []; } });
+};
 export const useVehicles = () => useQuery<Vehicle[]>({ queryKey: ['logistics', 'vehicles', 'catalog'],
  queryFn: ({ signal }) => readAllRows<Vehicle>((from, to) => supabase.rpc('list_vehicles').range(from, to).abortSignal(signal)) });
 export function useVehicleDirectory(filters: { search: string; status: string }, pageSize: number) {

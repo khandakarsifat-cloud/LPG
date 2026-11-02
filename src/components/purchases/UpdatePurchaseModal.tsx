@@ -28,7 +28,11 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
   const qc = useQueryClient();
   const itemsQuery = useInventoryBalances();
   const settlement = usePurchaseSettlement(purchase.purchase_id);
-  const access = purchaseAccess(purchase, can('purchases:manage'), settlement.data?.can_cancel, settlement.data?.financial_locked ?? true);
+  const lifecycle = purchaseAccess(purchase, can('purchases:manage'), settlement.data?.can_cancel, settlement.data?.financial_locked ?? true);
+  const access = { ...lifecycle, editable: lifecycle.editable && can('purchases:edit'),
+    products: lifecycle.products && can('purchases:edit'), financials: lifecycle.financials && can('purchases:edit'),
+    cancel: lifecycle.cancel && can('purchases:cancel'), dispatch: lifecycle.dispatch && can('purchases:dispatch'),
+    receive: lifecycle.receive && can('purchases:receive'), pay: lifecycle.pay && can('purchases:pay') };
   const [draft, setDraft] = useState(() => purchaseDraft(purchase));
   const [draftRevision, setDraftRevision] = useState(purchase.revision);
   const [baseline, setBaseline] = useState(() => JSON.stringify(purchaseDraft(purchase)));
@@ -136,7 +140,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Close</button>
           {access.editable && <button type="submit" className={`btn ${dirty ? 'btn-primary' : 'btn-secondary'}`} disabled={blocked || !dirty}><Save size={15} /> {update.isPending ? 'Saving…' : 'Save changes'}</button>}
           {access.pay && <button type="button" className="btn btn-secondary" disabled={blocked || dirty || !settlement.data} onClick={() => setPaymentDialog('payment')}><CreditCard size={15} /> Record payment</button>}
-          {can('purchases:manage') && purchase.status === 'cancelled' && Number(settlement.data?.refund_due ?? 0) > 0 && <button type="button" className="btn btn-primary" disabled={blocked || !settlement.data} onClick={() => setPaymentDialog('refund')}>Record refund</button>}
+          {can('purchases:refund') && purchase.status === 'cancelled' && Number(settlement.data?.refund_due ?? 0) > 0 && <button type="button" className="btn btn-primary" disabled={blocked || !settlement.data} onClick={() => setPaymentDialog('refund')}>Record refund</button>}
           {access.dispatch && <button type="button" className="btn btn-primary" disabled={blocked || dirty || !purchase.vehicle_id || !purchase.items.length} onClick={() => setConfirm('dispatch')}><Truck size={15} /> Dispatch vehicle</button>}
           {access.receive && <button type="button" className="btn btn-primary" disabled={blocked || dirty} onClick={() => setConfirm('receive')}><CheckCircle2 size={15} /> Receive shipment</button>}
         </div>

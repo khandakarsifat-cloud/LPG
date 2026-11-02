@@ -125,6 +125,34 @@ services:
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
     entrypoint: ["/bin/sh", "/docker-entrypoint.sh"]
 
+  account-service:
+    image: node:24.20.0-alpine
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    command: [node, --max-old-space-size=64, /app/server.mjs]
+    environment:
+      ACCOUNT_API_URL: http://api-gw:8000
+      ACCOUNT_PUBLIC_KEY: ${ANON_KEY}
+      ACCOUNT_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      ACCOUNT_ALLOWED_ORIGINS: ${SITE_URL},http://127.0.0.1:3001,http://localhost:3001,http://127.0.0.1:5173,http://localhost:5173
+    volumes:
+      - ./account-service/server.mjs:/app/server.mjs:ro
+      - ./account-service/initialize-platform.mjs:/app/initialize-platform.mjs:ro
+    depends_on:
+      auth:
+        condition: service_healthy
+      rest:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8081/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   auth:
     image: supabase/gotrue:v2.196.0
     restart: unless-stopped
@@ -155,7 +183,7 @@ services:
 
       GOTRUE_SITE_URL: ${SITE_URL}
       GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
-      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP}
+      GOTRUE_DISABLE_SIGNUP: "true"
 
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated

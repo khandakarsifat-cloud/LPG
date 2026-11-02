@@ -1,0 +1,93 @@
+-- Restored disposable database only. Source operations use normal permission-gated RPCs.
+begin;
+create function pg_temp.dashboard_assert(ok boolean,message text) returns void language plpgsql as $$begin if ok is not true then raise exception 'FAIL: %',message;end if;end $$;
+grant execute on function pg_temp.dashboard_assert(boolean,text) to authenticated;
+insert into auth.users(id,email,is_anonymous) values('db020000-0000-4000-8000-000000000001','dashboard-test@example.invalid',false),('db020000-0000-4000-8000-000000000002','dashboard-empty@example.invalid',false);
+set local role authenticated;
+select set_config('request.jwt.claim.sub','db020000-0000-4000-8000-000000000001',true);
+select public.setup_business('Disposable Dashboard acceptance','Dashboard Owner');
+reset role;
+do $$declare t uuid:=app_private.current_tenant_id();d date:=(now() at time zone 'Asia/Dhaka')::date;w uuid;brand uuid;other_brand uuid;a uuid:=gen_random_uuid();b uuid:=gen_random_uuid();stove uuid;kind uuid;expense uuid;income uuid;s uuid;s2 uuid;ss uuid;cancelled uuid;r jsonb;report jsonb;cost numeric;cash_before numeric;begin
+ select wallet_id into w from public.get_payment_wallets() where type='cash';
+ brand:=pg_temp.fixture_brand(t,'Dashboard brand A');other_brand:=pg_temp.fixture_brand(t,'Dashboard brand B');
+ insert into public.items(tenant_id,item_id,brand_id,size_kg,mouth_size) values(t,a,brand,12,'22mm'),(t,b,other_brand,12,'22mm');
+ perform public.save_business_catalog('weight',null,'17',true,false);
+ perform public.adjust_inventory(jsonb_build_object('item_id',a,'kind','opening','filled_quantity',20,'empty_quantity',10,'filled_unit_cost',1000,'empty_unit_cost',500,'date',d-1,'reason','Recorded dashboard opening A'),gen_random_uuid());
+ perform public.adjust_inventory(jsonb_build_object('item_id',b,'kind','opening','filled_quantity',20,'empty_quantity',10,'filled_unit_cost',1000,'empty_unit_cost',500,'date',d-1,'reason','Recorded dashboard opening B'),gen_random_uuid());
+ select type_id into kind from public.get_stove_product_types() limit 1;
+ stove:=(public.save_stove_product(jsonb_build_object('name','Dashboard test regulator','type_id',kind),gen_random_uuid())->>'item_id')::uuid;
+ perform public.adjust_inventory(jsonb_build_object('item_id',stove,'kind','opening','filled_quantity',6,'empty_quantity',0,'filled_unit_cost',100,'date',d-1,'reason','Recorded six stove units'),gen_random_uuid());
+ insert into public.price_books(tenant_id,item_id,price_type,customer_tier,price,effective_from) values(t,a,'package','retail',1500,now()-interval '1 day'),(t,a,'refill','retail',700,now()-interval '1 day'),(t,b,'refill','retail',700,now()-interval '1 day'),(t,stove,'package','retail',500,now()-interval '1 day');
+ s:=(public.create_pos_sale('01780000901','Dashboard LPG buyer',null,null,'retail',0,0,null,jsonb_build_array(
+  jsonb_build_object('item_id',a,'type','package','quantity',2,'unit_price',1500),jsonb_build_object('item_id',a,'type','refill','quantity',3,'unit_price',700),jsonb_build_object('item_id',a,'type','empty_return','quantity',3,'unit_price',0)),null,gen_random_uuid(),jsonb_build_array(jsonb_build_object('wallet_id',w,'amount',500)),'{"lines":[]}')->>'sale_id')::uuid;
+ perform public.collect_sale_payment(s,jsonb_build_array(jsonb_build_object('wallet_id',w,'amount',300)),gen_random_uuid());
+ s2:=(public.create_pos_sale('01780000902','Dashboard second brand',null,null,'retail',0,0,null,jsonb_build_array(jsonb_build_object('item_id',b,'type','refill','quantity',2,'unit_price',700),jsonb_build_object('item_id',b,'type','empty_return','quantity',2,'unit_price',0)),null,gen_random_uuid(),'[]','{"lines":[]}')->>'sale_id')::uuid;
+ ss:=(public.create_pos_sale('01780000903','Dashboard Stove buyer',null,null,'retail',0,0,null,jsonb_build_array(jsonb_build_object('item_id',stove,'type','package','quantity',4,'unit_price',500)),null,gen_random_uuid(),'[]',null)->>'sale_id')::uuid;
+ cancelled:=(public.create_pos_sale('01780000904','Dashboard cancelled buyer',null,null,'retail',0,0,null,jsonb_build_array(jsonb_build_object('item_id',a,'type','package','quantity',1,'unit_price',1500)),null,gen_random_uuid(),'[]',null)->>'sale_id')::uuid;
+ perform public.reverse_sale(cancelled,'Dashboard cancellation acceptance','CANCEL',gen_random_uuid());
+ expense:=(public.save_financial_type('{"name":"Dashboard power","account":"operating_expense","allocations":{"lpg":100}}')->>'type_id')::uuid;
+ perform public.record_financial_entry(jsonb_build_object('type_id',expense,'expected_revision',1,'wallet_id',w,'amount',200,'date',d-1,'description','Yesterday power'),gen_random_uuid());
+ perform public.record_financial_entry(jsonb_build_object('type_id',expense,'expected_revision',1,'wallet_id',w,'amount',50,'date',d,'description','Today power'),gen_random_uuid());
+ income:=(public.save_financial_type('{"name":"Dashboard extra income","account":"other_income","allocations":{"stove":100}}')->>'type_id')::uuid;
+ perform public.record_financial_entry(jsonb_build_object('type_id',income,'expected_revision',1,'wallet_id',w,'amount',100,'date',d,'description','Earned other income'),gen_random_uuid());
+ select balance into cash_before from public.wallets where tenant_id=t and wallet_id=w;
+ r:=public.get_dashboard_snapshot();
+ begin perform public.get_dashboard_activity(0,null);raise exception 'FAIL: null activity limit accepted';exception when raise_exception then if sqlerrm like 'FAIL:%' then raise;end if;end;
+ begin perform public.get_stock_alerts(true,'',0,null);raise exception 'FAIL: null stock limit accepted';exception when raise_exception then if sqlerrm like 'FAIL:%' then raise;end if;end;
+ perform pg_temp.dashboard_assert(r->>'date'=d::text and jsonb_array_length(r->'days')=7,'Business timezone and seven real daily buckets');
+ perform pg_temp.dashboard_assert((r->'days'->6->>'revenue')::numeric=8600,'Independent revenue: LPG 6500 + Stove 2000 + other income 100; cancelled 1500 reverses');
+ perform pg_temp.dashboard_assert((r->'days'->6->>'collected')::numeric=800,'Only actual checkout 500 + collection 300; custom income is not a customer collection');
+ perform pg_temp.dashboard_assert((r->'days'->6->>'sales')::integer=3 and jsonb_array_length(r->'sales')=3,'Completed sale count and bounded recent sales exclude cancellation');
+ perform pg_temp.dashboard_assert((r->'days'->5->>'expense')::numeric=200 and (r->'days'->5->>'sales')::integer=0,'Backdated expense uses accounting date; no fabricated historical sales');
+ perform pg_temp.dashboard_assert((select (x->>'quantity')::integer=7 from jsonb_array_elements(r->'bottles')x where (x->>'size_kg')::numeric=12),'LPG refills and packages aggregate across brands, excluding returns and cancelled sales');
+ perform pg_temp.dashboard_assert((select (x->>'quantity')::integer=0 from jsonb_array_elements(r->'bottles')x where (x->>'size_kg')::numeric=17),'Configured zero-sale weight is included');
+ perform pg_temp.dashboard_assert(jsonb_array_length(r->'stove_types')=5 and (select sum((x->>'quantity')::integer) from jsonb_array_elements(r->'stove_types')x)=4,'Dynamic stove product quantities');
+ perform pg_temp.dashboard_assert((r->'attention'->>'customer_due')::numeric=7700 and (r->'attention'->>'customers')::integer=3,'Independent outstanding: 8500 billed minus 800 collected, three customers');
+ perform pg_temp.dashboard_assert((r->'attention'->>'bottles')::integer=5 and (r->'attention'->>'bottle_customers')::integer=2,'Five pending returns from two customers');
+ perform pg_temp.dashboard_assert((r->'attention'->>'low_stock')::integer=1,'Two remaining Stove units are below threshold five');
+ perform public.set_stock_threshold(stove,2,5);
+ perform pg_temp.dashboard_assert((public.get_dashboard_snapshot()->'attention'->>'low_stock')::integer=0,'Exact threshold is not below threshold');
+ perform public.set_stock_threshold(stove,3,2);
+ perform pg_temp.dashboard_assert((public.get_stock_alerts(true)->>'total')::integer=1,'Inventory filtered alert count agrees with Dashboard');
+ begin perform public.set_stock_threshold(stove,4,2);raise exception 'FAIL: stale threshold accepted';exception when raise_exception then if sqlerrm like 'FAIL:%' then raise;end if;end;
+ perform public.set_stock_threshold(stove,0,3);
+ perform pg_temp.dashboard_assert((public.get_dashboard_snapshot()->'attention'->>'low_stock')::integer=0,'Zero threshold disables alert');
+ report:=public.get_finance_analysis(jsonb_build_object('business_id',t,'from',d,'to',d));
+ perform pg_temp.dashboard_assert(r->'days'->6->>'revenue'=report->'totals'->>'revenue' and r->'days'->6->>'expense'=report->'totals'->>'expenses','Dashboard recognized totals match canonical consolidated Finance');
+ select sum(l.consolidated_amount) into cost from public.accounting_lines l join public.accounting_journals j using(tenant_id,journal_id) where l.tenant_id=t and j.occurred_on=d and l.account='cogs';
+ perform pg_temp.dashboard_assert((r->'days'->6->>'expense')::numeric=cost+50,'Cost of goods sold plus incurred fifty; purchase/opening/cash settlement not counted again');
+ perform pg_temp.dashboard_assert((select balance=cash_before from public.wallets where tenant_id=t and wallet_id=w),'Dashboard reads do not create cash or payments');
+ perform pg_temp.dashboard_assert((select count(*)=1 from jsonb_array_elements(public.get_dashboard_activity(0,30)->'entries')x where x->>'kind'='payment'),'Later collection appears once; checkout cash is not duplicated in Recent Activity');
+ perform public.save_employee(jsonb_build_object('name','Dashboard salary employee','employee_type_name','General Staff','business_unit','gas_business','phones',jsonb_build_array(jsonb_build_object('phone','01780000905','is_primary',true)),
+  'terms',jsonb_build_object('monthly_salary',3100,'effective_from',date_trunc('month',d)::date,'is_active',true)),gen_random_uuid());
+ r:=public.get_dashboard_snapshot();report:=public.get_finance_analysis(jsonb_build_object('business_id',t,'from',d-6,'to',d));
+ perform pg_temp.dashboard_assert((select sum((x->>'expense')::numeric) from jsonb_array_elements(r->'days')x)=(report->'totals'->>'expenses')::numeric,'Dashboard prepares the same canonical contractual payroll accrual as Finance');
+ insert into public.receipt_printers(tenant_id,printer) values(t,'{"transport":"network_tcp","queue_id":"tcp:test","host_id":"local-network","queue_name":"Dashboard Ethernet","port_name":"192.168.1.50:9100","ip_address":"192.168.1.50","port":9100,"protocol":"escpos"}');
+ begin update public.receipt_printers set printer=jsonb_set(printer,'{ip_address}','"192.168.999.999"') where tenant_id=t;raise exception 'FAIL: invalid IP accepted';exception when check_violation then null;end;
+ begin update public.receipt_printers set printer=jsonb_set(printer,'{ip_address}','"8.8.8.8"') where tenant_id=t;raise exception 'FAIL: public target accepted';exception when check_violation then null;end;
+end $$;
+set local role authenticated;
+update public.receipt_printers set paper_width_mm=58,printable_width_dots=384;
+do $$begin perform pg_temp.dashboard_assert((select paper_width_mm=58 from public.receipt_printers),'Normal owner can save Ethernet settings through RLS and its validated constraint');end $$;
+select set_config('request.jwt.claim.sub','db020000-0000-4000-8000-000000000002',true);
+select public.setup_business('Disposable Dashboard empty tenant','Empty Owner');
+do $$declare r jsonb:=public.get_dashboard_snapshot();begin
+ perform pg_temp.dashboard_assert((r->'days'->6->>'revenue')::numeric=0 and (r->'days'->6->>'expense')::numeric=0 and (r->'days'->6->>'collected')::numeric=0 and (r->'days'->6->>'sales')::integer=0,'Other tenant has empty snapshot');
+ perform pg_temp.dashboard_assert(jsonb_array_length(r->'sales')=0 and jsonb_array_length(r->'activity'->'entries')=0 and (r->'attention'->>'customer_due')::numeric=0,'No cross-tenant activity or dues');
+ perform pg_temp.dashboard_assert(not exists(select 1 from public.receipt_printers),'Ethernet configuration remains tenant-isolated');
+end $$;
+reset role;
+delete from public.role_permissions where tenant_id=app_private.current_tenant_id() and permission_id<>'dashboard:view';
+select pg_temp.dashboard_assert(app_private.has_permission('finance:view'),'OWNER retains full permissions even when a role mapping is incomplete');
+-- Restrict a staff role, since OWNER is intentionally never configurable.
+update public.user_roles set role_id=(select role_id from public.roles where tenant_id=app_private.current_tenant_id() and name='MANAGER')
+ where tenant_id=app_private.current_tenant_id() and user_id=auth.uid();
+set local role authenticated;
+do $$declare r jsonb:=public.get_dashboard_snapshot();begin
+ perform pg_temp.dashboard_assert(r->'days'->6->'expense'='null'::jsonb and r->'attention'->'customer_due'='null'::jsonb,'Dashboard-only permission cannot reveal Finance or Customer figures');
+ begin perform public.get_stock_alerts();raise exception 'FAIL: stock access without permission';exception when insufficient_privilege then null;end;
+end $$;
+reset role;
+set constraints all immediate;
+select 'PASS: independent Dashboard revenue, accrued expense/FIFO, actual collections, cancellation, dynamic weights/products, money/bottle dues, thresholds, activity, empty tenant, authorization and Ethernet settings';
+rollback;

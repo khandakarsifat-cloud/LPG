@@ -31,7 +31,7 @@ async page => {
     else if(name==='items')data=items;
     else if(name==='price_books')data=items.flatMap(item=>['refill','package'].map(type=>({item_id:item.item_id,price_type:type,customer_tier:'retail',price:type==='refill'?1250:3500,effective_from:'2020-01-01',effective_to:null})));
     else if(name==='sales')data=minimal?[]:Array.from({length:3},(_,n)=>({sale_id:id(1700+n),customer_name:'Fixture customer '+n,customers:{name:'Fixture customer '+n},sale_tier:'retail',created_at:now,total_amount:1250,status:'completed'}));
-    else if(name==='get_dashboard_stats')data={todayRevenue:123456,todayMovements:25,totalCustomers:35};
+    else if(name==='get_dashboard_snapshot')data={date:new Date().toISOString().slice(0,10),finance_visible:false,days:[],sales:[],bottles:[],stove_types:[],attention:{},activity:{entries:[],hasMore:false}};
     else if(name==='get_customer_directory')data={entries:Array.from({length:minimal?0:Number(route.request().postDataJSON()?.p_limit??6)},(_,n)=>({customer_id:id(1500+n),display_name:'Customer '+n,name:'Customer '+n,tier:'retail',phone:'01712345678',address:'Dhaka',created_at:now,transactions:10,refill:5,package:2,total_sold:7,last_transaction_at:now})),total:30};
     else if(name==='get_customer_overview')data={wholesale:15,retail:15,new_wholesale:2,new_retail:3,inactive_wholesale:1,inactive_retail:2,week_start:now,inactive_since:now};
     else if(name==='list_lpg_brands')data=brands;
@@ -122,9 +122,9 @@ async page => {
     for(let i=0;i<await selects.count();i++)await inspect(selects.nth(i),`${route} field ${i}`).catch(error=>{throw Error(`${route} field ${i}: ${error.message}`);});
     if(action)await page.goto(origin+'/?field-controls-reset='+encodeURIComponent(route)+'#/pos');
   }
-  await page.goto(origin+'/#/');await page.locator('.dashboard-workspace').waitFor();
-  await page.getByRole('button',{name:'Receipt Printer',exact:true}).click();
-  const printer=page.getByRole('dialog',{name:'Receipt Printer',exact:true});await printer.waitFor();
+  await page.goto(origin+'/#/');await page.locator('.dashboard-columns').waitFor();
+  await page.getByRole('button',{name:'POS Printer',exact:true}).click();
+  const printer=page.getByRole('dialog',{name:'POS Printer',exact:true});await printer.waitFor();
   await inspect(printer.getByRole('combobox',{name:'Printer',exact:true}),'printer dialog');
   check(await printer.isVisible(),'Escape in printer picker closed its dialog');
   await printer.getByRole('button',{name:'Close',exact:true}).click();

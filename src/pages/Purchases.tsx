@@ -28,7 +28,7 @@ export const PurchasesPage = () => {
         </dl>
         
         <div className="purchases-header-actions">
-          {can('purchases:manage') && <button className="btn btn-primary" aria-label="New Purchase" onClick={() => { setPurchaseCategory(category === 'all' ? null : category); setPurchaseOpen(true); }}>
+          {can('purchases:create') && <button className="btn btn-primary" aria-label="New Purchase" onClick={() => { setPurchaseCategory(category === 'all' ? null : category); setPurchaseOpen(true); }}>
             <Plus size={16} />
             <span className="purchase-new-label">New Purchase</span>
             <span className="purchase-new-short" aria-hidden="true">New</span>

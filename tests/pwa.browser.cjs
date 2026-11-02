@@ -45,7 +45,7 @@ async page => {
     else if(name==='get_my_preferences')data={theme:null};
     else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
     else if (name === 'get_my_permissions') data = ['dashboard:view', 'pos:sell', 'sales:view', 'inventory:view', 'customers:view', 'purchases:view', 'employees:view', 'logistics:view', 'gas_plants:view', 'settings:manage', 'finance:view'];
-    else if (name === 'get_dashboard_stats') data = { todayRevenue: 0, todayMovements: 0, totalCustomers: 0 };
+    else if (name === 'get_dashboard_snapshot') data={date:new Date().toISOString().slice(0,10),finance_visible:false,days:[],sales:[],bottles:[],stove_types:[],attention:{},activity:{entries:[],hasMore:false}};
     else if (['get_customer_directory', 'get_sales_directory', 'get_purchase_directory', 'get_wallet_ledger'].includes(name)) data = { entries: [], total: 0, received: 0, paid_out: 0 };
     else if (name === 'get_sales_overview') data = { total: 0, amount: 0, due: 0, bottles: 0 };
     else if (name === 'get_customer_overview') data = { wholesale: 0, retail: 0, new_wholesale: 0, new_retail: 0, inactive_wholesale: 0, inactive_retail: 0 };

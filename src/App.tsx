@@ -13,7 +13,9 @@ const PurchasesPage = lazy(() => import('./pages/Purchases').then(module => ({ d
 const SalesPage = lazy(() => import('./pages/Sales').then(module => ({ default: module.SalesPage })));
 const SettingsPage = lazy(() => import('./pages/Settings').then(module => ({ default: module.SettingsPage })));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(module => ({ default: module.LoginPage })));
-const RegisterPage = lazy(() => import('./pages/auth/RegisterPage').then(module => ({ default: module.RegisterPage })));
+const AdminPage = lazy(() => import('./pages/Admin').then(module => ({ default: module.AdminPage })));
+const UserAccessPage = lazy(() => import('./pages/UserAccess').then(module => ({ default: module.UserAccessPage })));
+const AccountPage = lazy(() => import('./pages/auth/AccountPage').then(module => ({ default: module.AccountPage })));
 const POSPage = lazy(() => import('./pages/POS').then(module => ({ default: module.POSPage })));
 const CustomersPage = lazy(() => import('./pages/Customers').then(module => ({ default: module.CustomersPage })));
 const EmployeesPage = lazy(() => import('./pages/Employees').then(module => ({ default: module.EmployeesPage })));
@@ -38,7 +40,9 @@ function App() {
             <Routes>
               {/* Public auth routes */}
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/register" element={<Navigate to="/login" replace />} />
+              <Route path="/account" element={<AccountPage />} />
+              <Route path="/admin" element={<AdminPage />} />
 
               {/* Protected application routes */}
               <Route
@@ -58,6 +62,7 @@ function App() {
                 <Route path="sales" element={<SalesPage />} />
                 <Route path="logistics" element={<LogisticsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="users" element={<UserAccessPage />} />
                 <Route path="pos" element={<POSPage />} />
               </Route>
 

@@ -19,14 +19,16 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "print:bridge": "node print-bridge/server.ts",
+    "print:bridge": "node print-bridge/main.ts",
+    "print:package": "node print-bridge/build.mjs",
+    "print:standalone:test": "node --test print-bridge/packaging/*.test.mjs",
     "print:check": "tsc -p print-bridge/tsconfig.json",
     "print:test": "node --test print-bridge/*.test.ts",
     "auth:test": "node --test tests/authorization.test.ts",
     "purchase:test": "node --test tests/purchase.test.ts",
     "purchase:db:test": "node supabase/tests/run-purchases.mjs",
-    "auth:db:test": "node supabase/tests/run-authorization.mjs",
-    "auth:api:test": "node --env-file=.env supabase/tests/authorization-api.mjs"
+    "auth:db:test": "node supabase/tests/run-account-access.mjs --vps",
+    "auth:api:test": "node supabase/tests/run-account-access-api.mjs --vps"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
@@ -50,6 +52,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "rolldown": "1.0.3",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",

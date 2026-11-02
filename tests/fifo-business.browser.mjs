@@ -15,7 +15,7 @@ const profile=await c.from('user_profiles').select('tenant_id,is_active,tenants(
 const browser=await chromium.launch({channel:'chrome',headless:true});const errors=[],results=[];
 const routes=[['','Dashboard'],['inventory','Inventory'],['pos','Point of Sale'],['sales','Sales'],['purchases','Purchases'],['customers','Customers'],['employees','Employees'],['finance','Finance'],['logistics','Logistics'],['settings','Settings']];
 const modals={inventory:'Add Item',customers:'Add customer',purchases:'New Purchase',employees:'Add employee',finance:'Add wallet',logistics:'Add vehicle'};
-const roots={'':'.dashboard-workspace',inventory:'.inventory-page',pos:'.pos-page',sales:'.sales-page',purchases:'.purchases-page',customers:'.customers-page',employees:'.employee-page',finance:'.finance-page',logistics:'.logistics-page',settings:'.settings-workspace'};
+const roots={'':'.dashboard-columns',inventory:'.inventory-page',pos:'.pos-page',sales:'.sales-page',purchases:'.purchases-page',customers:'.customers-page',employees:'.employee-page',finance:'.finance-page',logistics:'.logistics-page',settings:'.settings-workspace'};
 const settled=async page=>{await page.waitForLoadState('networkidle');await page.waitForFunction(()=>!Array.from(document.querySelectorAll('.page-content,dialog[open]')).some(e=>/\bLoading\b/i.test(e.innerText)));};
 const fits=async(page,where)=>{
  const bad=await page.evaluate(()=>[document.documentElement,...document.querySelectorAll('.page-content,dialog[open]')].filter(e=>e.scrollWidth>e.clientWidth+1).map(e=>({class:e.className,width:e.clientWidth,content:e.scrollWidth})));

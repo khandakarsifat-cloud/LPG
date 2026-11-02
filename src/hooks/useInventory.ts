@@ -41,7 +41,7 @@ export const useInventoryHistory = ({ source, itemIds, page, from, to }: {
   source: InventoryHistorySource; itemIds: string[] | null; page: number; from: string; to: string;
 }) => {
   const { can } = useAuth();
-  const canReadSales = can('sales:view') || can('receipts:print') || can('dashboard:view');
+  const canReadSales = can('sales:view') || can('receipts:print');
   return useQuery({
     queryKey: [...inventoryKeys.movements, 'history', source, itemIds ? [...itemIds].sort() : null, from, to, page, canReadSales],
     queryFn: async ({ signal }) => {

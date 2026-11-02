@@ -32,7 +32,7 @@ function CollectBottlesDialog({ saleId, bottles, onClose }: { saleId: string; bo
    {brands.isError && <p role="alert" className="payment-error">Brand order could not be loaded. <button className="btn btn-secondary" onClick={() => void brands.refetch()}>Retry</button></p>}
    {inventory.isPending && <p role="status">Loading bottles…</p>}
    <ReceivedBottles obligations={obligations} previouslyReceived={bottles.received} products={products} catalog={inventory.data ?? []} brands={brands.data ?? []} value={value} onChange={setValue} disabled={disabled || !inventory.data} collection />
-   {can('finance:manage') && <div className="bottle-expense">
+   {can('sales:collect_money') && <div className="bottle-expense">
     <label className="input-group"><span className="input-label">Additional Settlement Cost (Tk, optional)</span><input className="input-field" inputMode="decimal" type="number" min="0" step=".01" value={cost} disabled={disabled} onChange={e => setCost(e.target.value)} /></label>
     <p className="payment-hint">Added to the customer’s amount due. Use Collect payment to receive it, including split or partial payments.</p>
    </div>}

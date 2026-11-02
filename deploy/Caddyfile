@@ -14,6 +14,19 @@
         respond @untrustedOrigin "Origin not allowed" 403
         @receiverRPC path /rest/v1/rpc/attendance_receive*
         respond @receiverRPC "Not found" 404
+        @authAccountWrite {
+            path /auth/v1/*
+            method PUT PATCH DELETE
+        }
+        respond @authAccountWrite "Use the account service" 403
+        @signedStorage path /storage/v1/object/sign* /storage/v1/render/image/sign*
+        respond @signedStorage "Authenticated downloads required" 403
+        handle /accounts/v1/* {
+            request_body {
+                max_size 16KB
+            }
+            reverse_proxy account-service:8081
+        }
         handle /iclock/* {
             request_body {
                 max_size 512KB

@@ -37,9 +37,9 @@ export function EmployeeHistory({ employeeId, operation }: { employeeId?: string
    {event.kind === 'transit' && event.details.transit_id && (can('logistics:view') || can('logistics:manage')) && <button className="btn btn-ghost" onClick={() => setTransitId(event.details.transit_id ?? null)}>Transit details</button>}
    {!!event.wallets.length && <div className="employee-activity-wallets">{event.wallets.map(wallet => <span key={wallet.entry_id} data-transaction-id={wallet.transaction_id}><Wallet size={13} aria-hidden="true" /><span>{wallet.wallet_name}</span><strong>{formatBDT(wallet.amount)}</strong>{wallet.reference && ` · ${wallet.reference}`}</span>)}</div>}
    {event.details.source_snapshot && <p className="employee-hint">Historical payment · wallet attribution was not recorded. No wallet debit has been invented.</p>}
-   {(event.details.period || (event.reversible && can('payroll:pay'))) && <div className="history-actions">{event.details.period && <span className="employee-period-tag">{monthLabel(event.details.period)}</span>}
+   {(event.details.period || (event.reversible && can('payroll:return'))) && <div className="history-actions">{event.details.period && <span className="employee-period-tag">{monthLabel(event.details.period)}</span>}
 
-   {event.reversible && can('payroll:pay') && <button className="btn btn-ghost employee-reverse" disabled={operation.isPending || operation.hasPending} onClick={() => setReversal(reversal?.id === event.id ? null : event)}><RotateCcw size={13} />Return / correct payment</button>}</div>}
+   {event.reversible && can('payroll:return') && <button className="btn btn-ghost employee-reverse" disabled={operation.isPending || operation.hasPending} onClick={() => setReversal(reversal?.id === event.id ? null : event)}><RotateCcw size={13} />Return / correct payment</button>}</div>}
    {reversal?.id === event.id && <EmployeeReversal event={reversal} operation={operation} onClose={() => setReversal(null)} />}
   </article>)}</div>
   {query.data && !query.data.entries.length && <p className="employee-empty">No activity matches these filters.</p>}<Pagination page={page} pageSize={12} total={query.data?.total ?? 0} onChange={setPage} label="employee activity" busy={query.isFetching} />

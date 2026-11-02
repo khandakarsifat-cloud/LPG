@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
-export interface BusinessRole { id: string; name: string; active: boolean; system: boolean; assigned: number }
+export interface EmployeeJobRole { id: string; name: string; active: boolean; system: boolean; assigned: number }
 export interface BusinessWeight { size_kg: number; active: boolean; assigned: number }
 export function useBusinessCatalogs() {
  const { profile } = useAuth();
- return useQuery<{ roles: BusinessRole[]; weights: BusinessWeight[] }>({ queryKey: ['business-catalogs', profile?.tenant_id], enabled: !!profile,
+ return useQuery<{ roles: EmployeeJobRole[]; weights: BusinessWeight[] }>({ queryKey: ['business-catalogs', profile?.tenant_id], enabled: !!profile,
   queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_business_catalogs').abortSignal(signal); if (error) throw error; return data; } });
 }
 export function useSaveBusinessCatalog() {
@@ -19,5 +19,5 @@ export function useSaveBusinessCatalog() {
 export function useSaveBusinessProfile() {
  const cache = useQueryClient();
  return useMutation({ mutationFn: async (name: string) => { const { error } = await supabase.rpc('save_business_profile', { p_name: name }); if (error) throw new Error(error.message); },
-  onSuccess: () => cache.invalidateQueries({ queryKey: ['tenant_profile'] }) });
+  onSuccess: () => Promise.all([cache.invalidateQueries({ queryKey: ['access_context'] }),cache.invalidateQueries({ queryKey: ['access'] })]) });
 }

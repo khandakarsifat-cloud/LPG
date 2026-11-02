@@ -10,10 +10,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { BalancesGrid } from '../components/inventory/BalancesGrid';
 import { MovementsFeed } from '../components/inventory/MovementsFeed';
 import { AddItemModal } from '../components/inventory/AddItemModal';
+import { useSearchParams } from 'react-router-dom';
+import { StockAlerts } from '../components/inventory/StockAlerts';
 
-type Tab = 'balances' | 'history' | 'stove';
+type Tab = 'balances' | 'history' | 'stove' | 'alerts';
 
 export const InventoryPage = () => {
+  const [params] = useSearchParams();
   const { data: items = [], isPending, isError } = useInventoryBalances();
   const { can } = useAuth();
   const brands = useLPGBrands();
@@ -21,13 +24,13 @@ export const InventoryPage = () => {
   const owner = useOwnerAccess();
   const [adjusting, setAdjusting] = useState(false);
 
-  const [tab, setTab]                 = useState<Tab>('balances');
+  const [tab, setTab]                 = useState<Tab>(params.get('stock') === 'low' ? 'alerts' : 'balances');
   const [addItemOpen, setAddItemOpen] = useState(false);
 
   const filledTotal = items.reduce((sum, i) => sum + i.filled_quantity, 0);
   const emptyTotal  = items.reduce((sum, i) => sum + i.empty_quantity, 0);
-  const lowFilled   = items.filter(i => i.filled_quantity > 0 && i.filled_quantity <= 5).length;
-  const lowEmpty    = items.filter(i => i.empty_quantity > 0 && i.empty_quantity <= 5).length;
+  const lowFilled   = items.filter(i => i.filled_quantity < i.low_stock_threshold).length;
+  const lowEmpty    = items.filter(i => i.empty_quantity < i.low_stock_threshold).length;
   const outFilled   = items.filter(i => i.filled_quantity === 0).length;
   const outEmpty    = items.filter(i => i.empty_quantity === 0).length;
   const activeBrandsCount = brands.data?.filter(brand => brand.is_active).length ?? 0;
@@ -60,10 +63,10 @@ export const InventoryPage = () => {
           </div>
 
           {/* Module 2: Low Stock */}
-          <div className="inv-hub-module inv-overview-box" title="Products with 1–5 units">
+          <div className="inv-hub-module inv-overview-box" title="Products below their configured stock thresholds">
             <span className="inv-hub-label inv-overview-label">
               <span className="inv-hub-dot" style={{ background: 'var(--warning)' }} />
-              Low Stock (1–5)
+              Below Threshold
             </span>
             <div className="inv-hub-values inv-overview-counts">
               <span className="inv-hub-chip" aria-label={`Low Stock: ${lowFilled} filled`}>
@@ -118,7 +121,7 @@ export const InventoryPage = () => {
           </div>
         </>} </div>
 
-        {can('inventory:manage') && (
+        {can('inventory:create') && (
           <div className="inv-hub-action">
             <button
               className="btn btn-primary inv-hub-btn"
@@ -148,6 +151,7 @@ export const InventoryPage = () => {
             { key: 'stove', label: 'Stove Business', icon: LayoutGrid },
             { key: 'balances', label: 'Stock Balances',    icon: LayoutGrid },
             { key: 'history',  label: 'Inventory History',  icon: Activity },
+            { key: 'alerts', label: 'Stock Alerts', icon: SlidersHorizontal },
           ] as { key: Tab; label: string; icon: React.ElementType }[]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -161,7 +165,7 @@ export const InventoryPage = () => {
         </div>
 
         <div className="inv-tabs-actions">
-          {owner.data && tab !== 'history' && (
+          {owner.data && tab !== 'history' && tab !== 'alerts' && (
             <button
               type="button"
               className="btn btn-secondary inv-tab-action-btn"
@@ -181,6 +185,7 @@ export const InventoryPage = () => {
         {tab === 'balances' && <BalancesGrid />}
 
         {tab === 'history' && <MovementsFeed />}
+        {tab === 'alerts' && <StockAlerts initiallyLow={params.get('stock') === 'low'} />}
       </div>
 
       {/* ── Dialogs ── */}

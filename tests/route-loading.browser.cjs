@@ -19,7 +19,7 @@ async page => {
     else if(name==='get_my_preferences')data={theme:null};
     else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
     else if (name === 'get_my_permissions') data = ['dashboard:view','pos:sell','sales:view','inventory:view','inventory:manage','customers:view','customers:manage','purchases:view','purchases:manage','employees:view','employees:manage','payroll:view','logistics:view','logistics:manage','gas_plants:view','gas_plants:manage','settings:manage','finance:view'];
-    else if (name === 'get_dashboard_stats') data = { todayRevenue: 0, todayMovements: 0, totalCustomers: 0 };
+    else if (name === 'get_dashboard_snapshot') data={date:new Date().toISOString().slice(0,10),finance_visible:false,days:[],sales:[],bottles:[],stove_types:[],attention:{},activity:{entries:[],hasMore:false}};
     else if (name === 'get_customer_directory') data = { entries: [], total: 0 };
     else if (name === 'get_customer_overview') data = { wholesale: 0, retail: 0, new_wholesale: 0, new_retail: 0, inactive_wholesale: 0, inactive_retail: 0 };
     else if (name === 'get_wallet_ledger') data = { entries: [], total: 0, received: 0, paid_out: 0 };
@@ -57,7 +57,7 @@ async page => {
   check(await page.locator('.topbar').isVisible(), 'Header disappeared during a delayed route load');
   release();
   await page.locator('.employee-page').waitFor();
-  const routes = [['/', '.dashboard-workspace'], ['/inventory', '.inv-overview-toolbar'], ['/customers', '.customers-page'],
+  const routes = [['/', '.dashboard-columns'], ['/inventory', '.inv-overview-toolbar'], ['/customers', '.customers-page'],
     ['/employees', '.employee-page'], ['/finance', '.finance-page'], ['/purchases', '.purchases-page'], ['/sales', '.sales-page'],
     ['/logistics', '.inv-tabs'], ['/gas-plants', '.inv-stats-row'], ['/settings', '.settings-tabs'], ['/pos', '.pos-workspace']];
   for (const [path, selector] of routes) {

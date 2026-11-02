@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Pencil, Plus } from 'lucide-react';
-import { useBusinessCatalogs, useSaveBusinessCatalog, type BusinessRole, type BusinessWeight } from '../../hooks/useBusinessSettings';
+import { useBusinessCatalogs, useSaveBusinessCatalog, type EmployeeJobRole, type BusinessWeight } from '../../hooks/useBusinessSettings';
 import { PurchaseConfirmation, PurchaseDialog } from '../purchases/PurchaseControls';
 import { Pagination } from '../ui/Pagination';
 
 export function CatalogSettings({ kind }: { kind: 'role' | 'weight' }) {
- const query = useBusinessCatalogs(); const [edit, setEdit] = useState<BusinessRole | BusinessWeight | 'new' | null>(null); const [page, setPage] = useState(0);
+ const query = useBusinessCatalogs(); const [edit, setEdit] = useState<EmployeeJobRole | BusinessWeight | 'new' | null>(null); const [page, setPage] = useState(0);
  const records = kind === 'role' ? query.data?.roles ?? [] : query.data?.weights ?? [];
  const title = kind === 'role' ? 'Employee roles' : 'Cylinder weights';
  return <section className="settings-section"><header className="settings-section-heading"><div><h2>{title}</h2><p>{kind === 'role' ? 'Job titles for your business. These do not grant application access.' : 'Weight options used when adding inventory products. Existing products keep their weights.'}</p></div><button className="btn btn-primary" onClick={() => setEdit('new')}><Plus size={14} />{kind === 'role' ? 'Add role' : 'Add weight'}</button></header>
@@ -17,7 +17,7 @@ export function CatalogSettings({ kind }: { kind: 'role' | 'weight' }) {
   {edit && <CatalogEditor kind={kind} item={edit === 'new' ? undefined : edit} onClose={() => setEdit(null)} />}
  </section>;
 }
-function CatalogEditor({ kind, item, onClose }: { kind: 'role' | 'weight'; item?: BusinessRole | BusinessWeight; onClose: () => void }) {
+function CatalogEditor({ kind, item, onClose }: { kind: 'role' | 'weight'; item?: EmployeeJobRole | BusinessWeight; onClose: () => void }) {
  const [name, setName] = useState(item ? 'name' in item ? item.name : String(item.size_kg) : ''); const [active, setActive] = useState(item?.active ?? true); const [removing, setRemoving] = useState(false); const operation = useSaveBusinessCatalog();
  const id = item ? 'name' in item ? item.id : String(item.size_kg) : null;
  const save = (remove = false) => operation.mutate({ kind, id, name, active, remove }, { onSuccess: onClose });

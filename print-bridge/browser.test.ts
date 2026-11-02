@@ -1,8 +1,21 @@
 import test from 'node:test';
+import { saveBridgeSettings, readBridgeSettings } from '../src/lib/printBridge.ts';
 import assert from 'node:assert/strict';
 import { browserReceiptHTML } from '../src/lib/browserPrint.ts';
 import { readReceiptPrintMethod, writeReceiptPrintMethod } from '../src/lib/receiptPrintPreference.ts';
 import type { ReceiptData } from '../src/types/receipt.ts';
+
+test('device bridge pairing requires trusted HTTPS/private IP and never sends a token to a hostname', () => {
+  const original=Object.getOwnPropertyDescriptor(globalThis,'localStorage');const entries=new Map<string,string>();
+  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>entries.get(key)??null,setItem:(key:string,value:string)=>entries.set(key,value)}});
+  try {
+    const token='test-only-pairing-token-32-characters';
+    for(const url of ['http://192.168.1.20:17891','https://10.attacker.example:17891','https://8.8.8.8:17891','https://192.168.1.20:17891/path'])assert.throws(()=>saveBridgeSettings(url,token));
+    assert.throws(()=>saveBridgeSettings('https://192.168.1.20:17891','short'));
+    saveBridgeSettings('https://192.168.1.20:17891',token);assert.deepEqual(readBridgeSettings(),{url:'https://192.168.1.20:17891',token});
+    saveBridgeSettings('http://127.0.0.1:17891','');assert.deepEqual(readBridgeSettings(),{url:'http://127.0.0.1:17891',token:''});
+  } finally {if(original)Object.defineProperty(globalThis,'localStorage',original);else Reflect.deleteProperty(globalThis,'localStorage');}
+});
 
 test('browser receipts escape untrusted content and retain Unicode, saved amounts and compact empty returns', () => {
   const receipt: ReceiptData = {
@@ -39,12 +52,12 @@ test('browser output preferences are business-scoped, preserve the USB default, 
     setItem: (key: string, value: string) => { entries.set(key, value); },
   } });
   try {
-    assert.equal(readReceiptPrintMethod('business-a'), 'windows_usb');
+    assert.equal(readReceiptPrintMethod('business-a'), 'bridge');
     writeReceiptPrintMethod('business-a', 'browser');
     assert.equal(readReceiptPrintMethod('business-a'), 'browser');
-    assert.equal(readReceiptPrintMethod('business-b'), 'windows_usb');
-    writeReceiptPrintMethod('business-a', 'windows_usb');
-    assert.equal(readReceiptPrintMethod('business-a'), 'windows_usb');
+    assert.equal(readReceiptPrintMethod('business-b'), 'bridge');
+    writeReceiptPrintMethod('business-a', 'bridge');
+    assert.equal(readReceiptPrintMethod('business-a'), 'bridge');
   } finally {
     if (original) Object.defineProperty(globalThis, 'localStorage', original);
     else Reflect.deleteProperty(globalThis, 'localStorage');

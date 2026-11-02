@@ -3,8 +3,8 @@ import type { ReceiptPrintMethod } from '../types/printing.ts';
 const key = (tenantId: string) => `lpg:receipt-print-method:v1:${tenantId}`;
 
 export function readReceiptPrintMethod(tenantId: string): ReceiptPrintMethod {
-  try { return localStorage.getItem(key(tenantId)) === 'browser' ? 'browser' : 'windows_usb'; }
-  catch { return 'windows_usb'; }
+  try { return localStorage.getItem(key(tenantId)) === 'browser' ? 'browser' : 'bridge'; }
+  catch { return 'bridge'; }
 }
 
 export function writeReceiptPrintMethod(tenantId: string, method: ReceiptPrintMethod) {

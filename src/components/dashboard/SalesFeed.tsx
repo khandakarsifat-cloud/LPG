@@ -1,96 +1,14 @@
-import { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
-import { ShoppingBag, Activity } from 'lucide-react';
-import { useTodaySalesFeed } from '../../hooks/useDashboard';
-import { formatBDNumber } from '../../lib/formatBDT';
-import { TransactionDetailsModal } from '../transactions/TransactionDetailsModal';
-import '../inventory/inventory.css'; // Reuse existing styles if any
-import { PageNavigation } from '../ui/Pagination';
+import { useAuth } from '../../contexts/AuthContext';
+import type { DashboardSale } from '../../types/dashboard';
+import { formatBDT } from '../../lib/formatBDT';
 
-export const SalesFeed = () => {
-  const [page, setPage] = useState(0);
-  const { data, isLoading, isError, refetch, isFetching } = useTodaySalesFeed(page);
-  const sales = data?.entries ?? [];
-  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
-
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="movement-row skeleton" style={{ height: '62px', borderRadius: 'var(--radius-md)' }} />
-        ))}
-      </div>
-    );
-  }
-
-  if (isError) return <p className="purchase-error" role="alert">Sales could not be loaded. <button className="btn btn-secondary" onClick={() => void refetch()}>Retry</button></p>;
-  if (sales.length === 0) {
-    return (
-      <div className="empty-state" style={{ padding: '12px' }}>
-        <Activity size={32} style={{ color: 'var(--text-muted)', opacity: 0.4 }} />
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{page ? 'No sales on this page.' : 'No sales recorded today.'}</p>
-        <PageNavigation page={page} hasMore={false} onChange={setPage} label="sales" />
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div className="movements-feed">
-        {sales.map((sale) => {
-          const customerName = sale.customers?.name || 'Unknown Customer';
-          
-          return (
-            <div 
-              key={sale.sale_id} 
-              className="movement-row" 
-              style={{ cursor: 'pointer' }}
-              onClick={() => setSelectedSaleId(sale.sale_id)}
-            >
-            {/* Icon */}
-            <div className="movement-icon" style={{ color: 'var(--primary)' }}>
-              <ShoppingBag size={20} />
-            </div>
-
-            {/* Info */}
-            <div className="movement-info">
-              <div className="movement-item-name" style={{ fontSize: '0.95rem', fontWeight: 600 }}>
-                {customerName}
-              </div>
-              <div className="movement-meta" style={{ marginTop: '0.15rem' }}>
-                <span className="movement-type-badge" style={{ background: `rgba(59,130,246,0.1)`, color: 'var(--primary)' }}>
-                  {sale.sale_tier === 'wholesale' ? 'Wholesale' : 'Retail'} Sale
-                </span>
-                <span style={{
-                  fontSize: '0.65rem', fontWeight: 700, padding: '0.08rem 0.4rem',
-                  borderRadius: 20, background: 'rgba(59,130,246,0.12)',
-                  color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)',
-                  marginLeft: '0.5rem'
-                }}>
-                  POS #{sale.sale_id.split('-')[0].toUpperCase()}
-                </span>
-              </div>
-            </div>
-
-            {/* Amount + time */}
-            <div className="movement-right">
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
-                <span style={{ color: 'var(--accent)', fontSize: '1rem', fontWeight: 700 }}>
-                  Tk {formatBDNumber(Number(sale.total_amount) + Number(sale.additional_charges ?? 0))}
-                </span>
-                {sale.paid_amount !== undefined && <small>Due Tk {formatBDNumber(Number(sale.total_amount) + Number(sale.additional_charges ?? 0) - Number(sale.paid_amount))}</small>}
-              </div>
-              <span className="movement-time">
-                {formatDistanceToNow(new Date(sale.created_at), { addSuffix: true })}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-      </div>
-
-      <PageNavigation page={page} hasMore={data?.hasMore ?? false} onChange={setPage} label="sales" busy={isFetching} />
-      {selectedSaleId && <TransactionDetailsModal saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} returnLabel="Close" />}
-    </>
-  );
-};
+export function SalesFeed({ sales, onOpen }: { sales: DashboardSale[]; onOpen: (id: string) => void }) {
+  const { can } = useAuth(); const readable = can('sales:view') || can('receipts:print');
+  return sales.length ? <div className="dashboard-sales-scroll"><table className="dashboard-sales-table"><thead><tr>
+    <th>Time</th><th>Invoice No.</th><th>Customer</th><th>Items</th><th>Amount</th>
+  </tr></thead><tbody>{sales.map(sale => <tr key={sale.sale_id} onClick={readable ? () => onOpen(sale.sale_id) : undefined}>
+    <td data-label="Time"><time dateTime={sale.created_at}>{new Intl.DateTimeFormat('en-BD', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(sale.created_at))}</time></td>
+    <td data-label="Invoice"><button className="dashboard-invoice" disabled={!readable} onClick={event => { event.stopPropagation(); onOpen(sale.sale_id); }}>POS #{sale.sale_id.slice(0, 8).toUpperCase()}</button></td>
+    <td data-label="Customer">{sale.customer}</td><td data-label="Items">{sale.items || 'No product lines'}</td><td data-label="Amount"><strong>{formatBDT(sale.amount)}</strong></td>
+  </tr>)}</tbody></table></div> : <p className="dashboard-empty">No sales recorded today.</p>;
+}

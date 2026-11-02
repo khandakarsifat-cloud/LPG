@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const LoginPage = () => {
-  const { signIn } = useAuth();
+  const { signIn, session, isLoading: loadingAccess } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ email: '', password: '' });
@@ -30,6 +30,7 @@ export const LoginPage = () => {
     }
   };
 
+  if (session && !loadingAccess) return <Navigate to="/" replace />;
   return (
     <div className="auth-root">
       {/* Left Panel — Branding */}
@@ -75,7 +76,7 @@ export const LoginPage = () => {
 
           {error && <div className="auth-error">{error}</div>}
 
-          <form onSubmit={handleSubmit} noValidate>
+          <form onSubmit={handleSubmit}>
             <div className="auth-fields">
               <div className="input-group">
                 <label className="input-label" htmlFor="email">Email Address</label>
@@ -84,6 +85,7 @@ export const LoginPage = () => {
                   <input
                     id="email"
                     type="email"
+                    autoComplete="username"
                     className="input-field input-with-icon"
                     placeholder="owner@yourbusiness.com"
                     value={form.email}
@@ -97,13 +99,13 @@ export const LoginPage = () => {
               <div className="input-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <label className="input-label" htmlFor="password">Password</label>
-                  <a href="#" style={{ fontSize: '0.75rem' }}>Forgot password?</a>
                 </div>
                 <div className="input-icon-wrapper">
                   <Lock size={16} className="input-icon" />
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
                     className="input-field input-with-icon"
                     placeholder="Your password"
                     value={form.password}
@@ -112,6 +114,7 @@ export const LoginPage = () => {
                   />
                   <button
                     type="button"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="input-eye"
                     onClick={() => setShowPassword((v) => !v)}
                   >
@@ -135,8 +138,7 @@ export const LoginPage = () => {
           </form>
 
           <p className="auth-footer-text">
-            Don't have an account?{' '}
-            <Link to="/register">Create a Business</Link>
+            Accounts are provided by your business owner. Contact them if you need access or a password reset.
           </p>
         </div>
       </div>

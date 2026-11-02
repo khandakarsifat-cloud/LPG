@@ -38,7 +38,10 @@ dist-ssr
 deploy/__pycache__/
 .local-backups/
 .temp/
+print-bridge/release/
 deploy/.attendance-token
 deploy/.attendance-token.new
+deploy/.account-service.json
+deploy/.account-service.new
 supabase/docker/volumes/storage/
 supabase/docker/volumes/db/data/

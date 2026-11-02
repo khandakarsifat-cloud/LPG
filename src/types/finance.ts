@@ -1,7 +1,7 @@
 export type WalletKind = 'cash' | 'bkash' | 'nagad' | 'bank' | 'other';
 export interface PaymentWallet { wallet_id: string; name: string; kind: WalletKind; type: string }
 export interface FinanceWallet extends PaymentWallet {
-  business_balances: Record<import('./financial').BusinessLine, number>;
+  business_balances: Record<import('./financial.ts').BusinessLine, number>;
   tenant_id: string; balance: number; opening_balance: number; details: string;
   is_active: boolean; revision: number; created_at: string; updated_at: string;
 }
@@ -20,9 +20,9 @@ export interface SaleSettlement {
 }
 export interface WalletLedgerEntry {
   record_kind?: string; record_id?: string;
-  type_id: string; type_name: string; allocations: import('./financial').BusinessAllocation;
-  business_amounts: Partial<Record<import('./financial').BusinessLine, number>>;
-  business_balance_after: Record<import('./financial').BusinessLine, number> | null;
+  type_id: string; type_name: string; allocations: import('./financial.ts').BusinessAllocation;
+  business_amounts: Partial<Record<import('./financial.ts').BusinessLine, number>>;
+  business_balance_after: Record<import('./financial.ts').BusinessLine, number> | null;
   transaction_id: string; wallet_id: string; wallet_name: string; type: string; amount: number;
   balance_after: number; created_at: string; description: string; reference_id: string | null;
   operation_id: string | null; counterparty: string | null; actor: string | null;

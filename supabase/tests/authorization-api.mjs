@@ -119,9 +119,9 @@ try {
   const balances = await checked(owner.client.from('items').select().eq('item_id', item.item_id).single());
   assert.equal(balances.filled_quantity, 9);
   assert.equal(balances.empty_quantity, 11);
-  const stats = await checked(salesman.client.rpc('get_dashboard_stats', { p_since: '2000-01-01T00:00:00Z' }));
-  assert.equal(stats.todayRevenue, 1150);
-  assert.equal(stats.todayMovements, 3);
+  const stats = await checked(salesman.client.rpc('get_dashboard_snapshot'));
+  assert.equal(stats.days.at(-1).revenue, 1150);
+  assert.equal(stats.days.at(-1).sales, 1);
   assert.deepEqual(await checked(salesman.client.from('inventory_movements').select()), []);
   assert.deepEqual(await checked(salesman.client.from('wallets').select()), []);
   const metadataChange = await salesman.client.auth.updateUser({ data: { tenant_id: other.tenant, role: 'OWNER', is_active: true } });
@@ -130,7 +130,7 @@ try {
   assert.equal((await checked(salesman.client.from('items').select().single())).tenant_id, owner.tenant);
   const anon = createClient(url, key, { auth: { persistSession: false } });
   await denied(anon.from('items').select());
-  await denied(anon.rpc('get_dashboard_stats', { p_since: '2000-01-01T00:00:00Z' }));
+  await denied(anon.rpc('get_dashboard_snapshot'));
   console.log('PASS: real Auth signup/setup, OWNER/MANAGER/SALESMAN REST boundaries, printer upserts, receipt embeds, attribution, checkout stock, and metadata spoofing denial');
 } catch (error) {
   console.error('REST assertion failure: ' + error.message);

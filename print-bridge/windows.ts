@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import type { DiscoveredPrinter, PrinterDiscovery, PrinterIdentity, USBDevice } from '../src/types/printing.ts';
 import { PrintError } from './errors.ts';
 import { findPrinterQueue, findUSBDevice } from '../src/lib/printerIdentity.ts';
@@ -8,7 +9,8 @@ import { findPrinterQueue, findUSBDevice } from '../src/lib/printerIdentity.ts';
 export function runWindows<T>(action: 'discover' | 'render' | 'print', input: unknown = {}): Promise<T> {
   if (process.platform !== 'win32') throw new PrintError('WINDOWS_REQUIRED', 'The print bridge must run on the Windows host.', 503);
   return new Promise((resolve, reject) => {
-    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', fileURLToPath(new URL('./windows.ps1', import.meta.url)), '-Action', action], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    const powershell = join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const child = spawn(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', fileURLToPath(new URL('./windows.ps1', import.meta.url)), '-Action', action], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     const started = Date.now();

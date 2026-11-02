@@ -74,6 +74,7 @@ export interface LPGBrand {
 }
 
 export interface Item {
+  low_stock_threshold: number;
   image_url?: string | null;
   tenant_id: string;
   item_id: string;

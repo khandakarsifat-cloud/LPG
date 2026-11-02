@@ -16,7 +16,7 @@ import { useCustomerBottleBalance } from '../../hooks/useSales';
 export function CustomerDetailsModal({ customerId, preview, onClose }: { customerId: string; preview?: CustomerSummary; onClose: () => void }) {
   const profile = useCustomerProfile(customerId, preview); const customer = profile.data ?? preview;
   const profileReady = Boolean(profile.data && !profile.isPlaceholderData);
-  const { can } = useAuth(); const readable = can('sales:view') || can('receipts:print') || can('dashboard:view');
+  const { can } = useAuth(); const readable = can('sales:view') || can('receipts:print');
   const [filters, setFilters] = useState(defaultCustomerFilters); const deferred = useDeferredValue(filters);
   const [page, setPage] = useState(0); const [edit, setEdit] = useState(false); const [filterOpen, setFilterOpen] = useState(false);
   const [saleId, setSaleId] = useState<string | null>(null);

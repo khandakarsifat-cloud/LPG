@@ -1,6 +1,7 @@
 import type { ReceiptData } from '../src/types/receipt.ts';
 import type { ReceiptPrinterConfig } from '../src/types/printing.ts';
 import { PrintError } from './errors.ts';
+import { validateNetworkTarget } from './network.ts';
 
 function object(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new PrintError('INVALID_REQUEST', 'Invalid print request.');
@@ -24,13 +25,18 @@ export function validatePrintRequest(value: unknown): { request_id: string; conf
   const input = object(value);
   const config = object(input.config);
   const printer = object(config.printer);
-  if (printer.transport !== 'windows_usb') throw new PrintError('UNSUPPORTED_TRANSPORT', 'Only Windows USB receipt printers are supported.');
+  if (printer.transport !== 'windows_usb' && printer.transport !== 'network_tcp') throw new PrintError('UNSUPPORTED_TRANSPORT', 'Only Windows USB or Network/Ethernet ESC/POS receipt printers are supported.');
   text(printer.queue_id, 200); text(printer.host_id, 200); text(printer.queue_name); text(printer.port_name); text(printer.driver_name);
+  if (printer.transport === 'network_tcp') {
+    validateNetworkTarget(printer);
+    if (printer.protocol !== 'escpos') throw new PrintError('UNSUPPORTED_PROTOCOL', 'The network printer must support RAW ESC/POS over TCP.');
+  } else {
   const device = object(printer.device);
   text(device.device_id);
   if (!String(device.device_id).toUpperCase().startsWith('USBPRINT\\')) throw new PrintError('INVALID_REQUEST', 'Invalid USB printer identity.');
   for (const key of ['serial_number', 'vendor_id', 'product_id', 'manufacturer', 'model', 'port_name']) {
     if (device[key] !== null && device[key] !== undefined) text(device[key]);
+  }
   }
   const width = config.paper_width_mm;
   const dots = number(config.printable_width_dots);

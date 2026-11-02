@@ -26,7 +26,7 @@ export const MovementsFeed = () => {
   const items = useInventoryBalances();
   const brands = useLPGBrands();
   const canReadPurchases = can('purchases:view') || can('purchases:manage');
-  const canReadSales = can('sales:view') || can('receipts:print') || can('dashboard:view');
+  const canReadSales = can('sales:view') || can('receipts:print');
   const purchaseIds = [...new Set([...(history.data?.entries ?? []).flatMap(movement => {
     const ref = inventoryMovementSource(movement);
     return ref.kind === 'purchase' && ref.id ? [ref.id] : [];

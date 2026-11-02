@@ -94,7 +94,7 @@ test('frontend Refresh makes uncached discovery requests independently of saved 
 test('frontend reports stopped bridge and Windows enumeration failure without returning an empty success', async t => {
   t.mock.method(console, 'warn', () => {});
   const fetchMock = t.mock.method(globalThis, 'fetch', async () => { throw new TypeError('Failed to fetch'); });
-  await assert.rejects(discoverPrinters(), /Run npm run print:bridge.*then Refresh/);
+  await assert.rejects(discoverPrinters(), /Run Restart LPG Print Bridge\.exe.*then Refresh/);
   fetchMock.mock.mockImplementation(async () => Response.json({ code: 'WINDOWS_FAILED', message: 'Windows printer enumeration failed.' }, { status: 503 }));
   await assert.rejects(discoverPrinters(), /Windows printer enumeration failed/);
   fetchMock.mock.mockImplementation(async () => new Response('not JSON'));

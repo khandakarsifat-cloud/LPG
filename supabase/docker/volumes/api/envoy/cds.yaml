@@ -191,6 +191,21 @@ resources:
           max_requests: 10000
 
   - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    name: account-service
+    connect_timeout: 5s
+    type: STRICT_DNS
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: account-service
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: account-service
+                    port_value: 8081
+
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
     name: studio
     connect_timeout: 5s
     type: STRICT_DNS

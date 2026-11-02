@@ -26,7 +26,9 @@ const migrations = readdirSync('supabase/migrations')
     sql: readFileSync('supabase/migrations/' + n, 'utf8'),
   }));
 const names = process.argv.filter((v) => v.endsWith('.sql'));
-const tests = (names.length ? names : ['financial-system-dimensions.sql','financial-stove-transport.sql','financial-custom-types.sql','financial-payroll.sql','commission-pairs.sql','finance-entry-directory.sql','fifo-commissions.sql','authorization-current.sql','unified-opening-transits.sql','accounting-overview.sql'])
+const accessHelpers = readFileSync('supabase/tests/account-access-fixtures.sql','utf8');
+const adaptAccess = source => source.replaceAll('public.setup_business(', 'pg_temp.fixture_business(').replace(/set_config\('request\.jwt\.claim\.sub',([^;]*?),true\)/g,'pg_temp.fixture_identity($1)');
+const tests = (names.length ? names : ['dashboard-stove-types.sql','dashboard.sql','financial-system-dimensions.sql','financial-stove-transport.sql','financial-custom-types.sql','financial-payroll.sql','commission-pairs.sql','finance-entry-directory.sql','fifo-commissions.sql','authorization-current.sql','unified-opening-transits.sql','accounting-overview.sql'])
   .filter((n) => existsSync('supabase/tests/' + n))
   .map((n) => ({
     name: n,
@@ -43,10 +45,11 @@ const tests = (names.length ? names : ['financial-system-dimensions.sql','financ
           '\nrollback;'
         : readFileSync('supabase/tests/' + n, 'utf8')),
   }));
-const concurrency = readFileSync('supabase/tests/fixture-helpers.sql','utf8') + '\n' + readFileSync(
+for (const suite of tests) suite.sql = accessHelpers + '\n' + adaptAccess(suite.sql);
+const concurrency = accessHelpers + '\n' + adaptAccess(readFileSync('supabase/tests/fixture-helpers.sql','utf8') + '\n' + readFileSync(
   'supabase/tests/unified-accounting-concurrency.sql',
   'utf8',
-);
+));
 const historicalReport = readFileSync('supabase/migrations/20261031140003_financial_analysis_and_audit.sql','utf8');
 const baseline = historicalReport.slice(0,historicalReport.indexOf('-- Page headers')).replaceAll('app_private.accounting_position','app_private.benchmark_full_position').replaceAll('public.get_finance_analysis','public.benchmark_full_analysis') + '\n' +
  readFileSync('supabase/migrations/20261023012148_sales_bottle_receivables.sql','utf8').split('create or replace function public.get_customer_directory')[1].split('end $$;')[0].replace(/^/, 'create or replace function public.benchmark_full_directory')+'end $$;';
@@ -68,7 +71,7 @@ try:
   run(['pg_dump','--exclude-extension=pg_cron','--exclude-schema=cron','-U','supabase_admin','-d','postgres','-Fc'],stdout=dump)
   sql('postgres','CREATE DATABASE '+db+' TEMPLATE template0 OWNER postgres;');created=True;dump.seek(0)
   run(['pg_restore','-U','supabase_admin','-d',db,'--exit-on-error','--single-transaction'],stdin=dump,stdout=subprocess.PIPE)
- preservation='select jsonb_build_array('+','.join("(select md5(coalesce(jsonb_agg((to_jsonb(r)-'allocations'-'valuation'-'movement_no'-'shell_unit_cost'-'empty_quantity'-'empty_quantity_change'-'business_category'-'product_name'-'product_type_id'-'image_url') order by (to_jsonb(r)-'allocations'-'valuation'-'movement_no'-'shell_unit_cost'-'empty_quantity'-'empty_quantity_change'-'business_category'-'product_name'-'product_type_id'-'image_url')::text)::text,'')) from public."+t+" r)" for t in ['inventory_movements','items','sales','sale_items','purchase_items','employee_payments'])+');'
+ preservation='select jsonb_build_array('+','.join("(select md5(coalesce(jsonb_agg((to_jsonb(r)-'allocations'-'valuation'-'movement_no'-'shell_unit_cost'-'empty_quantity'-'empty_quantity_change'-'business_category'-'product_name'-'product_type_id'-'image_url'-'low_stock_threshold') order by (to_jsonb(r)-'allocations'-'valuation'-'movement_no'-'shell_unit_cost'-'empty_quantity'-'empty_quantity_change'-'business_category'-'product_name'-'product_type_id'-'image_url'-'low_stock_threshold')::text)::text,'')) from public."+t+" r)" for t in ['inventory_movements','items','sales','sale_items','purchase_items','employee_payments'])+');'
  before=sql(db,preservation)
  stock_before=sql(db,"select jsonb_agg(jsonb_build_array(tenant_id,item_id,filled_quantity,empty_quantity) order by tenant_id,item_id) from public.items;")
  if sql(db,"select to_regclass('app_private.inventory_normalization_audit') is not null;").strip()=='t':
@@ -99,7 +102,7 @@ try:
  today=sql(db,"select (now() at time zone 'Asia/Dhaka')::date;").strip()
  def literal(value):return "'"+json.dumps(value).replace("'","''")+"'::jsonb"
  def call(expression):
-  result=sql(db,"begin;set local role authenticated;select set_config('request.jwt.claim.sub','"+actor+"',true);select "+expression+";commit;")
+  result=sql(db,p['accessHelpers']+"begin;set local role authenticated;select pg_temp.fixture_identity('"+actor+"');select "+expression+";commit;")
   return json.loads(result.splitlines()[-1])
  def operation(body,key=None):return call("public.accounting_operation("+literal(body)+",'"+(key or str(uuid.uuid4()))+"')")
  def repayment(wallet,amount,key=None):
@@ -239,7 +242,7 @@ try {
     'ssh',
     [...ssh, 'sudo -n python3 -c ' + quote(python)],
     {
-      input: JSON.stringify({ migrations, tests, concurrency, baseline: normalizedBaseline, benchmark, performance: process.argv.includes('--performance') }),
+      input: JSON.stringify({ migrations, tests, concurrency, accessHelpers, baseline: normalizedBaseline, benchmark, performance: process.argv.includes('--performance') }),
       encoding: 'utf8',
       maxBuffer: 12 * 1024 * 1024,
       stdio: ['pipe', 'inherit', 'pipe'],

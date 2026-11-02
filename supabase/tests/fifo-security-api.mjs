@@ -5,6 +5,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {parseEnv} from 'node:util';
 import {execFileSync} from 'node:child_process';
 import {createClient} from '@supabase/supabase-js';
+import {provisionTestBusiness} from './trusted-test-provisioning.mjs';
 assert(process.argv.includes('--vps'),'Explicit --vps required');
 const config=parseEnv(readFileSync('deploy/.env.frontend','utf8')),backend=parseEnv(readFileSync('deploy/.env.backend','utf8')),secret=parseEnv(readFileSync('.env.fifo-test','utf8'));
 const manifest=JSON.parse(readFileSync('.temp/fifo-business/manifest.json','utf8'));const api='https://api.lpg.144.79.249.4.sslip.io';assert.equal(config.VITE_SUPABASE_URL,api);assert.equal(backend.VPS_HOST,'144.79.249.4');assert.equal(backend.VPS_PROJECT_DIR,'/opt/lpg');
@@ -17,8 +18,8 @@ const uid=v=>{assert.match(v,/^[a-f0-9-]{36}$/);return `'${v}'::uuid`;};
 let counterparty,user;const password=randomUUID()+'Aa1!';
 try{
  await checked(owner.auth.signInWithPassword({email:secret.LPG_TEST_EMAIL,password:secret.LPG_TEST_PASSWORD}));
- const signup=await checked(other.auth.signUp({email:`fifo-security-${randomUUID()}@example.invalid`,password}));user=signup.user.id;
- counterparty=(await checked(other.rpc('setup_business',{p_business_name:'FIFO security disposable counterparty '+randomUUID(),p_owner_name:'Security fixture operator'}))).tenant_id;
+ const signup=await provisionTestBusiness(other,{email:`fifo-security-${randomUUID()}@example.invalid`,password,businessName:'FIFO security disposable counterparty '+randomUUID(),ownerName:'Security fixture operator'});user=signup.user.id;
+ counterparty=signup.tenant_id;
  const item=manifest.products[0].id,month='2026-10-01';
  await rejected(other.rpc('get_monthly_commissions',{p_item_id:item,p_month:month}),/Eligible LPG product not found/);
  await rejected(other.rpc('set_monthly_commission',{p_payload:{item_id:item,month,package_rate:1,refill_rate:1,expected_revision:0,reason:'Cross-tenant mutation must fail'},p_request_id:randomUUID()}),/Eligible LPG product not found/);

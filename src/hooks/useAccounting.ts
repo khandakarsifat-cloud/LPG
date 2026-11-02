@@ -40,7 +40,18 @@ export const useInventoryAdjustment = () => useAccountingWrite<InventoryAdjustme
 export const useSaveStoveProduct = () => useAccountingWrite<{ item_id?: string; name: string; type_id: string; image_url?: string | null }>('save_stove_product', 'stove-product');
 export function useStoveProducts(enabled = true) { return useQuery<StoveProduct[]>({ queryKey: ['inventory', 'stove'], enabled, refetchInterval: 30_000, queryFn: ({ signal }) => readAllRows<StoveProduct>((from, to) => supabase.from('items').select('*').eq('business_category', 'stove').order('product_name').order('item_id').range(from, to).abortSignal(signal).overrideTypes<StoveProduct[], { merge: false }>()) }); }
 export function useStoveTypes() { return useQuery<StoveType[]>({ queryKey: ['inventory', 'stove-types'], queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_stove_product_types').abortSignal(signal); if (error) throw error; return data; } }); }
-export function useSaveStoveType() { const qc = useQueryClient(); return useMutation({ mutationFn: async (p: { name: string; type_id?: string; active: boolean }) => { const { error } = await supabase.rpc('save_stove_product_type', { p_name: p.name, p_type_id: p.type_id ?? null, p_active: p.active }); if (error) throw new Error(error.message); }, onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory', 'stove-types'] }) }); }
+export function useSaveStoveType() {
+ const qc = useQueryClient();
+ return useMutation({ mutationFn: async (p: { name: string; type_id?: string; active: boolean }) => {
+  const { error } = await supabase.rpc('save_stove_product_type', { p_name: p.name, p_type_id: p.type_id ?? null, p_active: p.active });
+  if (error) throw new Error(error.message);
+ }, onSuccess: async () => {
+  const keys = [['inventory', 'stove-types'], ['dashboard']];
+  // Invalidation alone reuses a pending initial read, which can predate this save.
+  await Promise.all(keys.map(queryKey => qc.cancelQueries({ queryKey })));
+  await Promise.all(keys.map(queryKey => qc.invalidateQueries({ queryKey })));
+ } });
+}
 export function useInventoryCosts(itemId: string, page = 0) { return useQuery<{ pool: CostPool | null; total: number; entries: CostEntry[] }>({ queryKey: ['inventory', 'costs', itemId, page], queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_inventory_cost_history', { p_item_id: itemId, p_offset: page * 10 }).abortSignal(signal); if (error) throw error; return data; } }); }
 export function useJournalReport(filters: JournalFilters) { return useQuery<JournalReport>({ queryKey: ['finance', 'journal-report', filters], enabled: Boolean(filters.from && filters.to && filters.from <= filters.to), staleTime: 30_000, placeholderData: keepPreviousData, queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_finance_analysis', { p_filters: filters }).abortSignal(signal); if (error) throw error; return data; } }); }
 export function useJournalEntries(filters: JournalFilters, page: number) { return useQuery<{ total: number; entries: JournalEntry[]; sources: string[] }>({ queryKey: ['finance', 'journal', filters, page], queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_analysis_details', { p_filters: filters, p_metric: 'journal', p_category: filters.account || null, p_offset: page * 12 }).abortSignal(signal); if (error) throw error; return data; } }); }

@@ -2,186 +2,73 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import type { Session, User } from '@supabase/supabase-js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import type { AccessContext } from '../types/access';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface TenantProfile {
-  tenant_id: string;
-  business_name: string;
-  full_name: string;
-  email: string;
-}
-
+export interface TenantProfile { tenant_id: string; business_name: string; full_name: string; email: string }
 interface AuthContextValue {
-  session: Session | null;
-  user: User | null;
-  profile: TenantProfile | null;
-  isLoading: boolean;
-  permissions: readonly string[];
+  session: Session | null; user: User | null; profile: TenantProfile | null; access: AccessContext | null;
+  isLoading: boolean; accessError: string | null; permissions: readonly string[];
   can: (permission: string) => boolean;
-
-  /** Sign in with email + password */
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-
-  /** Create an Auth account, then atomically set up its business membership */
-  createBusiness: (params: {
-    businessName: string;
-    ownerName: string;
-    email: string;
-    password: string;
-  }) => Promise<{ error: Error | null }>;
-
-  /** Sign the current user out */
-  signOut: () => Promise<void>;
+  signOut: () => Promise<void>; refreshAccess: () => Promise<void>;
+  switchBusiness: (tenantId: string | null) => Promise<void>;
 }
-
-// ─── Context ──────────────────────────────────────────────────────────────────
-
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
 // eslint-disable-next-line react-refresh/only-export-components
-export const useAuth = (): AuthContextValue => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
-  return ctx;
-};
-
-// ─── Provider ─────────────────────────────────────────────────────────────────
+export const useAuth = (): AuthContextValue => { const ctx = useContext(AuthContext); if (!ctx) throw new Error('useAuth must be used inside AuthProvider'); return ctx; };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const queryClient = useQueryClient();
-  const [session, setSession] = useState<Session | null>(null);
+  const cache = useQueryClient();
+  const [session,setSession] = useState<Session|null>(null);
+  const [hydrating,setHydrating] = useState(true);
+  const [switching,setSwitching] = useState(false);
+  const identity = useRef<string|undefined>(undefined);
+  const scope = useRef<string>('');
   const user = session?.user ?? null;
-  const userId = user?.id;
-  const identity = useRef<string | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
-  const profileQuery = useQuery<TenantProfile | null>({
-    queryKey: ['tenant_profile', userId],
-    enabled: Boolean(userId),
-    queryFn: async () => {
-      if (!userId) return null;
-      const { data, error } = await supabase.from('user_profiles')
-        .select('tenant_id, email, full_name, tenants(business_name)')
-        .eq('user_id', userId).maybeSingle();
-      if (error) throw error;
-      if (!data) return null;
-      const tenant = data.tenants as unknown as { business_name: string } | null;
-      return {
-        tenant_id: data.tenant_id, email: data.email,
-        full_name: data.full_name ?? '', business_name: tenant?.business_name ?? '',
-      };
-    },
-    refetchInterval: 30_000,
-    staleTime: 0,
+  const query = useQuery<AccessContext>({
+    queryKey:['access_context',user?.id], enabled:!!user,
+    queryFn:async()=>{const {data,error}=await supabase.rpc('get_access_context');if(error)throw new Error(error.message);return data;},
+    staleTime:0,refetchInterval:15_000,retry:1,
   });
-  const profile = user && !profileQuery.isError ? profileQuery.data ?? null : null;
-  const permissionQuery = useQuery<string[]>({
-    queryKey: ['authorization', user?.id, profile?.tenant_id],
-    enabled: Boolean(user && profile),
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_my_permissions');
-      if (error) throw error;
-      return data ?? [];
-    },
-    refetchInterval: 30_000,
-    staleTime: 0,
-  });
-  const permissions = permissionQuery.isError ? [] : permissionQuery.data ?? [];
-
-  // Bootstrap: listen to Supabase auth state changes
-  useEffect(() => {
-    let mounted = true;
-    const acceptSession = (s: Session | null) => {
-      if (!mounted) return;
-      if (identity.current !== s?.user.id) {
-        queryClient.clear();
-        identity.current = s?.user.id;
-      }
-      setSession(s);
-      setIsLoading(false);
-    };
-    supabase.auth.getSession().then(({ data: { session: s } }) => acceptSession(s));
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => {
-      acceptSession(s);
-    });
-
-    return () => {
-      mounted = false;
-      listener.subscription.unsubscribe();
-    };
-  }, [queryClient]);
-
-  // ─── Auth Actions ───────────────────────────────────────────────────────────
-
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
-  };
-
-  const createBusiness = async ({
-    businessName,
-    ownerName,
-    email,
-    password,
-  }: {
-    businessName: string;
-    ownerName: string;
-    email: string;
-    password: string;
-  }) => {
-    // Step 1: Create the Supabase Auth user
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: ownerName },
-      },
-    });
-
-    if (signUpError || !signUpData.user) {
-      return { error: signUpError as Error };
+  const access = user && !query.isError ? query.data ?? null : null;
+  const permissions = access?.permissions ?? [];
+  const profile = access?.tenant_id && !access.must_change_password && access.access_status==='active'
+    ? {tenant_id:access.tenant_id,business_name:access.business_name??'',full_name:access.full_name,email:access.email} : null;
+  useEffect(()=>{
+    const fingerprint=access?JSON.stringify([user?.id,access.tenant_id,access.access_status,access.permissions]):'';
+    if(scope.current && scope.current!==fingerprint) {
+      // Reset active observers as well as their data. Removing a query while its
+      // page is mounted can strand the observer in its initial loading state.
+      void cache.resetQueries({predicate:q=>q.queryKey[0]!=='access_context'});
     }
-
-    // Step 2: Sign in immediately (needed if email confirmation is disabled)
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) return { error: signInError };
-
-    // Step 3: Call the atomic RPC to create the tenant, role, and profile
-    const { error: rpcError } = await supabase.rpc('setup_business', {
-      p_business_name: businessName,
-      p_owner_name: ownerName,
-    });
-
-    if (rpcError) {
-      // Auth signup is separate from database setup; sign out on setup failure.
-      await supabase.auth.signOut();
-      return { error: rpcError as unknown as Error };
-    }
-
-    // Refresh the profile with the newly created tenant data
-    await queryClient.invalidateQueries({ queryKey: ['tenant_profile'] });
-    await queryClient.invalidateQueries({ queryKey: ['authorization'] });
-
-    return { error: null };
-  };
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    queryClient.clear();
-  };
-
-  return (
-    <AuthContext.Provider
-      value={{
-        session, user, profile,
-        isLoading: isLoading || Boolean(user && profileQuery.isPending) ||
-          Boolean(profile && permissionQuery.isPending),
-        permissions, can: permission => permissions.includes(permission),
-        signIn, createBusiness, signOut,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+    scope.current=fingerprint;
+  },[user?.id,access,cache]);
+  useEffect(()=>{
+    let mounted=true;
+    const accept=(next:Session|null)=>{if(!mounted)return;if(identity.current!==next?.user.id){cache.clear();identity.current=next?.user.id;}setSession(next);setHydrating(false);};
+    void supabase.auth.getSession().then(({data})=>accept(data.session));
+    const {data}=supabase.auth.onAuthStateChange((_event,next)=>accept(next));
+    return()=>{mounted=false;data.subscription.unsubscribe();};
+  },[cache]);
+  useEffect(()=>{
+    const channel=typeof BroadcastChannel==='undefined'?null:new BroadcastChannel('lpg-access-context');
+    if(channel)channel.onmessage=()=>{void cache.invalidateQueries({queryKey:['access_context']});};
+    return()=>channel?.close();
+  },[cache]);
+  async function switchBusiness(tenantId:string|null) {
+    setSwitching(true);
+    try {
+      await cache.cancelQueries();
+      const {error}=await supabase.rpc('set_admin_workspace',{p_tenant_id:tenantId});if(error)throw new Error(error.message);
+      cache.removeQueries({predicate:q=>q.queryKey[0]!=='access_context'});
+      const result=await query.refetch();if(result.error)throw result.error;
+      const channel=typeof BroadcastChannel==='undefined'?null:new BroadcastChannel('lpg-access-context');channel?.postMessage('changed');channel?.close();
+    } finally {setSwitching(false);}
+  }
+  return <AuthContext.Provider value={{session,user,profile,access,permissions,can:permission=>permissions.includes(permission),
+    isLoading:hydrating||switching||Boolean(user&&query.isPending),accessError:query.error?.message??null,
+    signIn:async(email,password)=>{const {error}=await supabase.auth.signInWithPassword({email,password});return {error};},
+    signOut:async()=>{await supabase.auth.signOut();cache.clear();},
+    refreshAccess:async()=>{await query.refetch();},switchBusiness,
+  }}>{children}</AuthContext.Provider>;
 };

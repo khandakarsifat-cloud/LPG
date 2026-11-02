@@ -7,6 +7,7 @@ import { parseEnv } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createClient } from '@supabase/supabase-js';
+import { provisionTestBusiness } from './trusted-test-provisioning.mjs';
 
 assert(process.argv.includes('--vps'), 'Explicit --vps target required');
 const frontend = parseEnv(readFileSync('deploy/.env.frontend', 'utf8'));
@@ -33,9 +34,8 @@ const before = sql(preservation);
 const client = () => { const c = createClient(api, frontend.VITE_SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } }); clients.push(c); return c; };
 async function account(label) {
  const c = client(); const email = `attendance-${randomUUID()}@example.invalid`; const password = randomUUID() + 'Aa1!';
- const auth = await checked(c.auth.signUp({ email, password })); assert(auth.user && auth.session); users.push(auth.user.id);
- const result = await checked(c.rpc('setup_business', { p_business_name: 'Attendance API fixture ' + label, p_owner_name: 'Attendance fixture operator' }));
- tenants.push(result.tenant_id); return { c, id: auth.user.id, session: auth.session, tenant: result.tenant_id };
+ const auth = await provisionTestBusiness(c,{email,password,businessName:'Attendance API fixture '+label,ownerName:'Attendance fixture operator'});assert(auth.user && auth.session);users.push(auth.user.id);
+ tenants.push(auth.tenant_id); return { c, id: auth.user.id, session: auth.session, tenant: auth.tenant_id };
 }
 const serial = 'ATT-FIX-' + randomUUID().slice(0, 16);
 const route = path => `${api}/iclock/${path}?SN=${serial}`;

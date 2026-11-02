@@ -14,8 +14,10 @@ import { customCategoryOptions } from '../../lib/financial';
 import type { BusinessAllocation } from '../../types/financial';
 import './finance.css';
 import { FinancialTypeSelect } from './FinancialTypeSelect';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function FinancialEntryDialog({ onClose }: { onClose: () => void }) {
+ const { can } = useAuth();
  const catalog = useFinancialCatalog(); const wallets = useWallets(); const operation = useFinanceOperation();
  const [typeId, setTypeId] = useState(''); const [wallet, setWallet] = useState(''); const [amount, setAmount] = useState(0);
  const [date, setDate] = useState(employeeToday()); const [description, setDescription] = useState(''); const [confirm, setConfirm] = useState(false);
@@ -31,7 +33,7 @@ export function FinancialEntryDialog({ onClose }: { onClose: () => void }) {
  }
  const notice = <>{operation.error && <p role="alert" className="purchase-error">{operation.error.message}</p>}{operation.hasPending && <div className="purchase-alert">Recover the previous entry before recording another.<button type="button" className="btn btn-secondary" disabled={operation.isPending} onClick={() => void operation.mutateAsync(undefined).then(onClose).catch(() => {})}>Recover entry</button></div>}</>;
  return <><PurchaseDialog title="Financial entry" onClose={onClose} busy={operation.isPending} compact className="finance-entry-dialog"><form onSubmit={e => { e.preventDefault(); if (valid) setConfirm(true); }}><div className="modal-body dialog-form"><fieldset className="spending-fields" disabled={disabled}>
-  <FinancialTypeSelect value={typeId} onChange={v => { setTypeId(v); setOverride(null); }} types={(catalog.data?.types ?? []).filter(t => t.origin === 'custom' && t.is_active)} />
+  <FinancialTypeSelect value={typeId} onChange={v => { setTypeId(v); setOverride(null); }} types={(catalog.data?.types ?? []).filter(t => t.origin === 'custom' && t.is_active && (can('finance:owner') || !['capital','equipment','other_assets'].includes(t.account ?? '')))} />
   {selected && <><div className="entry-allocation-preview"><strong>{category}</strong><span>{allocationText(allocation)}</span></div><details><summary>Override allocation for this entry</summary><BusinessAllocationEditor value={allocation} onChange={setOverride} disabled={disabled} />{override && <button type="button" className="btn btn-secondary" onClick={() => setOverride(null)}>Use type defaults</button>}</details></>}
   <PurchaseSelect label={incoming ? 'Received into wallet' : 'Paid from wallet'} value={wallet} onChange={setWallet} options={(wallets.data ?? []).filter(w => w.is_active).map(w => ({ value: w.wallet_id, label: w.name }))} />
   <PurchaseNumber label="Amount (Tk)" money value={amount} onChange={v => setAmount(v ?? 0)} />

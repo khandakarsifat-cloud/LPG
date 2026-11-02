@@ -53,7 +53,7 @@ export function OperatingPayments({
     <section className="purchase-section">
       <div className="purchase-section-heading">
         <h3>Payments & history</h3>
-        {can('logistics:manage') && !locked && (
+        {can('logistics:pay') && !locked && (
           <div className="finance-actions">
             {(due > 0 || allowAdvance) && (
               <button
@@ -135,7 +135,7 @@ export function OperatingPayments({
                   <small>Returned {formatBDT(p.returned)}</small>
                 )}
                 {!locked &&
-                  can('logistics:manage') &&
+                  can('logistics:pay') &&
                   p.kind === 'expense' &&
                   p.amount > p.returned && (
                     <button

@@ -8,7 +8,27 @@ import urllib.error
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health, configure_attendance_token
+from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health, configure_attendance_token, configure_account_service
+
+
+class AccountServiceConfigTests(unittest.TestCase):
+    def test_credentials_are_written_only_to_the_private_server_mount(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'deploy').mkdir()
+            gateway = {'ANON_KEY': 'test-public', 'SERVICE_ROLE_KEY': 'test-private',
+                       'SUPABASE_PUBLIC_URL': 'https://api.lpg.144.79.249.4.sslip.io'}
+            model = {'services': {'api-gw': {'environment': gateway}}}
+            self.assertTrue(configure_account_service(root, model, write=False))
+            self.assertFalse((root / 'deploy/.account-service.json').exists())
+            with patch('backend.os.chown', create=True):
+                configure_account_service(root, model)
+            config = json.loads((root / 'deploy/.account-service.json').read_text())
+            self.assertEqual(config['serviceKey'], 'test-private')
+            self.assertEqual(config['apiURL'], 'http://api-gw:8000')
+            self.assertEqual(len(config['origins']), 2)
+            self.assertNotIn('http://localhost:5173', config['origins'])
+            self.assertFalse(configure_account_service(root, model, write=False))
 
 
 class AttendanceTokenTests(unittest.TestCase):
@@ -77,6 +97,9 @@ class DeploymentFlowTests(unittest.TestCase):
         token = patch('backend.configure_attendance_token', return_value=False)
         token.start()
         self.addCleanup(token.stop)
+        account = patch('backend.configure_account_service', return_value=False)
+        account.start()
+        self.addCleanup(account.stop)
 
     def test_new_receiver_is_added_without_recreating_existing_core_services(self):
         with tempfile.TemporaryDirectory() as folder:

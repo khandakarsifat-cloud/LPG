@@ -59,13 +59,13 @@ export function StoveProductDialog({ product, onClose }: { product?: StoveProduc
    {tab === 'details' ? <div className="stove-product-layout"><form id="stove-product-form" className="stove-product-identity" onSubmit={submit}>
     <h3>Product details</h3>
     {save.hasPending && <p role="alert">A previous save needs confirmation. <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void save.mutateAsync(undefined).then(r => setId(r.item_id)).catch(() => {})}>Recover product save</button></p>}
-    <fieldset disabled={busy || !can('inventory:manage')}><label className="input-group"><span className="input-label">Product name</span><input className="input-field" required maxLength={150} value={name} onChange={e => setName(e.target.value)} autoFocus={!id} /></label>
+    <fieldset disabled={busy || !can(id ? 'inventory:edit' : 'inventory:create')}><label className="input-group"><span className="input-label">Product name</span><input className="input-field" required maxLength={150} value={name} onChange={e => setName(e.target.value)} autoFocus={!id} /></label>
      <label className="input-group"><span className="input-label">Product type</span><select className="input-field" aria-label="Product type" required value={type} onChange={e => setType(e.target.value)}><option value="">Select type</option>{types.data?.filter(t => t.is_active || t.type_id === type).map(t => <option value={t.type_id} key={t.type_id}>{t.name}</option>)}</select></label>
-     <ProductPhotoField photo={photo} disabled={busy || !can('inventory:manage')} />
+     <ProductPhotoField photo={photo} disabled={busy || !can(id ? 'inventory:edit' : 'inventory:create')} />
     </fieldset>{(save.error || types.error) && <p role="alert" className="payment-error">{save.error?.message ?? types.error?.message}</p>}
    </form>{id && <StovePrices itemId={id} />}</div> : id && <StoveStockActivity itemId={id} />}
   </div>
-  <div className="modal-footer"><button type="button" className="btn btn-secondary" disabled={busy} onClick={onClose}>{id ? 'Close' : 'Cancel'}</button>{tab === 'details' && can('inventory:manage') && <button type="submit" form="stove-product-form" className="btn btn-primary" disabled={busy || save.hasPending || !name.trim() || !type}>{busy ? 'Saving…' : 'Save product'}</button>}</div>
+  <div className="modal-footer"><button type="button" className="btn btn-secondary" disabled={busy} onClick={onClose}>{id ? 'Close' : 'Cancel'}</button>{tab === 'details' && can(id ? 'inventory:edit' : 'inventory:create') && <button type="submit" form="stove-product-form" className="btn btn-primary" disabled={busy || save.hasPending || !name.trim() || !type}>{busy ? 'Saving…' : 'Save product'}</button>}</div>
  </PurchaseDialog>;
 }
 function StovePrices({ itemId }: { itemId: string }) {

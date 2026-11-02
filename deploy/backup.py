@@ -66,7 +66,7 @@ def backup(root):
                 for name in ['database.dump', 'roles.sql', 'volumes.tar.gz']:
                     archive.add(work / name, arcname=name)
                 archive.add(root / '.env', arcname='config/.env')
-                for name in ['compose.yml', 'compose.vps.yml', 'deploy', 'supabase', 'attendance-receiver']:
+                for name in ['compose.yml', 'compose.vps.yml', 'deploy', 'supabase', 'attendance-receiver', 'account-service']:
                     archive.add(root / name, arcname='config/' + name,
                                 filter=lambda info: None if info.name.endswith(('.backup-key', '.deployment.lock')) or '__pycache__' in info.name else info)
             encrypted = folder / ('recovery-' + stamp + '.tar.gz.enc')

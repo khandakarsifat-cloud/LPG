@@ -17,6 +17,8 @@ import {
   Users,
   Wallet,
   X,
+  ShieldCheck,
+  KeyRound,
 } from 'lucide-react';
 import { Suspense, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,16 +38,20 @@ const navItems = [
   { path: '/finance', label: 'Finance', icon: CreditCard },
   { path: '/logistics', label: 'Logistics', icon: Truck },
   { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/users', label: 'User & Access', icon: ShieldCheck },
 ];
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'lpg-sidebar-collapsed';
 
 function DealershipWallet() {
+  const { pathname } = useLocation();
   const { data, isLoading, isError } = useWallets();
-  const balance = data?.reduce((sum, wallet) => sum + Number(wallet.balance), 0);
+  const dashboard = pathname === '/';
+  const cash = data?.find(wallet => wallet.type === 'cash');
+  const balance = dashboard ? (cash ? Number(cash.balance) : undefined) : data?.reduce((sum, wallet) => sum + Number(wallet.balance), 0);
   return <div className={`topbar-wallet${Number(balance) < 0 ? ' negative' : ''}`}>
     <Wallet size={19} aria-hidden="true" />
-    <div><span>All wallets</span><strong>{isLoading ? '…' : isError || balance === undefined ? '—' : formatBDT(balance)}</strong></div>
+    <div><span>{dashboard ? 'Cash Register' : 'All wallets'}</span><strong>{isLoading ? '…' : isError || balance === undefined ? '—' : formatBDT(balance)}</strong></div>
   </div>;
 }
 
@@ -55,7 +61,7 @@ const getStoredSidebarCollapsed = (): boolean => {
 };
 
 export const Layout = () => {
-  const { profile, permissions, signOut } = useAuth();
+  const { profile, access, permissions, signOut, switchBusiness } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -197,6 +203,8 @@ export const Layout = () => {
                 </div>
               </div>
               <div className="user-menu-divider" />
+              <button className="user-menu-item" role="menuitem" onClick={() => navigate('/account')}><KeyRound size={15} />Account & password</button>
+              {access?.is_superadmin && <button className="user-menu-item" role="menuitem" onClick={() => void switchBusiness(null).then(() => navigate('/admin'))}><ShieldCheck size={15} />Return to admin panel</button>}
               <button
                 className="user-menu-item user-menu-item-danger"
                 onClick={handleSignOut}
@@ -227,7 +235,7 @@ export const Layout = () => {
           </div>
 
           <div className="topbar-actions">
-            {hasAnyPermission(permissions, ['logistics:view', 'logistics:manage', 'finance:view', 'finance:manage']) && <DealershipWallet />}
+            {hasAnyPermission(permissions, ['finance:view', 'finance:manage']) && <DealershipWallet />}
           </div>
         </header>
 

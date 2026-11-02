@@ -1,5 +1,12 @@
 import type { DiscoveredPrinter, PrinterDiscovery, PrinterIdentity, USBDevice } from '../types/printing.ts';
 
+export function isPrinterIPAddress(ip: string): boolean {
+  const parts = ip.split('.');
+  if (parts.length !== 4 || parts.some(part => !/^(0|[1-9]\d{0,2})$/.test(part) || Number(part) > 255)) return false;
+  const [a, b] = parts.map(Number);
+  return a === 10 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168;
+}
+
 export function findUSBDevice(saved: USBDevice, devices: USBDevice[]): USBDevice | undefined {
   const matches = devices.filter(device => saved.serial_number
     ? device.serial_number === saved.serial_number && device.vendor_id === saved.vendor_id && device.product_id === saved.product_id
