@@ -19,3 +19,12 @@ do $$declare t uuid:=app_private.current_tenant_id();d date:=(now() at time zone
 end $$;
 reset role;
 insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price,effective_from) select t,item,'retail','package',200,now() from app_private.unified_concurrency_fixture;
+alter table app_private.unified_concurrency_fixture add column lpg uuid;
+grant update on app_private.unified_concurrency_fixture to authenticated;
+set local role authenticated;
+do $$declare t uuid:=app_private.current_tenant_id();b uuid;i uuid;begin
+ b:=pg_temp.fixture_brand(t,'FIFO concurrency supplier');
+ insert into public.items(tenant_id,brand_id,size_kg,mouth_size) values(t,b,12,'22mm') returning item_id into i;
+ update app_private.unified_concurrency_fixture set lpg=i;
+end $$;
+reset role;

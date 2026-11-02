@@ -59,7 +59,7 @@ db='lpg_accounting_test_'+uuid.uuid4().hex[:16]
 created=False
 try:
  with tempfile.TemporaryFile() as dump:
-  run(['pg_dump','-U','supabase_admin','-d','postgres','-Fc'],stdout=dump)
+  run(['pg_dump','--exclude-extension=pg_cron','--exclude-schema=cron','-U','supabase_admin','-d','postgres','-Fc'],stdout=dump)
   sql('postgres','CREATE DATABASE '+db+' TEMPLATE template0 OWNER postgres;');created=True;dump.seek(0)
   run(['pg_restore','-U','supabase_admin','-d',db,'--exit-on-error','--single-transaction'],stdin=dump,stdout=subprocess.PIPE)
  preservation='select jsonb_build_array('+','.join("(select md5(coalesce(jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text)::text,'')) from public."+t+" r)" for t in ['inventory_movements','items','sales','sale_items','purchase_items','employee_payments'])+');'

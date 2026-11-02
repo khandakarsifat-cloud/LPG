@@ -83,8 +83,12 @@ async page => {
       const geometry=await page.locator(selector).evaluate(grid=>{const cards=[...grid.children].map(c=>c.getBoundingClientRect());return {width:cards[0].width,widths:cards.map(c=>c.width),heights:cards.map(c=>c.height),overlap:cards.some((a,i)=>cards.some((b,j)=>j>i&&a.x<b.right&&a.right>b.x&&a.y<b.bottom&&a.bottom>b.y)),rows:new Set(cards.map(c=>Math.round(c.top))).size};});
       check(width<=600||geometry.rows===3,'Desktop must show three rows regardless of window height or card height');
       check(geometry.widths.every(w=>Math.abs(w-geometry.width)<2),'Card widths changed within a page');
-      check(geometry.heights.every(h=>Math.abs(h-geometry.heights[0])<1),'Card heights depend on their content');
+      if(route==='customers')check(geometry.heights.every(h=>Math.abs(h-geometry.heights[0])<1),'Customer card heights depend on their content');
       check(!geometry.overlap,'Directory cards overlap');
+      if(route!=='customers')check(await page.locator(selector).evaluate(grid=>[...grid.children].every(card=>{
+        const header=card.querySelector('.purchase-card-header').getBoundingClientRect(),statuses=card.querySelector('.record-statuses').getBoundingClientRect(),meta=card.querySelector('.purchase-card-meta').getBoundingClientRect();
+        return statuses.top-header.bottom<=7 && meta.top-statuses.bottom<=7;
+      })),'Transaction cards reserve empty identity/status rows');
       if(route!=='customers'){
         check(await page.locator('.card-product-preview[data-overflow]').count()>0,'Long product previews do not indicate hidden content');
         check(await page.locator('.card-product-preview:not([data-overflow])').count()>0,'Short product previews are unnecessarily faded');

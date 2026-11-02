@@ -10,24 +10,23 @@ import { Pagination } from '../ui/Pagination';
 const date = (value: string) => new Date(value).toLocaleString('en-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'medium', timeStyle: 'short' });
 const amount = (value: number | null | undefined) => value == null ? 'Not available' : formatBDT(value);
 
-export function OperationalPrices({ itemId, data, onEditCommission, disabled }: { itemId: string; data: ProductInventory; onEditCommission: () => void; disabled: boolean }) {
+export function OperationalPrices({ itemId, data, disabled }: { itemId: string; data: ProductInventory; disabled: boolean }) {
   const [editing, setEditing] = useState<PriceType | null>(null);
-  return <section className="product-section" aria-labelledby="operational-buying-title">
-    <div className="product-section-heading"><h3 id="operational-buying-title">Approximate buying prices</h3><span className="product-approx">Operational reference · per unit</span></div>
+  return <div className="operational-buying" aria-labelledby="operational-buying-title">
+    <div className="product-section-heading"><h4 id="operational-buying-title">Approximate buying prices</h4><span className="product-approx">Operational reference · per unit</span></div>
     <div className="product-buying-grid">{(['refill', 'package'] as const).map(kind => {
       const price = data.buying_prices.find(p => p.price_type === kind);
       return <article className="product-buying" key={kind}><div className="product-buying-heading"><span>{kind === 'refill' ? 'Refill' : 'Package'}</span><strong>{amount(price?.new_price)}</strong></div>
         <p>{price?.is_manual ? 'Manual override' : 'Latest received purchase suggestion'}</p>
-        <dl><div><dt>Purchase / unit</dt><dd>{amount(price?.bottle_cost)}</dd></div><div><dt>Transport + labour / unit</dt><dd>{amount(price?.overhead_per_unit)}</dd></div><div><dt>Commission estimate / unit</dt><dd>{formatBDT(kind === 'refill' ? data.commission.refill_rate : data.commission.package_rate)}</dd></div></dl>
+        <dl><div><dt>Purchase / unit</dt><dd>{amount(price?.bottle_cost)}</dd></div><div><dt>Transport + labour / unit</dt><dd>{amount(price?.overhead_per_unit)}</dd></div></dl>
         {price?.is_manual && <small>Automatic suggestion: {amount(price.automatic_price)}</small>}
         {data.can_manage_prices && <button className="btn btn-secondary" disabled={disabled} onClick={() => setEditing(kind)}><Pencil size={13} />Edit approximate price</button>}
       </article>;
     })}</div>
-    <p className="product-help">Latest received purchase for this product and type, plus transport and labour, less its manually configured commission estimate. These references never change recorded stock value, cost of goods sold or profit.</p>
-    {data.can_manage_prices && <div className="product-buying-actions"><button className="btn btn-secondary" disabled={disabled} onClick={onEditCommission}><Pencil size={13} />Edit commission</button></div>}
-    <PriceHistory itemId={itemId} kind="buying" /><PriceHistory itemId={itemId} kind="commission" />
+    <p className="product-help">Latest purchase + transport and labour − the commission shown above. Approximate references only.</p>
+    <PriceHistory itemId={itemId} />
     {editing && <BuyingEditor itemId={itemId} kind={editing} current={data.buying_prices.find(p => p.price_type === editing)} onClose={() => setEditing(null)} />}
-  </section>;
+  </div>;
 }
 
 function BuyingEditor({ itemId, kind, current, onClose }: { itemId: string; kind: PriceType; current?: BuyingPrice; onClose: () => void }) {
@@ -50,14 +49,14 @@ function BuyingEditor({ itemId, kind, current, onClose }: { itemId: string; kind
   </PurchaseDialog>;
 }
 
-function PriceHistory({ itemId, kind }: { itemId: string; kind: 'buying' | 'commission' }) {
-  const [open, setOpen] = useState(false); const [page, setPage] = useState(0); const q = useOperationalPriceHistory(itemId, kind, page, open);
-  return <details className="operational-price-history" onToggle={e => setOpen(e.currentTarget.open)}><summary><History size={14} />{kind === 'buying' ? 'Buying-price history' : 'Commission history'}</summary>
+function PriceHistory({ itemId }: { itemId: string }) {
+  const [open, setOpen] = useState(false); const [page, setPage] = useState(0); const q = useOperationalPriceHistory(itemId, page, open);
+  return <details className="operational-price-history" onToggle={e => setOpen(e.currentTarget.open)}><summary><History size={14} />Buying-price history</summary>
     {q.isPending && open && <p role="status">Loading history…</p>}{q.error && <p role="alert" className="payment-error">{q.error.message}</p>}
-    {q.data && <><div className="buying-history-list">{q.data.entries.map(e => <article className="price-history-entry" key={'history_id' in e ? e.history_id : e.rate_id}>
-      <strong>{'history_id' in e ? `${e.price_type}: ${amount(e.previous_price)} → ${amount(e.new_price)}` : `Refill ${formatBDT(e.refill_commission_per_unit)} · Package ${formatBDT(e.package_commission_per_unit)}`}</strong>
-      <small>{date('history_id' in e ? e.effective_at : e.created_at)} · {e.actor}{'history_id' in e && e.reconstructed ? ' · Reconstructed from records' : ''}</small>
-      {'history_id' in e && <p>{e.reason}{e.purchase_id && ` · Purchase #${e.purchase_id.slice(0, 8).toUpperCase()}`}</p>}
-    </article>)}</div>{!q.data.total && <p>No saved changes yet.</p>}<Pagination page={page} pageSize={10} total={q.data.total} onChange={setPage} busy={q.isFetching} label={`${kind} price changes`} /></>}
+    {q.data && <><div className="buying-history-list">{q.data.entries.map(e => <article className="price-history-entry" key={e.history_id}>
+      <strong>{`${e.price_type}: ${amount(e.previous_price)} → ${amount(e.new_price)}`}</strong>
+      <small>{date(e.effective_at)} · {e.actor}{e.reconstructed ? ' · Reconstructed from records' : ''}</small>
+      <p>{e.reason}{e.purchase_id && ` · Purchase #${e.purchase_id.slice(0, 8).toUpperCase()}`}</p>
+    </article>)}</div>{!q.data.total && <p>No saved changes yet.</p>}<Pagination page={page} pageSize={10} total={q.data.total} onChange={setPage} busy={q.isFetching} label="buying price changes" /></>}
   </details>;
 }

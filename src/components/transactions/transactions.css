@@ -9,12 +9,21 @@
 .transaction-detail-dialog .modal-footer{
   justify-content:space-between
 }
+.transaction-reversal-actions { min-width:0; }
+.transaction-reversal-actions > .purchase-section { margin:0; padding:0; border:0; background:transparent; }
+.transaction-footer-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:.5rem; margin-left:auto; }
+.transaction-footer-actions > .btn { max-width:100%; white-space:normal; }
 .transaction-detail-dialog .modal-footer small{
   color:var(--text-muted);
   font-size:.75rem
 }
+.transaction-detail-dialog .modal-body > .settlement-panel { margin-top: 1rem; background: var(--surface-subtle); }
+.transaction-detail-dialog .accounting-register-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.transaction-detail-dialog .transaction-record strong { text-align: right; overflow-wrap: anywhere; }
+.transaction-detail-dialog .product-with-image > div { min-width: 0; }
 .transaction-badges{
   display:flex;
+  flex-wrap:wrap;
   gap:.5rem;
   margin-bottom:1rem
 }
@@ -80,6 +89,7 @@
 }
 .transaction-section-heading{
   display:flex;
+  flex-wrap:wrap;
   justify-content:space-between;
   align-items:center;
   gap:1rem;
@@ -111,6 +121,8 @@
   margin-bottom:.4375rem;
   font-size:.75rem
 }
+.transaction-line > :first-child { min-width: 0; }
+.transaction-line > span, .transaction-line > strong { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .transaction-line>span,.transaction-line>strong,.transaction-line-head>span:not(:first-child){
   text-align:right
 }
@@ -136,6 +148,10 @@
   margin-top:1.3125rem;
   align-items:start
 }
+.transaction-totals-area--no-note { grid-template-columns: minmax(0,1fr); }
+.transaction-totals-area--no-note .transaction-totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(8rem,1fr)); gap:.875rem; }
+.transaction-totals-area--no-note .transaction-totals > div { display:flex; flex-direction:column; align-items:start; justify-content:center; gap:.375rem; }
+.transaction-totals-area--no-note .transaction-grand-total { border-top:0; border-left:1px solid var(--border-color); padding:0 0 0 .875rem; margin:0; }
 .transaction-note{
   padding:.75rem;
   border:1px solid var(--border-color);
@@ -154,7 +170,11 @@
   display:flex;
   flex-direction:column;
   gap:.5625rem;
-  font-size:.75rem
+  font-size:.75rem;
+  border:1px solid var(--border-color);
+  border-radius:var(--radius-md);
+  padding:.875rem;
+  background:var(--surface-subtle)
 }
 .transaction-totals>div{
   display:flex;
@@ -208,10 +228,10 @@
     grid-template-columns:1fr;
     gap:.5625rem
   }
-  .transaction-line-head,.transaction-line{
-    grid-template-columns:minmax(0,1fr) 1.875rem 5rem;
-    gap:.5rem
-  }
+  .transaction-line-head { display:none; }
+  .transaction-line { grid-template-columns:auto minmax(0,1fr); gap:.75rem; }
+  .transaction-line > :first-child { grid-column:1 / -1; }
+  .transaction-line-quantity::before { content:'Qty '; color:var(--text-muted); }
   .transaction-unit-price{
     display:none
   }
@@ -223,8 +243,13 @@
     font-size:.75rem
   }
   .transaction-line p{
-    font-size:.75rem
+    font-size:.75rem;
+    flex-wrap:wrap
   }
+  .transaction-line .product-with-image { gap:.5rem; align-items:start; }
+  .transaction-line .product-image { width:2rem; height:2rem; }
+  .transaction-detail-dialog .payment-totals { grid-template-columns:1fr; gap:.625rem; }
+  .transaction-detail-dialog .payment-totals > div { display:flex; align-items:baseline; justify-content:space-between; gap:.75rem; }
   .transaction-mobile-price{
     display:block;
     margin-top:.25rem;
@@ -244,6 +269,9 @@
   .transaction-totals{
     font-size:.75rem
   }
+  .transaction-totals-area--no-note .transaction-totals { display:flex; }
+  .transaction-totals-area--no-note .transaction-totals > div { flex-direction:row; align-items:center; justify-content:space-between; }
+  .transaction-totals-area--no-note .transaction-grand-total { border-left:0; border-top:1px solid var(--border-color); padding:.75rem 0 0; }
   .transaction-grand-total dd{
     font-size:1.1875rem
   }

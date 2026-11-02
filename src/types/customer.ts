@@ -4,6 +4,7 @@ import type { InventoryProductIdentity, LPGBrand } from './inventory';
 export type CustomerSortBy = 'sold' | 'due' | 'name' | 'last_sale';
 export type CustomerSort = `${CustomerSortBy}_${'asc' | 'desc'}`;
 export interface CustomerFilters {
+  dues?: 'all' | 'payment' | 'bottle' | 'both' | 'none';
   search: string; tier: 'all' | 'retail' | 'wholesale'; sort: CustomerSort;
   from: string; to: string; item_ids: string[] | null;
   transactions_min: string; transactions_max: string;

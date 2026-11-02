@@ -1,3 +1,5 @@
+import { BusinessAllocationEditor } from '../finance/BusinessAllocation';
+import { allocationText, validAllocation } from '../../lib/financial';
 import { useState, type FormEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -21,7 +23,7 @@ export function EmployeeForm({ profile, types, operation, onClose, inline = fals
  const catalogs = useBusinessCatalogs();
  const attendance = useEmployeeAttendance(e?.employee_id ?? '', employeeToday().slice(0, 7));
  const [linkChanges, setLinkChanges] = useState<NonNullable<EmployeeInput['attendance_links']>>([]);
- const [form, setForm] = useState<EmployeeInput>({ employee_id: e?.employee_id, revision: e?.revision, name: e?.name ?? '', address: e?.address ?? '', notes: e?.notes ?? '', employee_type_name: e?.employee_type_name ?? 'General Staff', business_unit: e?.business_unit ?? 'gas_business', phones: e?.phones.map(p => ({ ...p })) ?? [{ phone: '', is_primary: true }] });
+ const [form, setForm] = useState<EmployeeInput>({ employee_id: e?.employee_id, revision: e?.revision, name: e?.name ?? '', address: e?.address ?? '', notes: e?.notes ?? '', employee_type_name: e?.employee_type_name ?? 'General Staff', business_unit: e?.business_unit ?? 'gas_business', business_allocations: e?.business_allocations ?? { lpg: 100 }, phones: e?.phones.map(p => ({ ...p })) ?? [{ phone: '', is_primary: true }] });
  const [changeTerms, setChangeTerms] = useState(!e); const [salary, setSalary] = useState(latest?.monthly_salary ?? 0);
  const [active, setActive] = useState(latest?.is_active ?? true); const [date, setDate] = useState(e ? latest && latest.effective_from > employeeToday() ? latest.effective_from : employeeToday() : employeeToday()); const [reason, setReason] = useState(''); const [error, setError] = useState('');
  const [confirming, setConfirming] = useState(false);
@@ -32,6 +34,7 @@ export function EmployeeForm({ profile, types, operation, onClose, inline = fals
  const compare = (label: string, before: string, after: string) => { if (before !== after) changes.push({ label, before: before || 'None', after: after || 'None' }); };
  if (e) {
   compare('Name', e.name, form.name.trim()); compare('Role', e.employee_type_name ?? '', form.employee_type_name.trim());
+  compare('Payroll allocation', allocationText(e.business_allocations ?? { lpg: 100 }), allocationText(form.business_allocations ?? { lpg: 100 }));
   compare('Business unit', employeeUnitLabels[e.business_unit], employeeUnitLabels[form.business_unit]);
   compare('Address', e.address ?? '', form.address.trim()); compare('Notes', e.notes ?? '', form.notes.trim());
   const phoneLabel = (phones: EmployeeInput['phones']) => phones.map(p => `${p.phone}${p.is_primary ? ' (primary)' : ''}`).join(', ');
@@ -44,6 +47,7 @@ export function EmployeeForm({ profile, types, operation, onClose, inline = fals
  }
  function submit(event: FormEvent) {
   event.preventDefault(); setError('');
+  if (!validAllocation(form.business_allocations ?? { lpg: 100 })) { setError('Business allocation must total 100%.'); return; }
   if (disabled) return;
   if (!form.phones.every(p => validateBDMobilePhone(p.phone))) { setError(BD_MOBILE_PHONE_ERROR); return; }
   if (changeTerms && e && !reason.trim()) { setError('Describe the salary or employment change.'); return; }
@@ -61,7 +65,7 @@ export function EmployeeForm({ profile, types, operation, onClose, inline = fals
    <fieldset disabled={disabled} className="employee-fields">
     <label className="input-group"><span className="input-label">Employee name</span><input required maxLength={255} className="input-field" value={form.name} onChange={ev => setForm({ ...form, name: ev.target.value })} /></label>
     <div className="employee-form-grid"><PurchaseSelect label="Employee role" value={form.employee_type_name} options={roleOptions.map(role => ({ value: role, label: role }))} onChange={employee_type_name => setForm({ ...form, employee_type_name })} />
-     <PurchaseSelect label="Business unit" value={form.business_unit} options={Object.entries(employeeUnitLabels).map(([value, label]) => ({ value, label }))} onChange={value => setForm({ ...form, business_unit: value as BusinessUnit })} /></div>
+     <PurchaseSelect label="Business unit" value={form.business_unit} options={Object.entries(employeeUnitLabels).map(([value, label]) => ({ value, label }))} onChange={value => setForm({ ...form, business_unit: value as BusinessUnit, business_allocations: value === 'truck_business' ? { logistics: 100 } : { lpg: 100 } })} /></div><BusinessAllocationEditor value={form.business_allocations ?? { lpg: 100 }} onChange={v => setForm({ ...form, business_allocations: v })} disabled={disabled} /><p className="finance-note">Existing salary months and advances keep their original business allocation.</p>
     <div className="employee-section-heading"><h3>Phone numbers</h3><button type="button" className="btn btn-ghost" disabled={form.phones.length >= 10} onClick={() => setForm({ ...form, phones: [...form.phones, { phone: '', is_primary: false }] })}><Plus size={14} />Add number</button></div>
     {form.phones.map((phone, i) => <div className="employee-phone-editor" key={i}><input className="input-field" aria-label={`Phone ${i + 1}`} required inputMode="tel" value={phone.phone} onChange={ev => setForm({ ...form, phones: form.phones.map((p, j) => j === i ? { ...p, phone: normalizePhoneInput(ev.target.value) } : p) })} /><label><input type="radio" name="primary-phone" checked={phone.is_primary} onChange={() => setForm({ ...form, phones: form.phones.map((p, j) => ({ ...p, is_primary: i === j })) })} />Primary</label><button type="button" className="btn btn-ghost" aria-label={`Remove phone ${i + 1}`} disabled={form.phones.length === 1} onClick={() => { const phones = form.phones.filter((_, j) => j !== i); if (!phones.some(p => p.is_primary)) phones[0] = { ...phones[0], is_primary: true }; setForm({ ...form, phones }); }}><Trash2 size={15} /></button></div>)}
     <label className="input-group"><span className="input-label">Address</span><input className="input-field" maxLength={1000} value={form.address} onChange={ev => setForm({ ...form, address: ev.target.value })} /></label>

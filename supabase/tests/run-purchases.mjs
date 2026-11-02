@@ -35,6 +35,14 @@ if (replayIndex === -1) {
   try {
     await db.exec(`create role anon; create role authenticated; create role authenticator; create role service_role bypassrls; create role supabase_admin superuser;
       create schema auth; create schema extensions;
+      -- Platform-owned Storage relations are not application migrations.
+      create schema storage;
+      create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+      create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,metadata jsonb);
+      alter table storage.objects enable row level security;
+      create function storage.extension(text) returns text language sql immutable as $$ select reverse(split_part(reverse($1),'.',1)) $$;
+      grant usage on schema storage to authenticated;
+      grant select,insert,update,delete on storage.objects to authenticated;
       create extension "uuid-ossp" with schema extensions;
       create table auth.users(id uuid primary key,email text,is_anonymous boolean default false,raw_app_meta_data jsonb,raw_user_meta_data jsonb);
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
@@ -45,6 +53,26 @@ if (replayIndex === -1) {
     let exchangeCompatibility = false;
     let workflowCompatibility = false;
     for(const name of names) {
+      // Empty-install verification excludes intentionally obsolete migration
+      // fixtures; current contract fixtures still run after all migrations.
+      if(process.argv.includes('--schema-only')) {
+        await db.exec('set search_path=public;');
+        if(name.endsWith('_purchase_created_status.sql')) await db.exec('set session authorization supabase_admin;set check_function_bodies=on;');
+        const source=readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8');
+        try { await db.exec(name.includes('canonical_development_model')?'begin;'+source+'commit;':source); }
+        catch(error) { console.error('Migration:',name);throw error; }
+        continue;
+      }
+      if(name.endsWith('_monthly_commission_fifo.sql')) {
+        await db.exec(read('fixture-helpers.sql'));
+        for(const historical of ['unified-accounting.sql','accounting-corrections.sql']) {
+          const source=read(historical);
+          const results=process.argv.includes('--deployment-batch')
+            ? await db.exec('savepoint historical_contract;'+source.replace(/^begin;\s*/,'').replace(/rollback;\s*$/,'')+'rollback to savepoint historical_contract;release savepoint historical_contract;')
+            : await db.exec(source);
+          report('historical '+historical,results);
+        }
+      }
       // Match the deployment runner's fresh psql session for each batch; the
       // baseline dump clears search_path in this persistent replay connection.
       await db.exec('set search_path=public;');
@@ -116,11 +144,11 @@ if (replayIndex === -1) {
       if(name.endsWith('_sale_pricing_tier.sql')) report('sale tier backfill',await db.exec(read('sale-tier-legacy.after.sql')));
       if(name.endsWith('_multi_wallet_finance.sql')) report('wallet migration',await db.exec(read('finance-legacy.after.sql')));
     }
-    if(process.argv.includes('--deployment-batch')) await db.exec('commit;');
+    if(process.argv.includes('--deployment-batch')&&!process.argv.includes('--schema-only')) await db.exec('commit;');
     console.log('Migration replay:', (await db.query('select version()')).rows[0].version);
     await db.exec('set row_security=on; set check_function_bodies=on;');
     await db.exec(read('fixture-helpers.sql'));
-    for(const name of ['unified-accounting.sql']) {
+    for(const name of ['financial-system-dimensions.sql','financial-stove-transport.sql','financial-custom-types.sql','financial-payroll.sql','commission-pairs.sql','finance-entry-directory.sql','fifo-commissions.sql','authorization-current.sql','accounting-overview.sql']) {
       await db.exec('set row_security=on;');
       report(name,await db.exec(read(name)));
     }

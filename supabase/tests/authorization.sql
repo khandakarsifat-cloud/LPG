@@ -1,6 +1,7 @@
 -- Run with psql -v ON_ERROR_STOP=1 after the authorization migration.
 -- Real roles, workflow calls and adversarial fixtures; every row rolls back.
 begin;
+set local timezone='Asia/Dhaka';
 set local row_security=on;
 
 create temporary table authorization_context(tenant_a uuid, tenant_b uuid, purchase_id uuid, employee_id uuid, sale_id uuid);

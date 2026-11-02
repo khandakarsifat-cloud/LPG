@@ -9,11 +9,11 @@ import { AttendanceSettings } from '../components/business/AttendanceSettings';
 import { CatalogSettings } from '../components/business/CatalogSettings';
 import '../components/business/settings.css';
 import { VehicleExpenseCategories } from '../components/business/VehicleExpenseCategories';
-import { SpendingCategories } from '../components/business/SpendingCategories';
+import { FinancialTypes } from '../components/business/FinancialTypes';
 import { GasPlantSettings } from '../components/business/GasPlantSettings';
 
 type Section = 'stove-types' | 'vehicle-expenses' | 'business' | 'spending' | 'plants' | 'brands' | 'roles' | 'weights' | 'appearance';
-const sections = [{id:'stove-types',label:'Stove product types',icon:Tags}, {id:'vehicle-expenses',label:'Vehicle expenses',icon:Tags}, {id:'spending',label:'Spending categories',icon:Tags}, { id: 'plants', label: 'Gas plants', icon: Factory }, { id: 'business', label: 'Business profile', icon: Building2 }, { id: 'brands', label: 'LPG brands', icon: Tags }, { id: 'roles', label: 'Employee roles', icon: Users }, { id: 'weights', label: 'Cylinder weights', icon: Weight }, { id: 'appearance', label: 'Appearance', icon: Palette }] as const;
+const sections = [{id:'stove-types',label:'Stove product types',icon:Tags}, {id:'vehicle-expenses',label:'Vehicle expenses',icon:Tags}, {id:'spending',label:'Financial types',icon:Tags}, { id: 'plants', label: 'Gas plants', icon: Factory }, { id: 'business', label: 'Business profile', icon: Building2 }, { id: 'brands', label: 'LPG brands', icon: Tags }, { id: 'roles', label: 'Employee roles', icon: Users }, { id: 'weights', label: 'Cylinder weights', icon: Weight }, { id: 'appearance', label: 'Appearance', icon: Palette }] as const;
 export const SettingsPage = () => {
  const { can } = useAuth(); const manage = can('settings:manage'); const plants = can('gas_plants:view') || can('gas_plants:manage');
  const available = sections.filter(item => item.id === 'plants' ? plants : item.id === 'appearance' ? can('preferences:manage') : manage);
@@ -25,7 +25,7 @@ export const SettingsPage = () => {
     {selected === 'business' && <><BusinessProfile /><AttendanceSettings /></>}
     {selected === 'stove-types' && <StoveProductTypes />}
     {selected === 'vehicle-expenses' && <VehicleExpenseCategories/>}
-    {selected === 'spending' && <SpendingCategories/>}
+    {selected === 'spending' && <FinancialTypes/>}
     {selected === 'plants' && <GasPlantSettings />}
     {selected === 'brands' && <section className="settings-section"><header className="settings-section-heading"><div><h2>LPG brands</h2><p>Your brand catalog and display order across inventory, sales and purchases.</p></div></header><BrandManagement /></section>}
     {selected === 'roles' && <CatalogSettings kind="role" />}{selected === 'weights' && <CatalogSettings kind="weight" />}

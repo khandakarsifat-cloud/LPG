@@ -78,6 +78,7 @@ export function PurchaseForm({ draft, onChange, companyId, purchase, showShipmen
             </dl>}
             {financialsEditable ? <PurchaseNumber label="Unit price (Tk)" value={line.unit_price} money onChange={n => updateLine(index, { unit_price: n ?? 0 })} />
               : <div><span className="purchase-hint">Unit price</span><p>{formatBDT(line.unit_price)}</p></div>}
+            {line.type === 'package' && financialsEditable && <PurchaseNumber label="Cylinder shell cost / unit (Tk)" value={line.shell_unit_cost ?? null} money onChange={n => updateLine(index, {shell_unit_cost:n})} hint="Part of the package price. Leave blank to use this invoice’s refill difference or the recorded shell cost." />}
             <div className="purchase-line-total"><span className="purchase-hint">Line total</span>
               <strong>{formatBDT((productsEditable ? line.quantity : saved?.billed_quantity ?? line.quantity) * line.unit_price)}</strong></div>
             {productsEditable ? <button type="button" className="btn btn-ghost purchase-remove" aria-label={`Remove product ${index + 1}`}

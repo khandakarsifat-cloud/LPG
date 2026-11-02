@@ -15,6 +15,7 @@ const titles: Record<string, string> = {
   cancellation_confirmed: 'Owner confirmed cancellation', cancellation_initiated: 'Cancellation initiated',
   refund_recorded: 'Refund / funding reversal recorded', refund_completed: 'Refunds completed', financially_closed: 'Purchase financially closed',
   wallet_entry: 'Wallet transaction',
+  commission_corrected: 'Supplier commission corrected',
   archived_accounting_evidence: 'Archived accounting evidence',
 };
 
@@ -25,6 +26,11 @@ export function describePurchaseActivity(activity: PurchaseActivity, purchase: P
   const changes: string[] = [];
   const totals: string[] = [];
   const snapshots: string[] = [];
+  if (activity.action === 'commission_corrected') {
+    changes.push(`Deduction: ${amount(details.previous_amount)} → ${amount(details.amount)}`);
+    if (typeof details.month === 'string') changes.push(`Earned month: ${details.month.slice(0,7)}`);
+    if (typeof details.reason === 'string') changes.push(details.reason);
+  }
   const moneyFields = [
     ['commission', 'Commission'], ['transport_cost', 'Transport'], ['labour_cost', 'Labour'],
     ['subtotal', 'Product subtotal'], ['company_payable', 'Company payable'], ['total_cost', 'Total cost'],

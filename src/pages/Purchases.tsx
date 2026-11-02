@@ -1,5 +1,4 @@
 import { CreateStovePurchaseModal } from '../components/purchases/StovePurchaseForm';
-import type { BusinessCategory } from '../types/accounting';
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { PurchasesList } from '../components/purchases/PurchasesList';
@@ -7,16 +6,18 @@ import { CreatePurchaseModal } from '../components/purchases/CreatePurchaseModal
 import { useAuth } from '../contexts/AuthContext';
 import { formatBDT } from '../lib/formatBDT';
 import { usePurchaseOverview } from '../hooks/usePurchases';
+import { PurchaseDialog } from '../components/purchases/PurchaseControls';
 
 export const PurchasesPage = () => {
-  const [category, setCategory] = useState<BusinessCategory>('lpg');
+  const [category, setCategory] = useState<'all' | 'lpg' | 'stove'>('all');
+  const [purchaseCategory, setPurchaseCategory] = useState<'lpg' | 'stove' | null>(null);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const { can } = useAuth();
-  const purchasesQuery = usePurchaseOverview(category);
+  const purchasesQuery = usePurchaseOverview(category === 'all' ? undefined : category);
   const summaryValue = (value: number | string) => purchasesQuery.isLoading ? '…' : purchasesQuery.isError ? '—' : value;
 
   return (
-    <div className="purchases-page"><div className="finance-actions business-switch" role="group" aria-label="Purchase business category">{(['lpg','stove'] as const).map(c => <button key={c} className={`btn ${category === c ? 'btn-primary' : 'btn-secondary'}`} aria-pressed={category === c} onClick={() => setCategory(c)}>{c === 'lpg' ? 'LPG Business' : 'Stove Business'}</button>)}</div>
+    <div className="purchases-page">
       {/* ── Page Header ── */}
       <div className="page-header purchases-header">
         <dl className="purchase-list-summary" aria-label="Purchase overview">
@@ -27,7 +28,7 @@ export const PurchasesPage = () => {
         </dl>
         
         <div className="purchases-header-actions">
-          {can('purchases:manage') && <button className="btn btn-primary" aria-label="New Purchase" onClick={() => setPurchaseOpen(true)}>
+          {can('purchases:manage') && <button className="btn btn-primary" aria-label="New Purchase" onClick={() => { setPurchaseCategory(category === 'all' ? null : category); setPurchaseOpen(true); }}>
             <Plus size={16} />
             <span className="purchase-new-label">New Purchase</span>
             <span className="purchase-new-short" aria-hidden="true">New</span>
@@ -39,11 +40,12 @@ export const PurchasesPage = () => {
 
       {/* ── Purchases List ── */}
       <div className="purchase-list-panel">
-        <PurchasesList key={category} category={category} totalPurchases={purchasesQuery.data?.total} />
+        <PurchasesList category={category} onCategoryChange={setCategory} totalPurchases={purchasesQuery.data?.total} />
       </div>
 
-      {purchaseOpen && category === 'stove' && <CreateStovePurchaseModal onClose={() => setPurchaseOpen(false)} />}
-      <CreatePurchaseModal open={purchaseOpen && category === 'lpg'} onClose={() => setPurchaseOpen(false)} />
+      {purchaseOpen && purchaseCategory === null && <PurchaseDialog title="New purchase" subtitle="Choose the business for this purchase." compact onClose={() => setPurchaseOpen(false)}><div className="modal-body dialog-form"><button className="btn btn-secondary" onClick={() => setPurchaseCategory('lpg')}>LPG purchase</button><button className="btn btn-secondary" onClick={() => setPurchaseCategory('stove')}>Stove purchase</button></div></PurchaseDialog>}
+      {purchaseOpen && purchaseCategory === 'stove' && <CreateStovePurchaseModal onClose={() => setPurchaseOpen(false)} />}
+      <CreatePurchaseModal open={purchaseOpen && purchaseCategory === 'lpg'} onClose={() => setPurchaseOpen(false)} />
     </div>
   );
 };

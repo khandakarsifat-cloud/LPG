@@ -2,12 +2,14 @@ import type { PaymentInput, PaymentWallet } from './finance';
 export type BusinessUnit = 'gas_business' | 'truck_business';
 export interface EmployeePhone { phone: string; is_primary: boolean }
 export interface Employee {
+ business_allocations?: import('./financial').BusinessAllocation;
  employee_id: string; name: string; address: string | null; notes: string | null; business_unit: BusinessUnit;
  employee_type_name: string | null; current_salary: number; is_active: boolean; effective_from: string | null;
  joining_date: string; revision: number; phones: EmployeePhone[]; primary_phone: string | null;
 }
 export interface EmployeeTerm { term_id: string; effective_from: string; monthly_salary: number; is_active: boolean; reason: string }
 export interface EmployeeInput {
+ business_allocations?: import('./financial').BusinessAllocation;
  employee_id?: string; revision?: number; name: string; phones: EmployeePhone[]; address: string; notes: string;
  business_unit: BusinessUnit; employee_type_name: string; terms?: Omit<EmployeeTerm, 'term_id'>;
  attendance_links?: { device_id: string; pin: string | null; expected: string | null }[];

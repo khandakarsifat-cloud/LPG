@@ -68,7 +68,7 @@ try {
    } else if(route==='settings') {
     await page.getByRole('button',{name:'Business profile',exact:true}).click();await page.getByRole('region',{name:'Attendance settings'}).waitFor();
     await page.screenshot({path:`${folder}/attendance-settings-${width}-${theme}.png`,animations:'disabled'});results.push({page:'attendance-settings',width,theme});
-    for(const name of ['Stove product types','Vehicle expenses','Spending categories','Gas plants','LPG brands','Employee roles','Cylinder weights','Appearance']) {
+    for(const name of ['Stove product types','Vehicle expenses','Financial types','Gas plants','LPG brands','Employee roles','Cylinder weights','Appearance']) {
       await page.getByRole('navigation',{name:'Settings sections'}).getByRole('button',{name,exact:true}).click();await page.waitForLoadState('networkidle');
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1 && Array.from(document.querySelectorAll('.page-content')).every(e=>e.scrollWidth<=e.clientWidth+1)),`${name} overflow at ${width}`);
       await page.screenshot({path:`${folder}/settings-${name.toLowerCase().replaceAll(' ','-')}-${width}-${theme}.png`,animations:'disabled'});results.push({page:'settings-'+name,width,theme});

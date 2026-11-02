@@ -1,3 +1,4 @@
+import { usePaymentWallets } from '../../hooks/useFinance';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
@@ -93,20 +94,18 @@ export function PurchaseFinancials({ draft, totals, onChange, businessCategory =
   onChange?: (draft: PurchaseDraft) => void;
   businessCategory?: 'lpg' | 'stove';
 }) {
-  if (businessCategory === 'stove') return <section className="purchase-section"><h3>Financial breakdown</h3><dl className="purchase-totals">
-    <div><dt>Product subtotal</dt><dd>{formatBDT(totals.subtotal)}</dd></div>
-    <div className="purchase-total"><dt>Supplier payable</dt><dd>{formatBDT(totals.company_payable)}</dd></div>
-  </dl></section>;
+  const wallets = usePaymentWallets(Boolean(onChange));
   return <section className="purchase-section"><h3>Financial breakdown</h3>
     <div className="purchase-financial-grid">
       {onChange && <div className="purchase-cost-fields">
-        <PurchaseNumber label="Commission (Tk)" value={draft.commission} money onChange={n => onChange({ ...draft, commission: n ?? 0 })} hint="Company discount" />
-        <PurchaseNumber label="Transport cost (Tk)" value={draft.transport_cost} money onChange={n => onChange({ ...draft, transport_cost: n ?? 0 })} />
+        {businessCategory === 'lpg' && <PurchaseNumber label="Commission (Tk)" value={draft.commission} money onChange={n => onChange({ ...draft, commission: n ?? 0 })} hint="Settles commission earned in an earlier receipt month" />}
+        <PurchaseNumber label="Internal Logistics transport (Tk)" value={draft.transport_cost} money onChange={n => onChange({ ...draft, transport_cost: n ?? 0 })} />
+        {draft.transport_cost > 0 && <PurchaseSelect label="Transport paid from wallet at dispatch" value={draft.transport_wallet_id ?? ''} onChange={v => onChange({ ...draft, transport_wallet_id: v || null })} options={[{ value: '', label: 'Cash Register (default)' }, ...(wallets.data ?? []).filter(w => w.type !== 'cash').map(w => ({ value: w.wallet_id, label: w.name }))]} />}
         <PurchaseNumber label="Labour cost (Tk)" value={draft.labour_cost} money onChange={n => onChange({ ...draft, labour_cost: n ?? 0 })} />
       </div>}
       <dl className="purchase-totals">
         <div><dt>Product subtotal</dt><dd>{formatBDT(totals.subtotal)}</dd></div>
-        <div><dt>Commission</dt><dd>− {formatBDT(draft.commission)}</dd></div>
+        {businessCategory === 'lpg' && <div><dt>Commission</dt><dd>− {formatBDT(draft.commission)}</dd></div>}
         <div className="purchase-payable"><dt>Company payable</dt><dd>{formatBDT(totals.company_payable)}</dd></div>
         <div><dt>Transport allocation (internal)</dt><dd>{formatBDT(draft.transport_cost)}</dd></div>
         <div><dt>Labour cost</dt><dd>{formatBDT(draft.labour_cost)}</dd></div>

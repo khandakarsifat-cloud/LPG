@@ -22,7 +22,7 @@ export interface ProductPrice {
   effective_from: string;
 }
 
-export interface InventoryValuation { known_value: number; filled_value: number; empty_value: number; reconstructed_products: number; lpg_value: number; stove_value: number }
+export interface InventoryValuation { internal_transport_value: number; business_lpg_value: number; business_stove_value: number; known_value: number; filled_value: number; empty_value: number; reconstructed_products: number; lpg_value: number; stove_value: number }
 
 export interface ProductWeek {
   start_date: string;
@@ -34,9 +34,13 @@ export interface ProductWeek {
   bought_refill: number;
 }
 
+export interface MonthlyCommission {
+ month: string; package_rate: number; refill_rate: number; source: 'manual' | 'inferred_partial'; revision: number;
+ modified_at: string; modified_by: string | null; calculation: Record<string, unknown>;
+}
 export interface ProductInventory {
+  commission: MonthlyCommission | null;
   can_manage_prices: boolean;
-  commission: { refill_rate: number; package_rate: number; version: string | null };
   prices: ProductPrice[];
   buying_prices: BuyingPrice[];
   valuation: import('./accounting.ts').CostPool;
@@ -46,17 +50,11 @@ export interface ProductInventory {
 export interface BuyingPrice {
   history_id: string; price_type: PriceType; new_price: number | null; previous_price: number | null;
   automatic_price: number | null; is_manual: boolean; bottle_cost: number | null; overhead_per_unit: number | null;
-  commission_per_unit: number | null; purchase_id: string | null; source: string; reason: string; effective_at: string;
+  commission_per_unit: number | null; commission_month: string | null; commission_revision: number | null; purchase_id: string | null; source: string; reason: string; effective_at: string;
   actor?: string; reconstructed: boolean;
 }
-export interface CommissionHistory { rate_id: string; refill_commission_per_unit: number; package_commission_per_unit: number; created_at: string; actor: string }
 
-export interface SetProductCommission {
-  itemId: string;
-  refillRate: number;
-  packageRate: number;
-  expected: string | null;
-}
+
 
 export interface SaveProductPrices {
   itemId: string;

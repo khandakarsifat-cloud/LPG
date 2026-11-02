@@ -6,8 +6,6 @@ import { useBusinessCatalogs } from '../../hooks/useBusinessSettings';
 import type { CreateItemPayload, MouthSize } from '../../types/inventory';
 import { MOUTH_SIZE_OPTIONS } from '../../types/inventory';
 import { PurchaseDialog } from '../purchases/PurchaseControls';
-import { ProductPhotoField } from './ProductImage';
-import { useProductPhoto } from '../../hooks/useProductImages';
 
 interface AddItemModalProps {
   open: boolean;
@@ -20,7 +18,6 @@ export const AddItemModal = ({ open, onClose }: AddItemModalProps) => open ? <Ad
 
 function AddItemForm({ onClose }: Pick<AddItemModalProps, 'onClose'>) {
   const createItem = useCreateItem();
-  const photo = useProductPhoto();
   const catalogs = useBusinessCatalogs();
   const weights = catalogs.data?.weights.filter(weight => weight.active).map(weight => weight.size_kg) ?? [];
   const { data: brands = [] } = useLPGBrands();
@@ -65,15 +62,12 @@ function AddItemForm({ onClose }: Pick<AddItemModalProps, 'onClose'>) {
 
     setIsSubmitting(true);
     try {
-      const imagePath = await photo.prepare();
       await createItem.mutateAsync({
-        image_url: imagePath,
         brand_id:        form.brand_id,
         size_kg:         form.size_kg,
         mouth_size:      form.mouth_size,
       });
 
-      await photo.committed(imagePath);
       onClose();
       setForm({ brand_id: '', size_kg: 0, mouth_size: '22mm' });
     } catch {
@@ -87,7 +81,7 @@ function AddItemForm({ onClose }: Pick<AddItemModalProps, 'onClose'>) {
     <PurchaseDialog title="Add New Item" subtitle="Register an LPG product, then add stock through a purchase or valued adjustment." onClose={onClose} busy={isSubmitting}>
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="modal-body dialog-form"><div className="product-form-grid"><div className="product-identity-fields">
+          <div className="modal-body dialog-form"><div className="lpg-product-form"><div className="product-identity-fields">
             {/* Brand Selection */}
             <div className="input-group">
               <label className="input-label" htmlFor="item-brand">Brand *</label>
@@ -159,7 +153,7 @@ function AddItemForm({ onClose }: Pick<AddItemModalProps, 'onClose'>) {
                 ))}
               </select>
             </div>
-          </div><ProductPhotoField photo={photo} disabled={isSubmitting} /></div></div>
+          </div></div></div>
 
           {/* Footer */}
           <div className="modal-footer">

@@ -134,11 +134,11 @@ export const useUpdatePurchase = () => usePurchaseMutation((payload: {
   p_purchase_id: payload.purchase_id, p_revision: payload.revision, p_payload: payload.draft,
 }));
 
-type Transition = { purchase_id: string; revision: number };
+type Transition = { purchase_id: string; revision: number; received_on?: string; commission_month?: string };
 export const useDispatchPurchase = () => usePurchaseMutation((payload: Transition) =>
   purchaseRpc('dispatch_purchase', { p_purchase_id: payload.purchase_id, p_revision: payload.revision }));
 export const useReceivePurchase = () => usePurchaseMutation((payload: Transition) =>
-  purchaseRpc('receive_purchase', { p_purchase_id: payload.purchase_id, p_revision: payload.revision }));
+  purchaseRpc('receive_purchase', { p_purchase_id: payload.purchase_id, p_revision: payload.revision, p_received_on: payload.received_on ?? null, p_commission_month: payload.commission_month ? `${payload.commission_month}-01` : null }));
 
 export const usePurchaseSettlement = (id: string, page = 0) => useQuery<PurchaseSettlement>({
   queryKey: [...purchaseKeys.detail(id), 'settlement', page], refetchInterval: 30_000,

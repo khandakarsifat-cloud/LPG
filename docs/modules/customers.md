@@ -12,7 +12,7 @@ The directory query filters sale headers once, groups matching sale lines once, 
 
 - **Total Sold** is the sum of whole saved `total_amount` values, including saved discounts and exchange fees. It is never the sum of just matching lines. `total_sold_amount` carries this monetary value; legacy `total_sold` remains the refill + package quantity for older callers.
 
-- **Total Due** sums current `total_amount - paid_amount` for payment-tracked sales. Later collections reduce the due even when paid outside the selected sale period. Historical sales without tracking retain the existing fully-paid convention. Customer ledger credits/debts unrelated to these sales are not included; the profile's separate customer balance retains its Finance meaning.
+- **Total Due** in date/product/activity scopes sums current qualifying invoice dues, including later collections. The unfiltered directory instead uses the current customer ledger balance, including opening receivables and customer credits; its due sorting uses the same value.
 
 - **Last Sale**, transaction count, and refill/package quantities come from the same qualifying headers. Quantities count only selected products when a product selection is active. Voided sales are excluded throughout.
 
@@ -30,12 +30,16 @@ Overview tiles remain business-wide. The customer profile independently loads al
 
 The directory derives tenancy from trusted active membership and requires `customers:view` or `customers:manage`. Every sale/line/customer lookup constrains the trusted tenant. Existing RLS, sale writes and payment writes are unchanged.
 
-Migrations: `20261022165522_unified_customer_filtering.sql` and `20261022173140_customer_directory_custom_plans.sql`. Existing sales tenant/date, completed customer/date, sale-line tenant/sale and tenant/item/sale indexes support these reads. No persisted reporting counters or new write triggers are introduced.
+Migrations: `20261022165522_unified_customer_filtering.sql` and `20261022173140_customer_directory_custom_plans.sql`. Existing sales tenant/date, completed customer/date, sale-line tenant/sale and tenant/item/sale indexes support these reads. Current lifetime reads use the maintained private customer metrics projection; scoped reads retain canonical indexed aggregation.
 
 `supabase/tests/customers.sql` verifies search, selected quantities, whole-sale money, later collections, date boundaries, all sort directions, null dates, deterministic pages, permissions and reused IDs across tenants. `customer-performance.sql` rolls back 10,000 customers, 60,000 sales and 180,000 lines across two tenants. Run it with `npm run purchase:db:test -- --replay-module <PGlite package directory> --deployment-batch --performance`, or include `--customer-performance` in the established disposable PostgreSQL runner. Synthetic bulk setup skips foreign-key triggers only in this disposable engine; application constraints remain enabled during query checks. Browser fixture tests cover controls, server payloads, pagination, nested dialogs and compact layouts.
 
-Real Auth/PostgREST and published-browser acceptance: `node supabase/tests/customers-api.mjs --azure --browser-module node_modules/playwright`. It reads the dedicated burner membership, writes only new disposable businesses, verifies all sorting directions and later payments, exercises the published product/date/activity controls and phone/tablet/desktop layouts, then removes its fixtures and compares existing business-data fingerprints. Credentials come from ignored `.env.live-test` or injected variables.
+Real Auth/PostgREST and published-browser acceptance: `npm run accounting:api:test`. It reads the dedicated burner membership, writes only new disposable businesses, verifies all sorting directions and later payments, exercises the published product/date/activity controls and phone/tablet/desktop layouts, then removes its fixtures and compares existing business-data fingerprints. Credentials come from ignored `.env.live-test` or injected variables.
 
 
 
 Customer money totals and transaction amounts include separately recorded later bottle exchange fees; saved details retain the original invoice breakdown. `get_customer_bottle_balance` exposes only the customer's aggregate outstanding bottles under existing customer/Finance read permissions. Original expected products, actual receipts, historical fees and collections remain in the shared capability-gated sale details. Product differences do not create individual bottle debts; settlement subtracts all actual receipts from all expected quantities. Collection expenses are business costs and do not change customer money dues. Bottle mutations invalidate customer profile/directory/balance and transaction caches along with Sales, stock and Finance.
+
+## Current dues filter
+
+The compact search shares its row with Dues: Payment Due (money only), Bottle Due (bottles only), Both, None, or All. Money uses the positive outstanding ledger balance, including supplemental opening receivables. Bottles sum each completed sale's nonnegative outstanding obligation; excess receipts never offset another sale. These current-balance predicates run on tenant-qualified customer candidates before sorting/counting/pagination and combine with existing search and activity filters. Date/product filters continue to scope activity metrics, not current obligations. `fifo-commissions.sql` and the retained lab independent verifier cover all four partitions and opening-only dues.

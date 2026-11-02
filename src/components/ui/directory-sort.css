@@ -1,0 +1,11 @@
+.directory-sort { display: flex; align-items: end; gap: .25rem; min-width: 0; }
+.directory-sort > .purchase-select { flex: 1; min-width: 0; }
+.directory-sort .input-field { width: 100%; }
+.directory-sort > .directory-sort-direction { flex: 0 0 2.375rem; width: 2.375rem; min-height: 2.375rem; padding: .5rem; }
+.purchase-filter-extras .directory-sort { align-items: center; }
+.purchase-filter-extras .directory-sort-direction { flex-basis: 2.125rem; width: 2.125rem; min-height: 2.125rem; padding: .375rem; }
+@media (max-width: 600px) {
+  .directory-sort > .directory-sort-direction { flex-basis: 2.125rem; width: 2.125rem; min-height: 2.125rem; padding: .375rem; }
+  .purchase-filter-extras .directory-sort { align-items: end; }
+  .employee-directory-controls > .directory-sort { flex: 1 1 12rem; }
+}

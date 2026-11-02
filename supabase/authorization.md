@@ -5,7 +5,7 @@ the implemented authorization boundaries and their verification.
 
 ## Authority and roles
 
-Financial Analysis additionally supports explicit read-only cross-business grants in `business_analysis_access`. Only a trusted target-business OWNER with Finance management may grant/revoke scope for another active application user. Aggregate and paged detail RPCs derive and recheck the authorized business set, require active current Finance membership, and reject unchecked tenant IDs. These grants provide no operational, stock or payment access. The grant table has RLS and no browser table privileges.
+Financial Analysis and all financial entry/ledger RPCs derive the signed-in active membership and restrict every request to that trusted organization. LPG, Stove and Logistics are business-line scopes within that organization. Foreign organization IDs are rejected; there is no cross-organization grant model.
 
 Buying-price history, sale cost evidence, operating payments, incurred-cost events, service-trip activity and the financial source archive are immutable and RPC-only. Buying-price writes require the same trusted OWNER and inventory-management gate as selling prices. Service and operating payments derive tenant/actor and require Logistics management; linked crew payments retain the Payroll gate. Historical unknown real-wallet attribution cannot create a wallet refund.
 

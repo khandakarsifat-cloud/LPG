@@ -135,8 +135,9 @@ export const InventoryPage = () => {
 
       {/* ── Valuation Summary ── */}
       <section className="inventory-worth" aria-label="Stock worth">
-        <span>Current stock worth <strong>{valuation.data ? formatBDT(valuation.data.known_value) : '—'}</strong></span>
-        {valuation.data && <small>LPG {formatBDT(valuation.data.lpg_value)} · Stove {formatBDT(valuation.data.stove_value)} · Moving weighted average{valuation.data.reconstructed_products > 0 ? ' · Includes estimated development opening values' : ''}</small>}
+        <span>Consolidated stock worth <strong>{valuation.data ? formatBDT(valuation.data.known_value) : '—'}</strong></span>
+        {valuation.data && <small>LPG {formatBDT(valuation.data.lpg_value)} · Stove {formatBDT(valuation.data.stove_value)} · FIFO{valuation.data.reconstructed_products > 0 ? ' · Includes estimated development opening values' : ''}</small>}
+        {!!valuation.data?.internal_transport_value && <small>Business stock value: LPG {formatBDT(valuation.data.business_lpg_value)} · Stove {formatBDT(valuation.data.business_stove_value)}. Internal transport {formatBDT(valuation.data.internal_transport_value)} is eliminated on consolidation.</small>}
         {valuation.error && <button className="btn btn-secondary" onClick={() => void valuation.refetch()}>Retry valuation</button>}
       </section>
 

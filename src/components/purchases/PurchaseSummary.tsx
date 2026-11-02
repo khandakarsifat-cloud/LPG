@@ -8,6 +8,7 @@ import { formatBDT } from '../../lib/formatBDT';
 import { PurchaseFinancials, PurchaseStatuses } from './PurchaseControls';
 import type { Purchase } from '../../types/purchase';
 import { ProductImage } from '../inventory/ProductImage';
+import { PurchaseCommission } from './PurchaseCommission';
 
 export function PurchaseIdentity({ purchase }: { purchase: Purchase }) {
   return <section className="purchase-section"><PurchaseStatuses purchase={purchase} />
@@ -30,6 +31,7 @@ export function PurchaseIdentity({ purchase }: { purchase: Purchase }) {
 export function PurchaseSummary({ purchase, showNotes = true }: { purchase: Purchase; showNotes?: boolean }) {
   const paging = useListPage(purchase.items, 8, purchase.purchase_id);
   return <>
+    <PurchaseCommission purchase={purchase}/>
     <section className="purchase-section"><h3>Products & inventory</h3>
       {purchase.items.length ? <div className="purchase-table-wrap"><table className="purchase-summary-table">
         <thead><tr><th scope="col">Product</th>{purchase.business_category !== 'stove' && <th scope="col">Empties sent</th>}<th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Billed</th><th scope="col">Unit price</th><th scope="col">Amount</th></tr></thead>

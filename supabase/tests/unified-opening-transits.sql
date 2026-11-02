@@ -10,9 +10,9 @@ do $$declare p record;r record;actor uuid;baseline numeric;after_value numeric;c
   perform set_config('request.jwt.claim.sub',actor::text,true);
   insert into opening_transit_checks
   select p.purchase_id,c.item_id,c.filled_value,c.empty_value,
-   round(sum(pi.quantity*pi.unit_price)*case when p.subtotal>0 then p.payable_amount/p.subtotal else 1 end,2)+
-   coalesce((select -sum(e.empty_value) from public.inventory_cost_entries e join public.inventory_movements m using(tenant_id,movement_id) where e.tenant_id=p.tenant_id and m.reference_id=p.purchase_id and m.reference_type='purchase_dispatch' and e.item_id=c.item_id),0),
-   coalesce((select -sum(e.empty_value) from public.inventory_cost_entries e join public.inventory_movements m using(tenant_id,movement_id) where e.tenant_id=p.tenant_id and m.reference_id=p.purchase_id and m.reference_type='purchase_dispatch' and e.item_id=c.item_id),0)
+   round(sum(pi.quantity*pi.unit_price)*case when p.subtotal>0 then (p.subtotal+p.labour_cost)/p.subtotal else 1 end,2)-round(sum(pi.quantity*coalesce((select case when pi.type='refill' then mr.refill_rate else mr.package_rate end from public.monthly_commission_rates mr where mr.tenant_id=p.tenant_id and mr.item_id=c.item_id and mr.month=date_trunc('month',now() at time zone 'Asia/Dhaka')::date),0)),2)+
+   coalesce((select -sum(e.empty_value) from app_private.fifo_movement_costs e join public.inventory_movements m using(tenant_id,movement_id) where e.tenant_id=p.tenant_id and m.reference_id=p.purchase_id and m.reference_type='purchase_dispatch' and e.item_id=c.item_id),0),
+   coalesce((select -sum(e.empty_value) from app_private.fifo_movement_costs e join public.inventory_movements m using(tenant_id,movement_id) where e.tenant_id=p.tenant_id and m.reference_id=p.purchase_id and m.reference_type='purchase_dispatch' and e.item_id=c.item_id),0)
   from public.inventory_costs c join public.purchase_items pi using(tenant_id,item_id) where c.tenant_id=p.tenant_id and pi.purchase_id=p.purchase_id group by c.item_id,c.filled_value,c.empty_value;
   -- Cancel and roll back the isolated subtransaction, then receive the same
   -- original order. Both paths must use its recorded dispatch shell allocation.
@@ -27,8 +27,8 @@ do $$declare p record;r record;actor uuid;baseline numeric;after_value numeric;c
   exception when sqlstate 'ZX001' then null;end;
   perform public.receive_purchase(p.purchase_id,p.revision);
   for r in select * from opening_transit_checks where purchase_id=p.purchase_id loop
-   select filled_value into after_value from public.inventory_costs where tenant_id=p.tenant_id and item_id=r.item_id;
-   if abs(after_value-r.filled_value-r.expected_receipt)>0.02 then raise exception 'Opening receipt lost the per-product transit carrying value';end if;
+   select sum(e.filled_value) into after_value from app_private.fifo_movement_costs e join public.inventory_movements m using(tenant_id,movement_id) where e.tenant_id=p.tenant_id and e.item_id=r.item_id and m.reference_id=p.purchase_id and m.reference_type in ('purchase_receipt_refill','purchase_receipt_new');
+   if abs(after_value-r.expected_receipt)>0.02 then raise exception 'Opening receipt lost the per-product FIFO acquisition / transit carrying value';end if;
   end loop;
   if coalesce((select sum(amount) from public.accounting_lines where tenant_id=p.tenant_id and account='inventory_transit' and entity_id=p.purchase_id),0)<>0 then raise exception 'Opening receipt did not clear transit inventory';end if;
   checks:=checks+1;

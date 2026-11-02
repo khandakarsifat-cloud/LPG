@@ -1,8 +1,8 @@
-/* Comparable transaction directories share geometry, independent of product count. */
+/* Fit identity and badges to their content; reserve only the product preview. */
 .adaptive-grid > .record-card {
   display: grid;
-  grid-template-rows: 3.25rem 2.75rem 1.25rem minmax(0, 1fr) 2rem 2.75rem;
-  block-size: 19rem;
+  grid-template-rows: auto auto auto 3.5rem 2rem 2.75rem;
+  block-size: auto;
   gap: .375rem;
   padding: .75rem;
   background: var(--surface);
@@ -44,6 +44,8 @@
 .record-card .purchase-card-meta { display: flex; justify-content: space-between; align-items: center; gap: .375rem; font-size: .6875rem; color: var(--text-muted); }
 .record-card .purchase-info-row { display: flex; align-items: center; gap: .375rem; margin: 0; min-width: 0; font-size: inherit; }
 .record-card .purchase-info-row:last-child { justify-content: end; }
+.record-card .purchase-card-meta > * { min-width: 0; }
+.record-card .purchase-card-meta > :first-child { flex-shrink: 0; }
 .record-card .purchase-info-row svg { flex-shrink: 0; }
 .record-card .purchase-card-meta .purchase-info-row span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .record-card .purchase-card-meta time { white-space: nowrap; }

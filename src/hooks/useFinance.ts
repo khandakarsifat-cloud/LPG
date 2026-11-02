@@ -5,9 +5,6 @@ import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest }
 import type { FinanceDues, FinanceWallet, LedgerFilters, PaymentInput, PaymentWallet, SaleSettlement, WalletLedger } from '../types/finance';
 
 export const financeKeys = ['finance'] as const;
-export interface FinancialActivityEntry {id:string;source:'purchase'|'transit'|'service_trip';created_at:string;title:string;status:string;cost:number;revenue:number;paid:number;internal_allocation:number;breakdown:Record<string,unknown>}
-export function useFinancialActivity(filters:{search:string;source:string;from:string;to:string},page:number){return useQuery<{entries:FinancialActivityEntry[];total:number}>({queryKey:['finance','activity',filters,page],refetchInterval:30_000,queryFn:async({signal})=>{const {data,error}=await supabase.rpc('get_financial_activity',{p_filters:filters,p_offset:page*12,p_limit:12}).abortSignal(signal);if(error)throw error;return data;}});}
-export function useActivityWalletAudit(source:string,id:string,page:number){return useQuery<{entries:{transaction_id:string;wallet_name:string;amount:number;description:string;created_at:string}[];total:number}>({queryKey:['finance','activity-wallets',source,id,page],queryFn:async({signal})=>{const {data,error}=await supabase.rpc('get_financial_activity_wallets',{p_source:source,p_id:id,p_offset:page*10,p_limit:10}).abortSignal(signal);if(error)throw error;return data;}});}
 export const usePaymentWallets = (enabled = true) => useQuery<PaymentWallet[]>({
   queryKey: [...financeKeys, 'payment_wallets'], enabled,
   refetchInterval: 30_000,
@@ -50,8 +47,8 @@ export function useSaveFinanceWallet() {
     }, onSuccess: refresh,
   });
 }
-export type FinanceOperation = { action: 'sale_cancel'; sale_id: string; reason: string; confirmation: string } | { action: 'sale_refund'; sale_id: string; payments: PaymentInput[] } | { action:'spending'; category_id:string;category_name:string;classification:'cost'|'withdrawal';wallet_id:string;amount:number;spending_date:string;description:string } | { action: 'collection'; sale_id: string; payments: PaymentInput[] } |
-  { action: 'transfer' | 'adjustment'; wallet_id: string; destination_id?: string; amount: number; reason: string };
+export type FinanceOperation = { action: 'sale_cancel'; sale_id: string; reason: string; confirmation: string } | { action: 'sale_refund'; sale_id: string; payments: PaymentInput[] } | { action:'financial_entry'; type_id:string; expected_revision:number; wallet_id:string;amount:number;date:string;description:string;allocations?:import('../types/financial').BusinessAllocation;reversal_of?:string } | { action: 'collection'; sale_id: string; payments: PaymentInput[] } |
+  { action: 'transfer' | 'adjustment'; wallet_id: string; destination_id?: string; business?: string; destination_business?: string; amount: number; reason: string; classification?: 'correction' | 'opening' | 'capital'; date?: string };
 /** One recoverable request per user/tab across Finance and customer dialogs. */
 export function useFinanceOperation() {
   const { profile, user } = useAuth(); const refresh = useFinanceRefresh();
@@ -66,7 +63,7 @@ export function useFinanceOperation() {
         ? await supabase.rpc('collect_sale_payment', { p_sale_id: body.sale_id, p_payments: body.payments, p_request_id: request.id })
         : body.action === 'sale_cancel' ? await supabase.rpc('reverse_sale', { p_sale_id: body.sale_id, p_reason: body.reason, p_confirmation: body.confirmation, p_request_id: request.id })
         : body.action === 'sale_refund' ? await supabase.rpc('refund_sale', { p_sale_id: body.sale_id, p_payments: body.payments, p_request_id: request.id })
-        : body.action === 'spending' ? await supabase.rpc('record_spending',{p_payload:body,p_request_id:request.id})
+        : body.action === 'financial_entry' ? await supabase.rpc('record_financial_entry',{p_payload:body,p_request_id:request.id})
         : await supabase.rpc('move_wallet_money', { p_payload: body, p_request_id: request.id });
       if (!result.error || isDefiniteRejection(result.error.code)) finishRequest(key, request.id);
       if (result.error) throw new Error(result.error.message);
@@ -75,9 +72,3 @@ export function useFinanceOperation() {
   });
   return { ...mutation, hasPending };
 }
-
-export interface SpendingCategory {category_id:string;name:string;classification:'cost'|'withdrawal';is_active:boolean;revision:number}
-export interface SpendingEntry {spending_id:string;category_name:string;classification:'cost'|'withdrawal';amount:number;wallet_name:string;spending_date:string;description:string}
-export function useSpendingCategories(){return useQuery<SpendingCategory[]>({queryKey:['finance','spending-categories'],queryFn:async()=>{const {data,error}=await supabase.rpc('get_spending_categories');if(error)throw error;return data;}});}
-export function useSaveSpendingCategory(){const qc=useQueryClient();return useMutation({mutationFn:async(payload:{name:string;classification:'cost'|'withdrawal';category_id?:string;revision?:number;is_active?:boolean})=>{const {data,error}=await supabase.rpc('save_spending_category',{p_payload:payload});if(error)throw error;return data;},onSuccess:()=>qc.invalidateQueries({queryKey:['finance','spending-categories']})});}
-export function useSpendings(filters:{search:string;classification:string;category_id:string;from:string;to:string},page:number){return useQuery<{entries:SpendingEntry[];total:number;costs:number;withdrawals:number}>({queryKey:['finance','spendings',filters,page],refetchInterval:30000,queryFn:async({signal})=>{const {data,error}=await supabase.rpc('get_spendings',{p_filters:filters,p_offset:page*12,p_limit:12}).abortSignal(signal);if(error)throw error;return data;}});}

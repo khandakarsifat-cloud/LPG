@@ -1,4 +1,4 @@
-import { SpendingDialog } from '../components/finance/Spending';
+import { FinancialEntryDialog } from '../components/finance/FinancialEntry';
 import { Link } from 'react-router-dom';
 import { DollarSign, Package, Printer, ShoppingBag, TrendingUp, Users } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -22,7 +22,7 @@ export const Dashboard = () => {
           <p className="page-subtitle">Daily sales, stock activity, and customer coverage.</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {can('finance:manage') && <button className="btn btn-secondary" onClick={()=>setSpendingOpen(true)}>Spending / withdrawal</button>}
+          {can('finance:manage') && <button className="btn btn-secondary" onClick={()=>setSpendingOpen(true)}>Financial entry</button>}
           {can('printers:manage') && <button className="btn btn-secondary" onClick={() => setPrinterOpen(true)}><Printer size={16} /> Receipt Printer</button>}
           {can('pos:sell') && <Link to="/pos" className="btn btn-primary">
             <ShoppingBag size={16} />
@@ -30,7 +30,7 @@ export const Dashboard = () => {
           </Link>}
         </div>
       </div>
-      {spendingOpen && <SpendingDialog onClose={()=>setSpendingOpen(false)}/>}
+      {spendingOpen && <FinancialEntryDialog onClose={()=>setSpendingOpen(false)}/>}
       {printerOpen && <PrinterConfigModal onClose={closePrinter} />}
 
       <div className="stats-grid">

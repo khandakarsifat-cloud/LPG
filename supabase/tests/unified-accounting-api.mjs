@@ -6,6 +6,7 @@ import { parseEnv } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import { chromium } from 'playwright';
+import { positionGroupValue } from '../../src/lib/accountingPosition.ts';
 assert(process.argv.includes('--vps'), 'Explicit --vps is required');
 const frontend = parseEnv(readFileSync('deploy/.env.frontend', 'utf8'));
 const backend = parseEnv(readFileSync('deploy/.env.backend', 'utf8'));
@@ -58,7 +59,7 @@ const preservation =
     )
     .join(',') +
   ');';
-const before = sql(preservation);
+let before = sql(preservation);
 const clients = [],
   users = [],
   tenants = [];
@@ -103,6 +104,7 @@ try {
   assert(existingReport.complete&&existingReport.estimated);assert.equal(existingReport.totals.profit,existingReport.totals.position_profit);
   const beforeCoverage=await checked(burner.rpc('get_finance_analysis',{p_filters:{business_id:trusted.tenant,from:previousDay.toISOString().slice(0,10),to:burnerToday,grain:'day'}}));
   assert.equal(beforeCoverage.complete,true);assert.equal(beforeCoverage.totals.profit,beforeCoverage.totals.position_profit);
+  before = sql(preservation);
   console.log('PASS: active VPS / Worker target, burner trusted membership, reconstructed historical coverage and period reconciliation');
   const owner=await account('owner'),foreign=await account('foreign');const c=owner.c;
   const rpc=(name,args={})=>checked(c.rpc(name,args)).catch(e=>{throw Error(`${name}: ${e.message}`);});
@@ -168,10 +170,11 @@ try {
     mkdirSync('.temp/unified-accounting',{recursive:true});browser=await chromium.launch({channel:'chrome',headless:true});const context=await browser.newContext({viewport:{width:1440,height:1050},acceptDownloads:true});
     await context.addInitScript(({session})=>localStorage.setItem('sb-api.lpg.144.79.249.4.sslip.io-auth-token',JSON.stringify(session)),{session:owner.session});
     const page=await context.newPage();page.setDefaultTimeout(20000);const errors=browserErrors;page.on('pageerror',e=>errors.push(e.message));
-    for(const width of [1440,768,390,320]){await page.setViewportSize({width,height:1050});await page.goto(worker+'/#/finance',{waitUntil:'domcontentloaded',timeout:45000});await page.getByRole('heading',{name:'Revenue, expenses & profit',exact:true}).waitFor();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Finance overflow at ${width}`);await page.screenshot({path:`.temp/unified-accounting/live-finance-${width}.png`,fullPage:true});}
-    await page.setViewportSize({width:1440,height:1050});await page.getByRole('button',{name:'Assets & liabilities',exact:true}).click();await page.getByRole('heading',{name:'Closing position',exact:true}).waitFor();
+    for(const width of [1440,768,390,320]){await page.setViewportSize({width,height:1050});await page.goto(worker+'/#/finance',{waitUntil:'domcontentloaded',timeout:45000});await page.getByRole('heading',{name:'Income performance',exact:true}).waitFor();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Finance overflow at ${width}`);await page.screenshot({path:`.temp/unified-accounting/live-finance-${width}.png`,fullPage:true});}
+    for(const width of [1440,390]){await page.setViewportSize({width,height:1050});const cards=page.locator('.overview-summary');for(let i=0;i<await cards.count();i++){await cards.nth(i).click();const dialog=page.getByRole('dialog').last();await dialog.locator('.breakdown-balance').waitFor();await page.waitForFunction(()=>!document.querySelector('dialog[open] [role="status"]'));assert.equal(await dialog.locator('[role="alert"]').count(),0);assert(await dialog.evaluate(e=>e.scrollWidth<=e.clientWidth+1));await dialog.getByRole('button',{name:'Historical activity',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('dialog[open] [role="status"]'));assert.equal(await dialog.locator('[role="alert"]').count(),0);await dialog.getByRole('button',{name:'Close dialog',exact:true}).click();}}
+    await page.setViewportSize({width:1440,height:1050});await page.getByRole('heading',{name:'Closing position',exact:true}).waitFor();
     await page.getByText('Advanced journal audit',{exact:true}).click();await page.locator('.journal-entry').first().locator('summary').click();await page.getByRole('columnheader',{name:'Debit',exact:true}).waitFor();
-    const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export report PDF',exact:true}).click();await(await download).saveAs('.temp/unified-accounting/live-report.pdf');assert(readFileSync('.temp/unified-accounting/live-report.pdf').subarray(0,5).toString()==='%PDF-');
+    const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export PDF',exact:true}).click();await(await download).saveAs('.temp/unified-accounting/live-report.pdf');assert(readFileSync('.temp/unified-accounting/live-report.pdf').subarray(0,5).toString()==='%PDF-');
     await page.getByRole('tab',{name:'Loans, assets & capital',exact:true}).click();await page.getByRole('heading',{name:'Unified API lender',exact:true}).waitFor();await page.getByRole('button',{name:'Repay principal',exact:true}).click();await page.getByRole('dialog').getByLabel('Amount (Tk)').waitFor();await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
     await page.goto(worker+'/#/inventory',{waitUntil:'domcontentloaded',timeout:45000});await page.getByRole('button',{name:'Stove Business',exact:true}).click();await page.getByRole('button',{name:'Add Item',exact:true}).click();let dialog=page.getByRole('dialog').last();await dialog.getByLabel('Product name',{exact:true}).fill('Unified browser stove');await dialog.getByLabel('Product type',{exact:true}).selectOption(type.type_id);
     await dialog.getByLabel('Upload product photo',{exact:true}).setInputFiles('public/icons/app-192.png');
@@ -209,6 +212,15 @@ try {
     await context.close();console.log('PASS: published responsive Finance / journal / PDF and real browser stove creation, decimal opening valuation, POS checkout and direct purchase receipt');
   }
   report=await rpc('get_finance_analysis',{p_filters:filters});assert.equal(report.totals.profit,report.totals.position_profit);
+  const groups=['assets','liabilities','equity','cash','receivables','inventory','fixed_assets','other_assets','dues','employees','other_liabilities','capital','revenue','expenses','withdrawals','other_equity','accumulated_income'];
+  for(const interval of [{...filters,grain:'month'},{...filters,from:today.slice(0,4)+'-01-01',grain:'year'},{...filters,grain:'month',all_time:true}]) {
+    const comparison=await rpc('get_finance_analysis',{p_filters:interval});assert.deepEqual(comparison.closing,report.closing,'Same closing cutoff changed with reporting interval');
+    const scoped={...interval,from:comparison.from,to:comparison.to};
+    for(const side of ['opening','closing'])for(const group of groups){const detail=await rpc('get_accounting_breakdown',{p_filters:scoped,p_group:group,p_side:side,p_mode:'components',p_limit:20});assert.equal(detail.balance,positionGroupValue(comparison[side],group),`${side} ${group} card and breakdown differ`);}
+    const period=await rpc('get_accounting_breakdown',{p_filters:scoped,p_group:'accumulated_income',p_side:'period',p_mode:'history'});assert.equal(period.balance,comparison.period_income);assert.equal(period.filtered_movement,comparison.period_income);
+    const end=comparison.trend.at(-1);assert.equal(end.assets,comparison.closing.assets);assert.equal(end.liabilities,comparison.closing.liabilities);assert.equal(end.net_worth,comparison.closing.equity);
+  }
+  console.log('PASS: every Overview card equals its historical breakdown across monthly, yearly and all-time scopes; closing positions are interval-independent; income histories and chart endpoints reconcile');
   const discrepancies=JSON.parse(sql(`select jsonb_build_object('wallets',(select count(*) from public.wallets w where tenant_id=${uuid(owner.tenant)} and balance<>coalesce((select sum(amount) from public.accounting_lines l where l.tenant_id=w.tenant_id and l.account='cash' and l.entity_id=w.wallet_id),0)),'inventory',(select count(*) from public.inventory_costs c join public.items i using(tenant_id,item_id) where c.tenant_id=${uuid(owner.tenant)} and (c.filled_quantity<>i.filled_quantity or c.empty_quantity<>i.empty_quantity or c.filled_value+c.empty_value<>coalesce((select sum(amount) from public.accounting_lines l where l.tenant_id=c.tenant_id and l.entity_id=c.item_id and l.account in ('inventory_lpg','inventory_stove')),0))));`));assert.deepEqual(discrepancies,{wallets:0,inventory:0});
   console.log('PASS: live journal / stock / wallets and period-profit reconciliation after API and browser operations');
 } catch(error) {
@@ -226,11 +238,11 @@ try {
   if (tenants.length) {
     const ids = tenants.map(uuid).join(',');
     const cleanupTables = sql(
-      "select c.table_name from information_schema.columns c join information_schema.tables t using(table_catalog,table_schema,table_name) where c.table_schema='public' and c.column_name='tenant_id' and t.table_type='BASE TABLE' order by c.table_name;",
+      "select c.table_schema||'.'||c.table_name from information_schema.columns c join information_schema.tables t using(table_catalog,table_schema,table_name) where c.table_schema in ('public','app_private') and c.column_name='tenant_id' and t.table_type='BASE TABLE' order by c.table_schema,c.table_name;",
     ).split('\n');
-    assert(cleanupTables.every((t) => /^[a-z_]+$/.test(t)));
+    assert(cleanupTables.every((t) => /^(public|app_private)\.[a-z_]+$/.test(t)));
     sql(
-      `begin;do $$begin if exists(select 1 from public.tenants where tenant_id in (${ids}) and business_name not like 'Unified accounting API fixture %') then raise exception 'Not an accounting fixture';end if;end$$;set local session_replication_role=replica;delete from app_private.accounting_source_state where tenant_id in (${ids});${cleanupTables.map((t) => `delete from public.${t} where tenant_id in (${ids});`).join('\n')}commit;`,
+      `begin;do $$begin if exists(select 1 from public.tenants where tenant_id in (${ids}) and business_name not like 'Unified accounting API fixture %') then raise exception 'Not an accounting fixture';end if;end$$;set local session_replication_role=replica;${cleanupTables.map((t) => `delete from ${t} where tenant_id in (${ids});`).join('\n')}commit;`,
     );
   }
   if (users.length)

@@ -4,6 +4,14 @@ create function pg_temp.assert_books(t uuid) returns void language plpgsql secur
  perform pg_temp.assert_unified(not exists(select 1 from public.accounting_lines where tenant_id=t group by journal_id having sum(amount)<>0),'Every journal balances');
  perform pg_temp.assert_unified(not exists(select 1 from public.wallets w where w.tenant_id=t and w.balance<>coalesce((select sum(amount) from public.accounting_lines where tenant_id=t and account='cash' and entity_id=w.wallet_id),0)),'Journal cash equals each real wallet');
  perform pg_temp.assert_unified(not exists(select 1 from public.inventory_costs c join public.items i using(tenant_id,item_id) where c.tenant_id=t and (c.filled_quantity<>i.filled_quantity or c.empty_quantity<>i.empty_quantity or c.filled_value+c.empty_value<>coalesce((select sum(amount) from public.accounting_lines l where l.tenant_id=t and l.entity_id=c.item_id and l.account in ('inventory_lpg','inventory_stove')),0))),'Inventory quantity and journal carrying value reconcile');
+ perform pg_temp.assert_unified(not exists(select 1 from app_private.customer_metrics c where c.tenant_id=t and (
+ c.ledger_balance<>coalesce((select sum(amount) from public.customer_transactions x where x.tenant_id=t and x.customer_id=c.customer_id),0)
+ or c.transactions<>(select count(*) from public.sales s where s.tenant_id=t and s.customer_id=c.customer_id and s.status='completed')
+ or c.total_sold_amount<>coalesce((select sum(total_amount+additional_charges) from public.sales s where s.tenant_id=t and s.customer_id=c.customer_id and s.status='completed'),0)
+ or c.total_due<>coalesce((select sum(greatest(0,total_amount+additional_charges-paid_amount)) from public.sales s where s.tenant_id=t and s.customer_id=c.customer_id and s.status='completed'),0)
+ or c.package<>coalesce((select sum(i.quantity) from public.sales s join public.sale_items i using(tenant_id,sale_id) where s.tenant_id=t and s.customer_id=c.customer_id and s.status='completed' and i.type='package'),0)
+ or c.refill<>coalesce((select sum(i.quantity) from public.sales s join public.sale_items i using(tenant_id,sale_id) where s.tenant_id=t and s.customer_id=c.customer_id and s.status='completed' and i.type='refill'),0)
+ )),'Atomic customer running metrics equal canonical invoices, lines and ledger after every operation');
  p:=app_private.accounting_position(array[t],(now() at time zone 'Asia/Dhaka')::date);
  perform pg_temp.assert_unified((p->>'assets')::numeric=(p->>'liabilities')::numeric+(p->>'equity')::numeric,'Assets = Liabilities + Equity');
 end $$;
@@ -187,7 +195,7 @@ do $$declare t uuid:=app_private.current_tenant_id();d date:=(now() at time zone
  perform pg_temp.assert_unified((report->'totals'->>'profit')::numeric=-77 and (report->'totals'->>'position_profit')::numeric=-77,'Supplemental opening positions within a reporting period are excluded from net-assets profit');
  perform pg_temp.assert_unified((report->'totals'->>'equity_adjustments')::numeric=254 and (report->'totals'->>'cash_flow')::numeric=323,'Mid-period opening equity adjustments reconcile without fictitious cash flow');
  report:=public.get_finance_analysis(jsonb_build_object('business_id',t,'from',d,'to',d,'grain','day'));
- perform pg_temp.assert_unified((report->'totals'->>'profit')::numeric=(report->'totals'->>'position_profit')::numeric and (report->'totals'->>'equity_adjustments')::numeric=0,'Opening entries on the period start are included once in the opening position');
+ perform pg_temp.assert_unified((report->'totals'->>'profit')::numeric=(report->'totals'->>'position_profit')::numeric and (report->'totals'->>'equity_adjustments')::numeric=254,'Strict opening cutoff excludes same-day opening evidence; its net capital movement reconciles once');
  perform pg_temp.assert_books(t);
 end $$;
 select 'PASS: historical opening/closing positions, cross-period commission, depreciation, principal, capital, withdrawals, cash flow and period-profit equation';

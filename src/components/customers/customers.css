@@ -87,7 +87,7 @@
   font-size:.6875rem
 }
 .customer-search{
-  flex:1;
+  flex:1 1 17rem;
   min-width:0
 }
 .customer-search .input-label{

@@ -1,5 +1,35 @@
 # Backend read performance
 
+## Current Finance and maintained-balance audit
+
+The November 2026 Overview uses cumulative month-end savepoints plus indexed subsequent journals. Financial-position trends scan the selected activity once and apply per-account/entity running windows, including liability/advance sign changes. Historical component and movement responses have separate bounded 20-row pages; journal lines remain independently paged. No browser history download supplies a balance.
+
+| Workload reviewed | Current decision |
+| --- | --- |
+| Inventory/catalog/product | Reuse `items` quantities and FIFO `inventory_costs` and private cost layers; cost/movement history is server-paged. Do not add duplicate quantity/value counters. |
+| Customer directories/profile/lifetime | Atomically maintained private `customer_metrics` for ledger balance, lifetime invoice/quantity/dues totals and last sale. Unfiltered sorting uses these rows; date/product scopes keep canonical indexed aggregation. |
+| Sales/purchases/dues | Retain stored invoice/payment totals and bounded directories/details. Add a tenant/date partial index on completed unpaid sale headers. Filtered exact counts still scale with the matching scope. |
+| Wallets/ledger | Reuse the canonical wallet posting trigger and stored balance; retain indexed, server-paged ledger/search. Reconciliation compares both immutable wallet ledger and accounting cash. |
+| Employees/payroll | Keep effective-dated salary rules and paged payment/activity histories. A tenant/month accounting sync marker removes repeated historical accrual traversal; new terms invalidate it under the existing payroll lock. |
+| Logistics/vehicles/transits | Retain journal-backed earned/incurred totals and bounded directory, activity and wallet-audit reads. Reconcile transit recognition and cost events; no extra profit counters. |
+| Loans/assets/obligations/commissions | Reuse existing transactional outstanding, depreciation, settlement and applied-credit projections; compare them with source history/journals. |
+| Dashboard | Retain selective indexed current-day aggregates and existing inventory/wallet values. Day boundaries now consistently use Asia/Dhaka. Avoid unnecessary lifetime counters for daily workload. |
+| Finance | Shared savepoint-backed cumulative positions, paged breakdowns and one-pass trends; no separate monthly/yearly valuation or estimated-price costing. |
+
+Native disposable PostgreSQL 17.6 measurements on the primary VPS, five warm runs on identical **5,000-customer / 30,000-sale / 60,000-sale-line / 30,000-historical-journal** fixtures:
+
+| Read | Before median | After median |
+| --- | ---: | ---: |
+| Customer Total Sold page | 183.33 ms | 43.09 ms |
+| Customer Total Due page | 181.73 ms | 45.05 ms |
+| Current-month Finance report | 293.44 ms | 58.93 ms |
+
+Customer results were identical, returning 25 rows / 12,203 bytes. Finance positions were identical; the new response also includes expanded equity and position-trend fields (5,236 bytes versus 5,218). A 500-journal write batch, including existing source and deferred balancing constraints, took 269.25 ms before and 303.46 ms after: **0.538 → 0.607 ms per journal**. Avoiding repeated dirty-state updates and a redundant per-journal reconciliation queue kept measured projection overhead to about 0.069 ms per journal. Individual immutable journals retain transaction-time constraints and weekly verification.
+
+These are single-session synthetic database measurements, not end-user latency, concurrency capacity or a sustainable VPS user cap. The additional 20,000-current-journal report retained exact reconciliation, with approximately 720–800 ms whole SSH/psql round trips. Initial savepoint construction, very broad date/product filters, exact counts and searches still depend on matching history; do not infer constant time for arbitrary workloads. Reconciliation uses bounded batches, persisted sweep cursors and scheduled timeouts rather than large nightly rebuilds.
+
+Run `node supabase/tests/run-unified-accounting.mjs --vps --performance` to restore a read-only VPS dump into a uniquely named disposable database, replay pending migrations, verify original evidence preservation, test counter/snapshot correctness and races, drain comprehensive reconciliation and reproduce the benchmark. It never seeds the application database. Legacy customer fixture suites remain at their historical migration replay boundary.
+
 [Architecture](../architecture.md) · [Customers](customers.md) · [Purchases](purchases-and-logistics.md)
 
 ## Read boundaries
@@ -71,3 +101,9 @@ These are engine timings, separate from HTTP load-test latency. The expanded sco
 ## Primary VPS mixed-workload capacity
 
 The 29 October BDIX benchmark confirmed 11 independent active businesses for 30 measured minutes, with 10 the comfortable tested point and 12 failing the read p95 target. Fixtures contain 2,000 customers and 20,000 historical invoices per tenant, reconciled stock/payment/ledger evidence, and real Auth/public HTTPS reads and writes. That baseline used a 1 GiB PostgreSQL cap with ten PostgREST pooled connections. The VPS now has a 2.5 GiB database budget; tuned capacity is being measured separately. Host RAM remained available; cache/read pressure and broad reporting calls are the leading constraint. This is a defined busy workload, not a universal user limit or a directly comparable Azure result. Reusable tooling is under `supabase/tests/vps-capacity/`; no application optimization or deployment configuration change was made.
+
+## FIFO and current dues verification
+
+The November 1 disposable VPS benchmark retained all journal constraints. With 5,000 customers, 30,000 sales, 60,000 lines and 30,000 journals, median reads were 40.66 ms for current money dues, 42.27 ms for sales sorting, 52.52 ms for the combined current dues filter, and 93.67 ms for Finance versus 307.57 ms for full historical aggregation. Set-based bottle predicates replaced per-customer traversal (552.19 ms before). Responses remained about 12 KiB / 5 KiB. Five hundred two-line journals averaged 0.698 ms each with savepoint invalidation, versus 0.614 ms without that projection trigger. A separate 20,000-journal / 40,000-line report reconciled exactly in 584–650 ms round trips. These are bounded single-session development measurements, not concurrent-user capacity claims.
+
+FIFO reads use maintained layers/current cost pools; reports use dated journals and valid monthly savepoints. Normal writes maintain layers incrementally. Rare historical stock changes replay connected tenant stock chronologically; historical monthly rate changes rebuild affected products. These corrective writes cost more than normal receipt/sale writes and should be measured separately at larger historical volumes.

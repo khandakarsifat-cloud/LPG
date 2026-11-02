@@ -11,7 +11,7 @@ assert.equal(config.VPS_HOST, '144.79.249.4'); assert.equal(config.VPS_PROJECT_D
 const ssh = [...(config.VPS_SSH_KEY ? ['-i', config.VPS_SSH_KEY] : []), '-p', config.VPS_PORT, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', `${config.VPS_USER}@${config.VPS_HOST}`];
 const migrations = process.argv.includes('--with-migrations') ? readdirSync('supabase/migrations').filter(name => /^\d{14}_.+\.sql$/.test(name)).sort().map(name => ({ version: name.slice(0, 14), sql: readFileSync('supabase/migrations/' + name, 'utf8') })) : [];
 const tests = readFileSync('supabase/tests/attendance-history.sql', 'utf8');
-const regressions = ['authorization.sql', 'employees.sql'].map(name => ({ name, source: readFileSync('supabase/tests/fixture-helpers.sql', 'utf8') + '\n' + readFileSync('supabase/tests/' + name, 'utf8') }));
+const regressions = ['authorization-current.sql', 'employees.sql'].map(name => ({ name, source: readFileSync('supabase/tests/fixture-helpers.sql', 'utf8') + '\n' + readFileSync('supabase/tests/' + name, 'utf8') }));
 const python = `import concurrent.futures,json,os,re,subprocess,sys,tempfile,uuid
 os.umask(0o077)
 payload=json.load(sys.stdin)
@@ -26,7 +26,7 @@ db='lpg_attendance_test_'+uuid.uuid4().hex[:16]
 created=False
 try:
  with tempfile.TemporaryFile() as dump:
-  run(['pg_dump','-U','supabase_admin','-d','postgres','-Fc'],stdout=dump)
+  run(['pg_dump','--exclude-extension=pg_cron','--exclude-schema=cron','-U','supabase_admin','-d','postgres','-Fc'],stdout=dump)
   sql('postgres','CREATE DATABASE '+db+' TEMPLATE template0 OWNER postgres;')
   created=True
   dump.seek(0)

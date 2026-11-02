@@ -162,7 +162,7 @@ test('Created drafts restore exchange quantities; saved dispatched history remai
 });
 
 test('stove purchases receive directly and retain guarded owner cancellation after receipt', () => {
- const stove = { ...purchase, business_category: 'stove' as const };
+ const stove = { ...purchase, business_category: 'stove' as const, transport_cost: 0 };
  const created = purchaseAccess(stove, true, true);
  assert.equal(created.dispatch, false); assert.equal(created.receive, true); assert.equal(created.pay, true);
  const received = purchaseAccess({ ...stove, status: 'received', payment_status: 'paid' }, true, true);
@@ -170,4 +170,8 @@ test('stove purchases receive directly and retain guarded owner cancellation aft
  assert.equal(purchaseAccess({ ...stove, status: 'received' }, true, false).cancel, false);
  const prepaid = purchaseAccess({ ...stove, payment_status: 'partial' });
  assert.equal(prepaid.products, false); assert.equal(prepaid.financials, false); assert.equal(prepaid.receive, true);
+ const delivery = { ...stove, transport_cost: 1000 };
+ assert.equal(purchaseAccess(delivery).dispatch, true);
+ assert.equal(purchaseAccess(delivery).receive, false);
+ assert.equal(purchaseAccess({ ...delivery, status: 'in_transit' }).receive, true);
 });

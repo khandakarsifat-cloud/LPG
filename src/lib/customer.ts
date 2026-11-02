@@ -10,7 +10,7 @@ export const customerSortWith = (sort: CustomerSort, by: CustomerSortBy): Custom
 export const reverseCustomerSort = (sort: CustomerSort): CustomerSort => `${customerSortBy(sort)}_${sort.endsWith('_asc') ? 'desc' : 'asc'}`;
 
 export const defaultCustomerFilters: CustomerFilters = {
-  search: '', tier: 'all', sort: 'name_asc', from: '', to: '', item_ids: null,
+  dues: 'all', search: '', tier: 'all', sort: 'name_asc', from: '', to: '', item_ids: null,
   transactions_min: '', transactions_max: '', refill_min: '', refill_max: '', package_min: '', package_max: '',
 };
 export const customerDisplayName = (customer: { name: string; shop_name: string | null; tier: string }) =>

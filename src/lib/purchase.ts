@@ -10,13 +10,13 @@ export const emptyPurchaseDraft = (): PurchaseDraft => ({
 
 export function purchaseDraft(purchase: Purchase): PurchaseDraft {
   return {
-    vehicle_id: purchase.vehicle_id, transport_cost: Number(purchase.transport_cost),
+    vehicle_id: purchase.vehicle_id, transport_wallet_id: purchase.transport_wallet_id, transport_cost: Number(purchase.transport_cost),
     labour_cost: Number(purchase.labour_cost), commission: Number(purchase.commission), notes: purchase.notes ?? '',
     items: purchase.items.map(item => ({
       purchase_item_id: item.purchase_item_id, item_id: item.item_id, type: item.type,
       quantity: item.quantity,
       empty_dispatched: purchase.status === 'created' ? (item.type === 'refill' ? item.quantity : 0) : item.empty_dispatched,
-      unit_price: Number(item.unit_price),
+      unit_price: Number(item.unit_price), shell_unit_cost: item.shell_unit_cost,
     })),
   };
 }
@@ -42,7 +42,7 @@ export function purchaseAccess(purchase: Purchase, canManage = true, isOwner = f
     complete, editable, products: editable && !financialLocked && purchase.status === 'created',
     cancel: canManage && isOwner && (purchase.status === 'created' || purchase.status === 'in_transit' || purchase.business_category === 'stove' && purchase.status === 'received'),
     financials: editable && !financialLocked && purchase.status !== 'received',
-    dispatch: editable && purchase.business_category !== 'stove' && purchase.status === 'created', receive: editable && (purchase.status === 'in_transit' || purchase.business_category === 'stove' && purchase.status === 'created'),
+    dispatch: editable && (purchase.business_category !== 'stove' || Number(purchase.transport_cost)>0) && purchase.status === 'created', receive: editable && (purchase.status === 'in_transit' || purchase.business_category === 'stove' && purchase.status === 'created' && Number(purchase.transport_cost)===0),
     pay: editable && (purchase.status !== 'created' || purchase.business_category === 'stove') && purchase.payment_status !== 'paid' && Number(purchase.paid_amount ?? 0) < (Number(purchase.company_payable) + Number(purchase.labour_cost)),
   };
 }
@@ -90,7 +90,7 @@ export function validatePurchaseDraft(draft: PurchaseDraft, subtotal: number): s
   return null;
 }
 
-export type PurchaseSort = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
+export type PurchaseSort = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc' | 'due_desc' | 'due_asc' | 'supplier_desc' | 'supplier_asc';
 export interface PurchaseFilters {
   business_category?: string;
   search: string; status: string; payment: string; from: string; to: string; sort: PurchaseSort;

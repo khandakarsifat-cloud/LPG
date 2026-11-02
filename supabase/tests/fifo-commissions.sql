@@ -1,0 +1,101 @@
+begin;
+create function pg_temp.assert(ok boolean,message text) returns void language plpgsql as $$begin if ok is not true then raise exception 'FAIL: %',message;end if;end $$;
+select pg_temp.assert(not exists(select 1 from public.inventory_costs c join public.items i using(tenant_id,item_id) where c.filled_quantity<>i.filled_quantity or c.empty_quantity<>i.empty_quantity),'FIFO preserves all operational quantities');
+select pg_temp.assert(not exists(select 1 from public.inventory_costs c where c.filled_value+c.empty_value<>coalesce((select sum(consolidated_amount) from public.accounting_lines l where l.tenant_id=c.tenant_id and l.entity_id=c.item_id and l.account in ('inventory_lpg','inventory_stove')),0)),'External FIFO pool and consolidated journal values reconcile');
+select pg_temp.assert(not exists(select 1 from public.inventory_costs c where c.filled_value+c.empty_value<>coalesce((select sum(remaining_value) from app_private.fifo_layers l where l.tenant_id=c.tenant_id and l.item_id=c.item_id),0)),'FIFO layer values reconcile');
+insert into auth.users(id,email,is_anonymous) values('fb010000-0000-4000-8000-000000000001','fifo-owner@example.invalid',false),('fb020000-0000-4000-8000-000000000001','fifo-other@example.invalid',false);
+set local role authenticated;
+select set_config('request.jwt.claim.sub','fb020000-0000-4000-8000-000000000001',true);
+select public.setup_business('FIFO isolation counterparty','Other');
+select set_config('request.jwt.claim.sub','fb010000-0000-4000-8000-000000000001',true);
+select public.setup_business('FIFO independent expectations','Owner');
+reset role;
+create temp table fifo_fixture(t uuid,item uuid,lpg uuid,brand uuid,plant uuid,wallet uuid,vehicle uuid);
+do $$declare t uuid:=app_private.current_tenant_id();i uuid;l uuid;b uuid;pid uuid;v uuid;w uuid;kind uuid;begin
+ select type_id into kind from public.get_stove_product_types() limit 1;
+ i:=(public.save_stove_product(jsonb_build_object('name','Independent FIFO stove','type_id',kind),gen_random_uuid())->>'item_id')::uuid;
+ b:=pg_temp.fixture_brand(t,'FIFO supplier');pid:=(public.create_gas_plant('FIFO plant',b,'Dhaka')->>'plant_id')::uuid;
+ insert into public.items(tenant_id,brand_id,size_kg,mouth_size) values(t,b,12,'22mm') returning item_id into l;
+ select wallet_id into w from public.get_payment_wallets() where type='cash';
+ v:=(public.save_vehicle(jsonb_build_object('name','FIFO truck','serial_no','FIFO-01','capacity',300,'book_value',100000,'funding','opening'),gen_random_uuid())->>'vehicle_id')::uuid;
+ perform pg_temp.fixture_vehicle_crew(t,v);
+ insert into fifo_fixture values(t,i,l,b,pid,w,v);
+end $$;
+do $$declare f fifo_fixture;p uuid;s uuid;d date:=(now() at time zone 'Asia/Dhaka')::date;report jsonb;begin
+ select * into f from fifo_fixture;
+ perform public.accounting_operation(jsonb_build_object('action','opening_cash','wallet_id',f.wallet,'date',d,'amount',100000,'description','Independent fixture funding'),gen_random_uuid());
+ perform public.adjust_inventory(jsonb_build_object('item_id',f.item,'kind','opening','filled_quantity',10,'empty_quantity',0,'filled_unit_cost',100,'reason','First batch: ten at 100'),gen_random_uuid());
+ p:=(public.create_purchase(jsonb_build_object('business_category','stove','supplier_name','Stove maker','request_id',gen_random_uuid(),'items',jsonb_build_array(jsonb_build_object('item_id',f.item,'type','package','quantity',10,'unit_price',300))))->>'purchase_id')::uuid;
+ perform public.receive_purchase(p,1);
+ insert into public.price_books(tenant_id,item_id,price_type,customer_tier,price,effective_from) values(f.t,f.item,'package','retail',500,now()-interval '1 day');
+ s:=(public.create_pos_sale('01700000511','FIFO buyer',null,null,'retail',0,0,null,jsonb_build_array(jsonb_build_object('item_id',f.item,'type','package','quantity',12,'unit_price',500)),null,gen_random_uuid(),'[]',null)->>'sale_id')::uuid;
+ -- Independently: 10*100 + 2*300 = 1600 cost, 8*300 = 2400 stock.
+ perform pg_temp.assert((select filled_value=2400 from public.inventory_costs where tenant_id=f.t and item_id=f.item),'FIFO consumes the oldest batch and part of the second batch');
+ perform pg_temp.assert((select sum(amount)=1600 from public.accounting_lines where tenant_id=f.t and account='cogs'),'Independent sale cost is 1600, not weighted average');
+ report:=public.get_finance_analysis(jsonb_build_object('business_id',f.t,'from',d,'to',d,'grain','day'));
+ perform pg_temp.assert((report->'totals'->>'profit')::numeric=4400-(select coalesce(sum(amount),0) from public.accounting_lines l join public.accounting_journals j using(tenant_id,journal_id) where l.tenant_id=f.t and l.account='employee_expense' and j.occurred_on=d),'Independent sale profit is revenue 6000 less FIFO cost 1600 and separately accrued crew salaries');
+ perform public.reverse_sale(s,'Independent full return','CANCEL',gen_random_uuid());
+ perform pg_temp.assert((select filled_value=4000 and filled_quantity=20 from public.inventory_costs where tenant_id=f.t and item_id=f.item),'Returns restore their actual issued acquisition values');
+end $$;
+select 'PASS: independently calculated FIFO, partial layers, COGS, profit and sale reversal';
+do $$declare f fifo_fixture;p uuid;s uuid;before numeric;remaining numeric;r jsonb;begin
+ select * into f from fifo_fixture;
+ perform public.adjust_inventory(jsonb_build_object('item_id',f.lpg,'kind','opening','filled_quantity',5,'empty_quantity',5,'filled_unit_cost',2500,'empty_unit_cost',1500,'reason','Five full cylinders and five spare shells'),gen_random_uuid());
+ insert into public.price_books(tenant_id,item_id,price_type,customer_tier,price,effective_from) values(f.t,f.lpg,'package','retail',3000,now()-interval '1 day'),(f.t,f.lpg,'refill','retail',1300,now()-interval '1 day');
+ s:=(public.create_pos_sale('01700000512','Package buyer',null,null,'retail',0,0,null,jsonb_build_array(jsonb_build_object('item_id',f.lpg,'type','package','quantity',1,'unit_price',3000)),null,gen_random_uuid(),'[]',null)->>'sale_id')::uuid;
+ perform pg_temp.assert((select filled_quantity=4 and empty_quantity=5 and filled_value+empty_value=17500 from public.inventory_costs where tenant_id=f.t and item_id=f.lpg),'A package consumes its own shell exactly once and no spare empty shell');
+ s:=(public.create_pos_sale('01700000513','Refill buyer',null,null,'retail',0,0,null,jsonb_build_array(jsonb_build_object('item_id',f.lpg,'type','refill','quantity',2,'unit_price',1300),jsonb_build_object('item_id',f.lpg,'type','empty_return','quantity',2,'unit_price',0)),null,gen_random_uuid(),'[]',jsonb_build_object('lines',jsonb_build_array(jsonb_build_object('received_item_id',f.lpg,'quantity',1))))->>'sale_id')::uuid;
+ perform pg_temp.assert((select sum(amount)=1500 from public.accounting_lines where tenant_id=f.t and account='bottle_receivable' and entity_id=s),'One unreturned cylinder retains exactly its FIFO shell asset');
+ perform pg_temp.assert((select filled_quantity=2 and empty_quantity=6 and filled_value+empty_value=14000 from public.inventory_costs where tenant_id=f.t and item_id=f.lpg),'Refill retains returned shells without counting their value twice');
+ perform pg_temp.assert((public.get_customer_directory(jsonb_build_object('dues','both'))->>'total')::integer=1,'Both dues filter includes the buyer with payment and bottle dues');
+ perform pg_temp.assert((public.get_customer_directory(jsonb_build_object('dues','payment'))->>'total')::integer=1,'Payment-only dues filter excludes bottle-due customers');
+end $$;
+select 'PASS: independent package/refill shell costs, bottle asset, and server-side dues partitions';
+-- Historical purchase dates are deliberately different from record-entry time.
+do $$declare f fifo_fixture;p uuid;q uuid;prev date:=(date_trunc('month',now() at time zone 'Asia/Dhaka')-interval '1 month')::date;d date:=(now() at time zone 'Asia/Dhaka')::date;payload jsonb;key uuid;before numeric;after_value numeric;begin
+ select * into f from fifo_fixture;
+ p:=(public.create_purchase(jsonb_build_object('request_id',gen_random_uuid(),'plant_id',f.plant,'vehicle_id',f.vehicle,'items',jsonb_build_array(jsonb_build_object('item_id',f.lpg,'type','package','quantity',10,'unit_price',2500,'shell_unit_cost',1500))))->>'purchase_id')::uuid;
+ perform public.dispatch_purchase(p,1,prev+2);perform public.receive_purchase(p,2,prev+3);
+ perform pg_temp.assert((select received_at::date<>created_at::date from public.purchases where tenant_id=f.t and purchase_id=p),'Receipt date differs from record creation date');
+ q:=(public.create_purchase(jsonb_build_object('request_id',gen_random_uuid(),'plant_id',f.plant,'vehicle_id',f.vehicle,'commission',300,'items',jsonb_build_array(jsonb_build_object('item_id',f.lpg,'type','package','quantity',10,'unit_price',2800,'shell_unit_cost',1500))))->>'purchase_id')::uuid;
+ perform public.dispatch_purchase(q,1,d);perform public.receive_purchase(q,2,d);
+ -- Prior month 10 cylinders: 300 deduction gives provisional 30/cylinder.
+ perform pg_temp.assert((public.get_monthly_commissions(f.lpg,prev)->'current'->>'package_rate')::numeric=30,'Deduction infers the actual previous receipt month, not creation month');
+ perform pg_temp.assert((select filled_value=7*(2500-30)+5*2500+28000 from public.inventory_costs where tenant_id=f.t and item_id=f.lpg),'Backdated FIFO purchase reorders three subsequent issues; the new 28000 acquisition is not discounted');
+ perform pg_temp.assert((select sum(amount)=0 from public.accounting_lines where tenant_id=f.t and account='supplier_receivable' and entity_id=f.brand),'Deduction settles earned rebate exactly once');
+ payload:=jsonb_build_object('item_id',f.lpg,'month',prev,'package_rate',80,'refill_rate',80,'expected_revision',(public.get_monthly_commissions(f.lpg,prev)->'current'->>'revision')::integer,'reason','Supplier confirms 80 per cylinder for the whole month');key:=gen_random_uuid();
+ perform public.set_monthly_commission(payload,key);perform public.set_monthly_commission(payload,key);
+ perform pg_temp.assert((select sum(amount)=500 from public.accounting_lines where tenant_id=f.t and account='supplier_receivable' and entity_id=f.brand),'Manual earned 800 less partial deduction 300 leaves 500 receivable');
+ before:=(select filled_value from public.inventory_costs where tenant_id=f.t and item_id=f.lpg);
+ p:=(public.create_purchase(jsonb_build_object('request_id',gen_random_uuid(),'plant_id',f.plant,'vehicle_id',f.vehicle,'commission',200,'items',jsonb_build_array(jsonb_build_object('item_id',f.lpg,'type','package','quantity',1,'unit_price',2900,'shell_unit_cost',1500))))->>'purchase_id')::uuid;
+ perform public.dispatch_purchase(p,1,d);perform public.receive_purchase(p,2,d);
+ perform pg_temp.assert((public.get_monthly_commissions(f.lpg,prev)->'current'->>'package_rate')::numeric=80,'Further partial deductions never overwrite a manual monthly rate');
+ perform pg_temp.assert((select filled_value=before+2900 from public.inventory_costs where tenant_id=f.t and item_id=f.lpg),'Later deduction does not distort its new acquisition');
+ perform pg_temp.assert((select sum(amount)=300 from public.accounting_lines where tenant_id=f.t and account='supplier_receivable' and entity_id=f.brand),'Multiple partial deductions settle only their actual amounts');
+ payload:=jsonb_build_object('purchase_id',p,'month',prev,'amount',150,'expected_revision',(select revision from public.purchases where tenant_id=f.t and purchase_id=p),'reason','Supplier correction of partial deduction');key:=gen_random_uuid();
+ perform public.correct_commission_deduction(payload,key);perform public.correct_commission_deduction(payload,key);
+ perform pg_temp.assert((select sum(amount)=350 from public.accounting_lines where tenant_id=f.t and account='supplier_receivable' and entity_id=f.brand),'Audited deduction correction restores receivable without double settlement');
+ perform pg_temp.assert((public.get_monthly_commissions(f.lpg,prev)->'current'->>'package_rate')::numeric=80,'Correction cannot overwrite confirmed monthly rate');
+ -- Operational price overrides remain separate from actual FIFO accounting.
+ select x into payload from jsonb_array_elements(public.get_product_inventory(f.lpg)->'buying_prices')x where x->>'price_type'='package';
+ perform public.set_product_buying_price(jsonb_build_object('item_id',f.lpg,'price_type','package','is_manual',true,'price',1111,'reason','Independent operational price override','expected',payload->>'history_id'),gen_random_uuid());
+ perform public.set_monthly_commission(jsonb_build_object('item_id',f.lpg,'month',date_trunc('month',d)::date,'package_rate',30,'refill_rate',30,'expected_revision',(public.get_monthly_commissions(f.lpg,date_trunc('month',d)::date)->'current'->>'revision')::integer,'reason','Current received-batch confirmed commission'),gen_random_uuid());
+ select x into payload from jsonb_array_elements(public.get_product_inventory(f.lpg)->'buying_prices')x where x->>'price_type'='package';
+ perform pg_temp.assert((payload->>'is_manual')::boolean and (payload->>'new_price')::numeric=1111 and (payload->>'automatic_price')::numeric=2870,'Monthly rate updates preserve manual operational overrides and refresh active-pair suggestions');
+ before:=(public.get_finance_analysis(jsonb_build_object('business_id',f.t,'from',prev,'to',d))->'closing'->>'assets')::numeric;
+ perform public.set_product_buying_price(jsonb_build_object('item_id',f.lpg,'price_type','package','is_manual',false,'reason','Restore independent automatic suggestion','expected',payload->>'history_id'),gen_random_uuid());
+ perform pg_temp.assert((public.get_finance_analysis(jsonb_build_object('business_id',f.t,'from',prev,'to',d))->'closing'->>'assets')::numeric=before,'Restoring approximate buying prices never changes financial assets');
+ perform app_private.build_accounting_snapshots(f.t,24);
+ perform pg_temp.assert(not exists((select account,business_category,entity_id,sum(l.amount) amount from public.accounting_lines l join public.accounting_journals j using(tenant_id,journal_id) where l.tenant_id=f.t and j.occurred_on<=prev+interval '1 month'-interval '1 day' group by 1,2,3) except (select account,business_category,entity_id,amount from app_private.accounting_balances(array[f.t],(prev+interval '1 month'-interval '1 day')::date))),'Monthly snapshots equal independent full journal aggregation after retrospective commission changes');
+end $$;
+select 'PASS: actual receipt dates, partial deductions, manual priority, dated revaluation, no acquisition discount and exact snapshot recomputation';
+do $$declare f fifo_fixture;customer uuid;d date:=(now() at time zone 'Asia/Dhaka')::date;begin
+ select * into f from fifo_fixture;
+ insert into public.customers(tenant_id,name,phone,tier) values(f.t,'Opening-only customer','01700000514','retail') returning customer_id into customer;
+ perform public.accounting_operation(jsonb_build_object('action','opening_entry','account','customer_receivable','entity_id',customer,'amount',2500,'date',d,'description','Verified initial customer receivable'),gen_random_uuid());
+ perform pg_temp.assert((public.get_customer_directory('{}',0,1,customer)->'entries'->0->>'total_due')::numeric=2500,'Directory displays the same opening-inclusive due as the customer ledger');
+ perform pg_temp.assert((public.get_customer_directory('{"dues":"payment"}',0,1,customer)->>'total')::integer=1,'Opening-only customer qualifies for Payment Due');
+end $$;
+select 'PASS: opening customer receivables agree between directory, dues filter and financial ledger';
+set constraints all immediate;
+rollback;

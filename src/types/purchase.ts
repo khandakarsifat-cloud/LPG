@@ -16,10 +16,12 @@ export interface PurchaseItem {
   received_quantity: number | null;
   billed_quantity: number;
   unit_price: number;
+  shell_unit_cost?: number | null;
   line_total: number;
 }
 
 export interface Purchase {
+  transport_wallet_id?: string | null;
   purchase_id: string;
   business_category?: 'lpg' | 'stove';
   supplier_name?: string;
@@ -33,6 +35,7 @@ export interface Purchase {
   payment_status: PurchasePaymentStatus;
   subtotal: number;
   commission: number;
+  commission_month?: string | null;
   company_payable: number;
   transport_cost: number;
   labour_cost: number;
@@ -78,9 +81,11 @@ export interface PurchaseLinePayload {
   quantity: number;
   empty_dispatched: number;
   unit_price: number;
+  shell_unit_cost?: number | null;
 }
 
 export interface PurchaseDraft {
+  transport_wallet_id?: string | null;
   vehicle_id: string | null;
   transport_cost: number;
   labour_cost: number;

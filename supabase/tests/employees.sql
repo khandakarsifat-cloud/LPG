@@ -76,7 +76,7 @@ begin
  perform public.employee_payment_operation(body,gen_random_uuid());
  perform pg_temp.employee_assert((public.get_employee_salary_month(e,'2025-02-01')->>'outstanding')::numeric=0,'past full payment');
  -- Trips remain part of saved Logistics cost, charged once.
- truck:=(public.save_vehicle(jsonb_build_object('name','Employee SQL vehicle','serial_no','EMPLOYEE-SQL','capacity',10,'driver_employee_id',e),gen_random_uuid())->>'vehicle_id')::uuid;
+ truck:=(public.save_vehicle(jsonb_build_object('name','Employee SQL vehicle','serial_no','EMPLOYEE-SQL','capacity',10,'driver_employee_id',e,'book_value',0,'funding','opening'),gen_random_uuid())->>'vehicle_id')::uuid;
  tr:=(public.create_custom_transit(jsonb_build_object('vehicle_id',truck,'fee',0,'client_name','Employee SQL trip','destination','Dhaka'),gen_random_uuid())->>'transit_id')::uuid;
  perform public.save_transit_costs(tr,'{"driver_cost":500,"helper_cost":0,"oil_cost":50,"others_cost":0}',1);
  body:=jsonb_build_object('action','pay','items',jsonb_build_array(jsonb_build_object('employee_id',e,'kind','trips','trip_count',1,'transit_id',tr,'trip_role','driver','payment_date',today,'description','Driver trip','payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',300)))));

@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import tarfile
@@ -10,6 +11,17 @@ import tempfile
 import uuid
 
 from backend import require, run, sql_literal
+
+
+def isolated_restore_toc(toc):
+    """Keep scheduler definitions in the backup, but never activate clone jobs.
+
+    pg_cron can only be installed in cron.database_name. Application tables and
+    private maintenance functions still restore; only its extension/schema and
+    scheduler configuration are excluded from this disposable verification.
+    """
+    return '\n'.join(line for line in toc.splitlines() if not re.search(
+        r'\bEXTENSION(?: -)? pg_cron\b|\bSCHEMA(?: -)? cron\b| cron ', line)) + '\n'
 
 
 def check(bundle):
@@ -50,7 +62,12 @@ def check(bundle):
             run(psql + ['-d', 'postgres', '-c', 'CREATE DATABASE ' + db + ' TEMPLATE template0'], 'Create isolated restore database')
             created = True
             with (work / 'database.dump').open('rb') as source:
-                run(cmd + ['exec', '-T', 'db', 'pg_restore', '-U', 'supabase_admin', '-d', db, '--clean', '--if-exists', '--exit-on-error', '--single-transaction'], 'Restore full recovery database in isolation', stdin=source)
+                toc = run(cmd + ['exec', '-T', 'db', 'pg_restore', '--list'], 'Read isolated restore contents', stdin=source)
+            toc_path = '/tmp/' + db + '.toc'
+            run(cmd + ['exec', '-T', 'db', 'sh', '-c', 'umask 077; cat > "$1"', 'restore-check', toc_path],
+                'Write isolated restore contents', data=isolated_restore_toc(toc).encode())
+            with (work / 'database.dump').open('rb') as source:
+                run(cmd + ['exec', '-T', 'db', 'pg_restore', '-U', 'supabase_admin', '-d', db, '--use-list', toc_path, '--clean', '--if-exists', '--exit-on-error', '--single-transaction'], 'Restore recovery application database in isolation', stdin=source)
             result = run(psql + ['-d', db, '-c', "select json_build_object('migrations',(select count(*) from supabase_migrations.schema_migrations),'tables',(select count(*) from pg_tables where schemaname='public'),'unprotected',(select count(*) from pg_tables where schemaname='public' and not rowsecurity))"], 'Restored schema verification').strip()
             summary = json.loads(result)
             require(summary['migrations'] > 0 and summary['tables'] > 0 and summary['unprotected'] == 0, 'Restored schema/history/RLS verification failed.')
@@ -61,6 +78,7 @@ def check(bundle):
             print('Authenticated encrypted backup restored to an isolated database: ' + result, flush=True)
         finally:
             if created:
+                run(cmd + ['exec', '-T', 'db', 'rm', '-f', '--', '/tmp/' + db + '.toc'], 'Remove isolated restore contents')
                 run(psql + ['-d', 'postgres', '-c', 'DROP DATABASE ' + db + ' WITH (FORCE)'], 'Remove only the newly created restore-check database')
 
 

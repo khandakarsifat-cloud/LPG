@@ -5,9 +5,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Item, ItemWithBrand, InventoryMovement, CreateItemPayload } from '../types/inventory';
-import type { ProductInventory, SaveProductPrices, SetProductCommission } from '../types/inventory';
+import type { ProductInventory, SaveProductPrices } from '../types/inventory';
 import type { InventoryValuation } from '../types/inventory';
-import type { BuyingPrice, CommissionHistory, PriceType } from '../types/inventory';
+import type { BuyingPrice, PriceType } from '../types/inventory';
 import { posKeys } from './usePOS';
 import { inventoryHistoryBounds, inventoryMovementSource, PURCHASE_MOVEMENT_FILTER, SALE_MOVEMENT_FILTER, type InventoryHistorySource } from '../lib/inventoryMovement';
 
@@ -133,28 +133,15 @@ export const useSaveProductPrices = () => {
   });
 };
 
-export const useSetProductCommission = () => {
-  const qc = useQueryClient();
-  return useMutation<void, Error, SetProductCommission>({
-    mutationFn: async ({ itemId, refillRate, packageRate, expected }) => {
-      const { error } = await supabase.rpc('set_product_commissions', {
-        p_item_id: itemId, p_refill_rate: refillRate, p_package_rate: packageRate, p_expected: expected,
-      });
-      if (error) throw new Error(error.message);
-    },
-    onSuccess: async () => { await Promise.all([qc.invalidateQueries({ queryKey: inventoryKeys.all }),qc.invalidateQueries({ queryKey: ['finance'] })]); },
-  });
-};
-
 export const useInventoryValuation = () => useQuery<InventoryValuation>({ queryKey: ['inventory','valuation'],refetchInterval:30_000,queryFn:async({signal})=>{
   const {data,error}=await supabase.rpc('get_inventory_valuation').abortSignal(signal);if(error)throw error;return data;
 }});
 
-export function useOperationalPriceHistory(itemId: string, kind: 'buying' | 'commission', page: number, enabled: boolean) {
-  return useQuery<{ total: number; entries: (BuyingPrice | CommissionHistory)[] }>({
-    queryKey: ['inventory', 'operational-price-history', itemId, kind, page], enabled,
+export function useOperationalPriceHistory(itemId: string, page: number, enabled: boolean) {
+  return useQuery<{ total: number; entries: BuyingPrice[] }>({
+    queryKey: ['inventory', 'operational-price-history', itemId, page], enabled,
     queryFn: async ({ signal }) => {
-      const { data, error } = await supabase.rpc(kind === 'buying' ? 'get_buying_price_history' : 'get_product_commission_history', { p_item_id: itemId, p_offset: page * 10, p_limit: 10 }).abortSignal(signal);
+      const { data, error } = await supabase.rpc('get_buying_price_history', { p_item_id: itemId, p_offset: page * 10, p_limit: 10 }).abortSignal(signal);
       if (error) throw error; return data;
     },
   });

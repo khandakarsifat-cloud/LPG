@@ -30,7 +30,7 @@ export const CustomersPage = () => {
   const set = (next: CustomerFilters) => { setFilters(next); setPage(0); };
   const reset = () => set(defaultCustomerFilters);
   const count = customerActivityFilterCount(filters);
-  const hasFilters = Boolean(filters.search || filters.tier !== 'all' || filters.sort !== 'name_asc' || count);
+  const hasFilters = Boolean(filters.search || filters.tier !== 'all' || (filters.dues ?? 'all') !== 'all' || filters.sort !== 'name_asc' || count);
   const metric = (value: number | undefined) => overview.isPending ? '…' : overview.isError ? '—' : formatBDQty(value ?? 0);
   const scope = deferred.from || deferred.to || deferred.item_ids !== null;
   const updating = filters !== deferred || query.isFetching;
@@ -45,6 +45,7 @@ export const CustomersPage = () => {
     {overview.isError && <p role="alert" className="purchase-error">Customer overview could not be loaded. <button className="btn btn-secondary" onClick={() => void overview.refetch()}>Retry overview</button></p>}
     <div className="customer-toolbar filter-toolbar" data-filtered={hasFilters} aria-label="Customer filters"><div className="customer-toolbar-main">
       <div className="input-group customer-search"><label className="input-label" htmlFor="customer-search">Search customers <span id="customer-search-help">Spaces = AND · Commas = OR</span></label><div className="customer-search-field"><Search size={16} /><input id="customer-search" aria-describedby="customer-search-help" className="input-field" placeholder="Name, shop, number or address…" maxLength={500} value={filters.search} onChange={event => set({ ...filters, search: event.target.value })} /></div></div>
+      <PurchaseSelect label="Dues" value={filters.dues ?? 'all'} options={[{value:'all',label:'All customers'},{value:'payment',label:'Payment Due'},{value:'bottle',label:'Bottle Due'},{value:'both',label:'Both'},{value:'none',label:'None'}]} onChange={value => { if (value==='all'||value==='payment'||value==='bottle'||value==='both'||value==='none') set({...filters,dues:value}); }} />
       <PurchaseSelect label="Customer type" value={filters.tier} options={[{ value: 'all', label: 'All types' }, { value: 'wholesale', label: 'Wholesale' }, { value: 'retail', label: 'Retail' }]} onChange={value => { if (value === 'all' || value === 'retail' || value === 'wholesale') set({ ...filters, tier: value }); }} />
       <div className="customer-sort"><PurchaseSelect label="Sort by" value={customerSortBy(filters.sort)} options={customerSortOptions} onChange={value => { const option = customerSortOptions.find(option => option.value === value); if (option) set({ ...filters, sort: customerSortWith(filters.sort, option.value) }); }} />
         <button className="btn btn-secondary customer-sort-direction" aria-label={`Sort direction: ${ascending ? 'ascending' : 'descending'}`} title={`${ascending ? 'Ascending' : 'Descending'}; switch to ${ascending ? 'descending' : 'ascending'}`} onClick={() => set({ ...filters, sort: reverseCustomerSort(filters.sort) })}>{ascending ? <ArrowUp size={16} /> : <ArrowDown size={16} />}</button>

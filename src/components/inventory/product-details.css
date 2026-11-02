@@ -1,0 +1,49 @@
+.stove-product-dialog { max-width: 960px; }
+.stove-product-tabs { display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--border-color); background: var(--surface); }
+.stove-product-tabs button { background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 12px; font: inherit; font-size: .85rem; color: var(--text-muted); cursor: pointer; }
+.stove-product-tabs button[aria-current=page] { color: var(--primary); border-color: var(--primary); font-weight: 700; }
+.stove-product-body { padding: 20px; }
+.stove-product-layout { display: grid; grid-template-columns: minmax(230px,.85fr) minmax(0,1.4fr); gap: 24px; align-items: start; }
+.stove-product-identity { min-width: 0; padding-right: 24px; border-right: 1px solid var(--border-color); }
+.stove-product-identity h3,.stove-product-prices h3,.stove-stock-activity h3 { margin: 0 0 16px; font-size: .95rem; }
+.stove-product-identity fieldset { display: grid; gap: 16px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.stove-product-identity .product-photo-upload { min-height: 112px; padding: 12px; }
+.stove-product-identity .product-photo-preview { height: 120px; }
+.stove-price-cards { display: grid; gap: 14px; }
+.stove-price-card { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; min-width: 0; }
+.stove-price-card > header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.stove-price-card h4 { margin: 0; font-size: .85rem; }
+.stove-price-amount { display: block; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.stove-price-card small { color: var(--text-muted); }
+.stove-price-card form { display: grid; gap: 12px; }
+.stove-stock-activity > header { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.stove-stock-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border-color); }
+.stove-stock-row > div { display: grid; gap: 5px; }
+.stove-stock-row small { color: var(--text-muted); font-size: .75rem; }
+.stove-stock-row .stock-out { color: var(--text-main); }.stove-stock-row .stock-in { color: var(--success); }
+.stove-activity-pagination { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 16px; font-size: .8rem; }
+.commission-rates { display: grid; grid-template-columns: 1fr 1fr auto; gap: 16px; align-items: center; }
+.commission-rates > div { display: grid; gap: 6px; }.commission-rates span,.commission-rates small { color: var(--text-muted); font-size: .8rem; }
+.commission-rates strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.commission-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.commission-history article { padding: 12px 0; border-top: 1px solid var(--border-color); display: grid; gap: 8px; font-size: .8rem; }
+.commission-history article > header,.commission-history article > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+.commission-history time,.commission-history small { color: var(--text-muted); font-size: .75rem; }
+.monthly-commissions .product-section-heading > input { width: auto; max-width: 190px; }
+@media(max-width:650px) {
+ .stove-product-layout { grid-template-columns: minmax(0,1fr); gap: 20px; }
+ .stove-product-identity { padding: 0 0 20px; border-right: 0; border-bottom: 1px solid var(--border-color); }
+ .stove-product-identity fieldset { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+ .stove-product-identity .product-photo-field { grid-column: 1 / -1; }
+ .stove-product-identity .product-photo-upload { min-height: 86px; height: auto; }
+ .stove-stock-row { grid-template-columns: minmax(0,1fr) auto; gap: 10px; }
+ .stove-stock-row > button { grid-column: 1 / -1; justify-self: start; }
+ .commission-rates { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .commission-rates .commission-rate-action { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
+ .commission-fields { grid-template-columns: minmax(0,1fr); }
+}
+
+.product-costing .operational-buying { border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 16px; }
+.product-costing .operational-buying h4 { margin: 0; font-size: .9rem; }
+.commission-history-panel { border-top: 1px solid var(--border-color); margin-top: 12px; padding-top: 8px; }
+.commission-history-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 12px 0; }

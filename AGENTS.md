@@ -27,6 +27,12 @@
 - Do not run destructive database, volume, reset, or migration-repair operations without explicit user approval.
 - Preserve tenant isolation, RLS behavior, authentication boundaries, and existing authorization assumptions.
 - Never expose, log, hardcode, or commit secrets or privileged Supabase credentials.
+- Accounting journals and inventory carrying-value entries remain authoritative. Month-end savepoints, customer metrics and reconciliation queues are private derived projections; never repair them with invented financial entries or a reporting baseline. Preserve atomic invalidation and the lock order when extending source writes. Verify savepoint-backed positions against full journal recomputation after changing accounting recognition.
+- FIFO layers and consumption links are private maintained projections of actual acquisitions and issues. Monthly LPG commissions reduce the earned batches; later supplier deductions only settle those receivables. Preserve the single effective monthly Package/Refill pair, invoice-unit-price automatic allocation, custom override history, receipt-date attribution, shell/gas separation, original-layer restoration on returns, and dated savepoint invalidation. Never reintroduce weighted-average/report-duration costing or commission-as-current-invoice-discount paths.
+
+- Every financial line must retain Type + fixed Category + LPG/Stove/Logistics Business and its source. Never persist an unknown/shared business or infer recognition from an editable type name.
+- Wallet portions may be negative and must sum exactly to the wallet total. Shared allocations and transfers do not create inter-business debts; transfer equity only reallocates business ownership. Internal transport must eliminate both its revenue and the internal value remaining in stock/subsequent COGS on consolidation.
+- Custom entries retain type/category/allocation snapshots and exact cents. Editing defaults or deactivation never rewrites historical recognition. Partial returns use cumulative rounding and original source locks. Keep the retained financial lab (`.env.financial-test`, `.temp/financial-business/manifest.json`) separate from ordinary disposable cleanup.
 
 ## Frontend Conventions
 
@@ -93,3 +99,7 @@ Before finishing a task:
 - Check whether architectural or module documentation needs updating.
 - Ensure affected documentation remains consistent with the implementation and verified Supabase state.
 - Complete the required migration and deployment workflow before reporting a change as finished. If an actual blocker prevents deployment, state the blocker and the remaining work explicitly; do not present a local-only implementation as complete.
+
+The retained populated FIFO acceptance lab is `LPG FIFO Development Lab 2026-11-01` (`a35af806-e5c5-42e6-b600-f57212e1cfc7`). Its separate login is stored only in ignored `.env.fifo-test`; never print it or remove the lab during ordinary fixture cleanup. `fifo-business.mjs --vps` verifies its original-operation manifest and reviewed source addendum independently of journals.
+
+The retained dimensional accounting lab is `LPG Unified Financial Development Lab 2026-11-01` (`63907560-fbbd-4ac2-b22b-04bb08f0b123`). Preserve its ignored `.env.financial-test` login and `.temp/financial-business/manifest.json`; `financial-business.mjs --vps` independently verifies positions, period values and wallet portions from the original operations.

@@ -1,0 +1,82 @@
+begin;
+create function pg_temp.overview_line(code text,value numeric,category text default 'shared',entity uuid default null) returns jsonb language sql as $$select app_private.accounting_line(code,value,category,entity)||jsonb_build_object('type_id',md5('lpg:type:opening_entry')::uuid);$$;
+create function pg_temp.check_overview(ok boolean,note text) returns void language plpgsql as $$begin if ok is distinct from true then raise exception 'FAIL: %',note;end if;end $$;
+insert into auth.users(id,email,is_anonymous) values('af010000-0000-4000-8000-000000000001','overview-owner@example.invalid',false),('af020000-0000-4000-8000-000000000001','overview-other@example.invalid',false);
+set local role authenticated;
+select set_config('request.jwt.claim.sub','af010000-0000-4000-8000-000000000001',true);
+select public.setup_business('Disposable accounting Overview fixture','Owner');
+select set_config('request.jwt.claim.sub','af020000-0000-4000-8000-000000000001',true);
+select public.setup_business('Disposable accounting Overview other tenant','Other');
+reset role;
+select set_config('request.jwt.claim.sub','af010000-0000-4000-8000-000000000001',true);
+do $$declare t uuid:=app_private.current_tenant_id();e uuid:=gen_random_uuid();id uuid;d date:='2025-01-01';r jsonb;o jsonb;c jsonb;full_position jsonb;before_hash text;built integer;v bigint;begin
+ perform set_config('overview.fixture_t',t::text,true);
+ perform app_private.post_journal(t,'overview_fixture',e,'opening',d,'Contributed assets net of initial loan',jsonb_build_array(pg_temp.overview_line('other_assets',1500,'shared',e),pg_temp.overview_line('loan_payable',-200),pg_temp.overview_line('opening_equity',-1300)),false,true);
+ perform app_private.post_journal(t,'overview_fixture',e,'revenue',d+14,'Earned revenue',jsonb_build_array(pg_temp.overview_line('other_assets',300,'shared',e),pg_temp.overview_line('sales_revenue',-300)));
+ perform app_private.post_journal(t,'overview_fixture',e,'expense',d+15,'Recognized operating expense',jsonb_build_array(pg_temp.overview_line('other_assets',-100,'shared',e),pg_temp.overview_line('operating_expense',100)));
+ perform app_private.post_journal(t,'overview_fixture',e,'capital',d+16,'Subsequent contributed asset',jsonb_build_array(pg_temp.overview_line('other_assets',200,'shared',e),pg_temp.overview_line('capital',-200)));
+ perform app_private.post_journal(t,'overview_fixture',e,'withdrawal',d+17,'Owner asset withdrawal',jsonb_build_array(pg_temp.overview_line('other_assets',-50,'shared',e),pg_temp.overview_line('withdrawals',50)));
+ r:=public.get_finance_analysis(jsonb_build_object('business_id',t,'from',d,'to','2025-01-31','grain','month'));o:=r->'opening';c:=r->'closing';
+ perform pg_temp.check_overview((o->>'assets')::numeric=0 and (c->>'assets')::numeric=1850,'Strict opening and cumulative closing');
+ perform pg_temp.check_overview((c->>'capital')::numeric=1500 and (c->>'revenue')::numeric=300 and (c->>'expenses')::numeric=100 and (c->>'withdrawals')::numeric=50 and (c->>'equity')::numeric=1650,'Expanded accounting equation with initial liability reducing capital');
+ perform pg_temp.check_overview((r->>'period_income')::numeric=200 and (r->'totals'->>'position_profit')::numeric=200,'Income delta reconciles with adjusted net assets');
+ r:=public.get_finance_analysis(jsonb_build_object('business_id',t,'from',d,'to','2025-01-31','grain','year','all_time',true));
+ perform pg_temp.check_overview((r->'opening'->>'assets')::numeric=1500 and (r->'opening'->>'liabilities')::numeric=200 and (r->'opening'->>'capital')::numeric=1300 and r->'closing'=c,'Original opening for all-time; same closing regardless of interval');
+ perform pg_temp.check_overview((r->'trend'->0->>'assets')::numeric=1850 and (r->'trend'->0->>'liabilities')::numeric=200 and (r->'trend'->0->>'net_worth')::numeric=1650 and r->'trend'->0->>'period_end'='2025-01-31','Trend positions and clipped interval labels');
+ r:=public.get_finance_analysis(jsonb_build_object('business_id',t,'from','2024-01-01','to','2024-12-31','grain','year','all_time',true));
+ perform pg_temp.check_overview((r->'opening'->>'assets')::numeric=0 and (r->'closing'->>'assets')::numeric=0 and (r->>'period_income')::numeric=0,'All-time cutoff before inception never pulls future opening assets backward');
+ built:=app_private.build_accounting_snapshots(t,24);perform pg_temp.check_overview(built>0,'Cumulative month-end savepoints generated');
+ for d in select x::date from generate_series('2025-01-01'::timestamp,'2025-04-30'::timestamp,'7 days')x loop
+  select app_private.position_from_balances(coalesce(jsonb_agg(to_jsonb(x)),'[]')) into full_position from(select l.tenant_id,l.account,l.business_category,l.entity_id,sum(l.amount) amount from public.accounting_lines l join public.accounting_journals j using(tenant_id,journal_id) where l.tenant_id=t and j.occurred_on<=d group by 1,2,3,4)x;
+  perform pg_temp.check_overview(full_position=app_private.accounting_position(array[t],d),'Savepoint plus subsequent journal activity equals full recomputation');
+ end loop;
+ select revision into v from app_private.accounting_snapshots where tenant_id=t and month_end='2025-01-31';
+ perform app_private.post_journal(t,'overview_fixture',e,'backdated','2025-01-10','Late recorded expense',jsonb_build_array(pg_temp.overview_line('other_assets',-30,'shared',e),pg_temp.overview_line('operating_expense',30)));
+ perform pg_temp.check_overview((app_private.accounting_position(array[t],'2025-01-31')->>'assets')::numeric=1820,'Invalid savepoint is never used after a backdated source');
+ perform app_private.build_accounting_snapshots(t,24);
+ perform pg_temp.check_overview((select revision=v+1 from app_private.accounting_snapshots where tenant_id=t and month_end='2025-01-31'),'Backdated savepoint rebuild retains revision audit');
+ r:=public.get_accounting_breakdown(jsonb_build_object('business_id',t,'from','2025-01-15','to','2025-01-31'),'fixed_assets','opening','components');
+ perform pg_temp.check_overview((r->>'balance')::numeric=1470 and r->>'cutoff'='2025-01-14','Opening components use historical values');
+ r:=public.get_accounting_breakdown(jsonb_build_object('business_id',t,'from','2025-01-01','to','2025-01-31'),'accumulated_income','period','history',0,2);
+ perform pg_temp.check_overview((r->>'balance')::numeric=170 and (r->>'filtered_movement')::numeric=170 and (r->>'total')::integer=3 and jsonb_array_length(r->'entries')=2,'Paged period income history explains its balance');
+ r:=public.get_accounting_breakdown(jsonb_build_object('business_id',t,'from','2025-01-01','to','2025-01-31','search','Late recorded'),'accumulated_income','closing','history');
+ perform pg_temp.check_overview((r->>'balance')::numeric=170 and (r->>'filtered_movement')::numeric=-30,'Search filters activity without changing cumulative balance');
+ -- Corrupt only a disposable derived savepoint. Detection invalidates it and
+ -- rebuilds from unchanged journals, without manufacturing balancing entries.
+ update app_private.accounting_snapshot_lines set amount=amount+1 where tenant_id=t and month_end='2025-01-31' and account='other_assets';
+ perform pg_temp.check_overview(app_private.reconcile_record(t,'snapshot',md5('2025-01-31')::uuid),'Corrupt savepoint detected against full journal rows');
+ perform pg_temp.check_overview((app_private.accounting_position(array[t],'2025-01-31')->>'assets')::numeric=1820,'Invalidated corrupt savepoint falls back to journals');
+ perform app_private.build_accounting_snapshots(t,24);
+ perform pg_temp.check_overview(not app_private.reconcile_record(t,'snapshot',md5('2025-01-31')::uuid),'Rebuilt savepoint reconciles');
+ insert into public.customers(tenant_id,name,phone,tier) values(t,'Reconciliation fixture buyer','01700000671','retail') returning customer_id into id;
+ select md5(coalesce(jsonb_agg(to_jsonb(x))::text,'')) into before_hash from public.customer_transactions x where tenant_id=t;
+ update app_private.customer_metrics set ledger_balance=1 where tenant_id=t and customer_id=id;
+ perform pg_temp.check_overview(app_private.reconcile_record(t,'customer',id),'Deterministic customer projection drift safely repaired');
+ perform pg_temp.check_overview((select ledger_balance=0 from app_private.customer_metrics where tenant_id=t and customer_id=id),'Customer ledger counter restored');
+ perform pg_temp.check_overview(before_hash=(select md5(coalesce(jsonb_agg(to_jsonb(x))::text,'')) from public.customer_transactions x where tenant_id=t),'Reconciliation never rewrites original customer transactions');
+ perform app_private.start_reconciliation_sweep();perform app_private.reconciliation_sweep_batch(1);
+ perform pg_temp.check_overview(exists(select 1 from app_private.reconciliation_sweeps where last_tenant is not null or completed_at is not null),'Comprehensive sweep persists resumable checkpoints');
+ perform app_private.run_accounting_maintenance(5);
+ perform pg_temp.check_overview(exists(select 1 from app_private.reconciliation_runs where finished_at is not null),'Bounded reconciliation run audit recorded');
+ -- An interrupted/failed item persists its retry state and diagnostic. Correct
+ -- the deliberately invalid test work item, then resume the same durable queue.
+ id:=gen_random_uuid();perform app_private.queue_reconciliation(t,'fault_fixture',id,clock_timestamp());
+ perform app_private.run_accounting_maintenance(100);
+ perform pg_temp.check_overview(exists(select 1 from app_private.reconciliation_queue where tenant_id=t and kind='fault_fixture' and entity_id=id and attempts=1),'Failed reconciliation item retains retry checkpoint');
+ perform pg_temp.check_overview(exists(select 1 from app_private.reconciliation_findings where tenant_id=t and kind='fault_fixture' and entity_id=id and status='error'),'Failure diagnostic retained');
+ update app_private.reconciliation_queue set kind='journal',entity_id=(select journal_id from public.accounting_journals where tenant_id=t and source='overview_fixture' limit 1),available_at=clock_timestamp(),attempts=0 where tenant_id=t and kind='fault_fixture' and entity_id=id;
+ perform app_private.run_accounting_maintenance(100);
+ perform pg_temp.check_overview(not exists(select 1 from app_private.reconciliation_queue where tenant_id=t and kind in ('fault_fixture','journal')),'Recovered item completes without losing audit history');
+end $$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','af020000-0000-4000-8000-000000000001',true);
+do $$declare t uuid;r jsonb;begin
+ select tenant_id into t from public.user_profiles where user_id='af020000-0000-4000-8000-000000000001';
+ r:=public.get_accounting_breakdown(jsonb_build_object('business_id',t,'from','2025-01-01','to','2025-01-31'),'capital','closing');
+ if (r->>'balance')::numeric<>0 or (r->>'total')::integer<>0 then raise exception 'Cross-tenant breakdown leaked';end if;
+ begin perform public.get_accounting_breakdown(jsonb_build_object('business_id',current_setting('overview.fixture_t')::uuid,'from','2025-01-01','to','2025-01-31'),'capital','closing');raise exception 'Cross-tenant breakdown was accepted';exception when insufficient_privilege then null;end;
+ if has_function_privilege('authenticated','app_private.run_accounting_maintenance(integer)','execute') or has_table_privilege('authenticated','app_private.accounting_snapshot_lines','select') then raise exception 'Private maintenance exposed';end if;
+end $$;
+reset role;
+select 'PASS: expanded equation, initial net capital, strict and original opening, interval parity, snapshots/full recomputation, backdating, paged historical drill-down, filtered histories, corruption detection/rebuild, safe repair, checkpoints and private maintenance';
+rollback;

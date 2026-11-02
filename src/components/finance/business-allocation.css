@@ -1,0 +1,6 @@
+.business-allocation{border:1px solid var(--border-subtle);border-radius:8px;padding:12px;margin:8px 0;min-width:0}
+.business-allocation legend{font-size:.8rem;font-weight:600;padding:0 5px}
+.business-allocation>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.business-allocation .input-field{min-width:0;width:100%}
+.business-allocation p{font-size:.75rem;margin:8px 0 0}
+@media(max-width:360px){.business-allocation>div{grid-template-columns:1fr}}

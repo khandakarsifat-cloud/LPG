@@ -1,3 +1,4 @@
+import { paymentDraft } from '../../lib/payments';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
@@ -201,15 +202,16 @@ function OperatingPaymentDialog({
 }) {
   const wallets = usePaymentWallets();
   const operation = useVehicleAccountingOperation();
-  const [entries, setEntries] = useState<PaymentDraft[]>([]);
+  const [entries, setEntries] = useState<PaymentDraft[] | null>(null);
   const [date, setDate] = useState(dhakaToday);
   const [review, setReview] = useState(false);
   const available = (wallets.data ?? []).filter(
     (w) => !original || w.wallet_id === original.wallet_id,
   );
-  const paid = entries.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const effectiveEntries = entries ?? (wallets.data ? [{ ...paymentDraft(available, due), id: 'logistics-default' }] : []);
+  const paid = effectiveEntries.reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const total = allowAdvance ? Math.max(due, paid) : due;
-  const validation = validatePayments(entries, total, available);
+  const validation = validatePayments(effectiveEntries, total, available);
   return (
     <PurchaseDialog
       title={review ? 'Confirm payment' : labels[kind]}
@@ -297,7 +299,7 @@ function OperatingPaymentDialog({
                 <>
                   <PaymentEntries
                     wallets={available}
-                    entries={entries}
+                    entries={effectiveEntries}
                     onChange={setEntries}
                     total={total}
                     disabled={operation.isPending || operation.hasPending}
@@ -347,7 +349,7 @@ function OperatingPaymentDialog({
               operation.isPending ||
               operation.hasPending ||
               !!validation.error ||
-              !entries.length
+              !effectiveEntries.length
             }
           >
             {review ? 'Record payment' : 'Review payment'}

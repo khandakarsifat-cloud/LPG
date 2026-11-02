@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { startOfDay } from 'date-fns';
+import { dhakaToday } from '../lib/businessDate';
 import type { SaleTransaction } from '../types/sale';
 export type { SaleTransaction } from '../types/sale';
 
@@ -19,7 +19,7 @@ export const useDashboardStats = () =>
   useQuery<DashboardStats>({
     queryKey: dashboardKeys.stats,
     queryFn: async () => {
-      const todayIso = startOfDay(new Date()).toISOString();
+      const todayIso = `${dhakaToday()}T00:00:00+06:00`;
 
       const { data, error } = await supabase.rpc('get_dashboard_stats', { p_since: todayIso });
       if (error) throw error;
@@ -53,7 +53,7 @@ export const useTodaySalesFeed = (page = 0) =>
   useQuery<{ entries: SaleTransaction[]; hasMore: boolean }>({
     queryKey: [...dashboardKeys.all, 'today_sales', page],
     queryFn: async ({ signal }) => {
-      const todayIso = startOfDay(new Date()).toISOString();
+      const todayIso = `${dhakaToday()}T00:00:00+06:00`;
       const { data, error } = await supabase
         .from('sales')
         .select(`

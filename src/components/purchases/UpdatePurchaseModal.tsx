@@ -9,11 +9,13 @@ import { useInventoryBalances } from '../../hooks/useInventory';
 import { purchaseAccess, purchaseDraft, purchaseTotals, validatePurchaseDraft, purchaseEmptyShortages, PurchaseStockError, type EmptyShortage } from '../../lib/purchase';
 import { formatBDT } from '../../lib/formatBDT';
 import { PurchaseConfirmation, PurchaseDialog } from './PurchaseControls';
-import { PurchaseForm } from './PurchaseForm';
+import { PurchaseForm, PurchaseShipment } from './PurchaseForm';
 import { PurchaseHistory, PurchaseIdentity, PurchaseSummary } from './PurchaseSummary';
 import { PurchaseStockWarning } from './PurchaseStockWarning';
 import type { Purchase } from '../../types/purchase';
 import { PurchasePaymentDialog, PurchaseSettlementSummary } from './PurchasePayments';
+import { DatePicker } from '../ui/DatePicker';
+import { dhakaToday } from '../../lib/businessDate';
 
 export function UpdatePurchaseModal({ open, purchase, onClose }: { open: boolean; purchase: Purchase | null; onClose: () => void }) {
   const fresh = usePurchaseDetails(open && purchase ? purchase.purchase_id : null);
@@ -34,6 +36,8 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
   const [confirm, setConfirm] = useState<'dispatch' | 'receive' | 'cancel' | null>(null);
   const [paymentDialog, setPaymentDialog] = useState<'payment' | 'refund' | null>(null);
   const [cancellationText, setCancellationText] = useState('');
+  const [receivedOn, setReceivedOn] = useState(dhakaToday());
+  const [commissionMonth, setCommissionMonth] = useState('');
   const [shortages, setShortages] = useState<EmptyShortage[]>([]);
   const update = useUpdatePurchase();
   const dispatch = useDispatchPurchase();
@@ -75,7 +79,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
     try {
       if (access.products && purchase.business_category !== 'stove' && !await checkEmpties()) return;
       await update.mutateAsync({ purchase_id: purchase.purchase_id, revision: draftRevision,
-        draft: access.financials ? draft : { notes: draft.notes },
+        draft: access.financials ? draft : { notes: draft.notes, ...(purchase.status==='created'?{vehicle_id:draft.vehicle_id}:{}) },
       });
       const saved = qc.getQueryData<Purchase>(purchaseKeys.detail(purchase.purchase_id));
       if (saved) {
@@ -92,7 +96,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
       if (confirm === 'dispatch') {
         if (!await checkEmpties()) { setConfirm(null); return; }
         await dispatch.mutateAsync(payload); toast.success('Vehicle dispatched');
-      } else if (confirm === 'receive') { await receive.mutateAsync(payload); toast.success('Shipment received'); }
+      } else if (confirm === 'receive') { await receive.mutateAsync({...payload,received_on:receivedOn,commission_month:commissionMonth}); toast.success('Shipment received'); }
       else if (confirm === 'cancel') { await operation.mutateAsync({ ...payload, action: 'cancel', confirmation: cancellationText }); toast.success('Cancellation initiated'); }
       setConfirm(null);
     } catch (cause) { setConfirm(null); handleError(cause); }
@@ -116,7 +120,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
             {purchase.business_category === 'stove' ? <StovePurchaseForm draft={draft} onChange={setDraft} /> : <PurchaseForm draft={draft} onChange={setDraft} companyId={purchase.brand_id} purchase={purchase} />}
             {purchase.receipt_notes && <section className="purchase-section"><h3>Receipt notes</h3><p className="purchase-hint">{purchase.receipt_notes}</p></section>}
           </> : <>
-            <PurchaseSummary purchase={purchase} showNotes={!access.editable} />
+            <PurchaseSummary purchase={purchase} showNotes={!access.editable} />{access.editable && purchase.status==='created' && Number(purchase.transport_cost)>0 && <PurchaseShipment draft={draft} onChange={setDraft} />}
             {access.editable && <section className="purchase-section"><label className="input-label" htmlFor="paid-purchase-notes">Notes</label>
               <textarea id="paid-purchase-notes" className="input-field" rows={2} value={draft.notes} onChange={event => setDraft({ ...draft, notes: event.target.value })} />
               <p className="purchase-hint">Financial values lock after the first normal payment. Notes remain editable until receipt and full settlement.</p>
@@ -141,6 +145,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
     {paymentDialog && settlement.data && <PurchasePaymentDialog purchase={purchase} settlement={settlement.data} refund={paymentDialog === 'refund'} operation={operation} onClose={() => setPaymentDialog(null)} />}
     {confirm && <PurchaseConfirmation title={{ dispatch: 'Dispatch this vehicle?', receive: 'Receive this shipment?', cancel: 'Cancel this purchase?' }[confirm]}
       action={confirm === 'cancel' ? 'Confirm cancellation' : confirm === 'receive' ? 'Receive shipment' : 'Dispatch vehicle'} busy={busy} confirmDisabled={operation.hasPending || confirm === 'cancel' && cancellationText !== 'CANCEL'} onCancel={() => setConfirm(null)} onConfirm={() => void transition()}>
+      {confirm === 'receive' && <div className="dialog-form"><DatePicker label="Actual received date" value={receivedOn} max={dhakaToday()} min={purchase.business_category==='lpg'?purchase.dispatched_at?.slice(0,10):undefined} onChange={setReceivedOn}/>{purchase.business_category==='lpg' && Number(purchase.commission)>0 && <label className="input-group"><span className="input-label">Commission earned month (optional)</span><input className="input-field" type="month" value={commissionMonth} max={receivedOn.slice(0,7)} onChange={e=>setCommissionMonth(e.target.value)}/><small className="purchase-hint">Leave blank for the calendar month before receipt. A partial deduction remains provisional.</small></label>}</div>}
       {purchase.business_category === 'stove' ? <><p>{confirm === 'receive' ? 'Receive the saved quantities directly into inventory. Quantities and prices become immutable.' : 'Cancel this purchase permanently. Received stock must still be available; inventory and supplier debt will be reversed. Cash refunds and applied supplier commissions remain auditable.'}</p>{confirm === 'cancel' && <label className="input-group"><span className="input-label">Type exactly CANCEL</span><input className="input-field" value={cancellationText} onChange={e => setCancellationText(e.target.value)} /></label>}</> : confirm === 'dispatch' ? <>
         <p>Dispatch <strong>{purchase.vehicle_name}</strong> to <strong>{purchase.plant_name}</strong>. Deduct <strong>{outgoing} empty cylinders</strong> from inventory; no filled cylinders are added yet.</p>
         <p>Allocate {formatBDT(Number(purchase.transport_cost))} as an internal transport allocation, excluded from recorded revenue and profit. Dispatch does not transfer or deduct wallet money.</p>
