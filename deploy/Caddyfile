@@ -1,3 +1,17 @@
+{
+    log default {
+        format filter {
+            wrap json
+            fields {
+                request>uri query {
+                    replace code REDACTED
+                    replace state REDACTED
+                }
+            }
+        }
+    }
+}
+
 {$API_DOMAIN} {
     header Strict-Transport-Security "max-age=31536000"
     @untrustedOrigin {
@@ -24,6 +38,12 @@
         handle /accounts/v1/* {
             request_body {
                 max_size 16KB
+            }
+            reverse_proxy account-service:8081
+        }
+        handle /backups/v1/* {
+            request_body {
+                max_size 8KB
             }
             reverse_proxy account-service:8081
         }

@@ -67,7 +67,7 @@ Phone layouts use compact headers, in-page dropdowns on supporting browsers and 
 | `#/finance` | Analysis Overview, Wallet Ledger and Loans; classified Adjust Balance and spending entry |
 | `#/login`, `#/account` | Sign-in, mandatory first-login password change and personal password settings |
 | `#/users` | OWNER User & Access Management |
-| `#/admin` | Platform businesses, accounts, storage, audit and reserved backups section |
+| `#/admin` | Platform businesses, accounts, storage, audit and encrypted cloud Backup Management |
 
 ## Local setup
 
@@ -161,7 +161,7 @@ POS defaults to full Cash Register payment. Advanced Payments supports split and
 
 ## Known limitations and checks
 
-- This is a fresh backend: Azure accounts and business data were not transferred. Register a new app account/business. Development email autoconfirm remains enabled; recovery/invitation email needs an SMTP provider. Daily encrypted backups and a private workstation recovery copy are configured, but independent managed offsite backup and external monitoring remain prerequisites for production use.
+- This is a fresh backend: Azure accounts and business data were not transferred. Register a new app account/business. Development email autoconfirm remains enabled; recovery/invitation email needs an SMTP provider. Central pgBackRest/Restic/rclone backups and superadmin Web OAuth are configured for Google Drive at 02:00 Asia/Dhaka, with 30 daily days and 12 monthly full points. A separate recovery kit is required; see [whole-system recovery](deploy/backup/recovery.md). Successful nightly cloud recovery verification and external monitoring remain prerequisites for production use.
 
 - The untuned 1 GiB database baseline passed a mixed-workload **11-active-business** 30-minute endurance test, with **10** the measured comfortable point and **12** failing the read-latency target under the existing 1 GiB database cap. Each fixture had 2,000 customers and 20,000 historical invoices. Reusable testing harnesses remain under `supabase/tests/vps-capacity/`.
 - Dashboard stock exceptions remain unfinished. Attendance estimates require physical-device acceptance. Salaries use fixed monthly amounts and wallet-attributed payments; historical payments retain explicit unknown wallet attribution.

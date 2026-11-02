@@ -7,6 +7,7 @@ import { usePlatformBusinesses, usePlatformDashboard, usePlatformStorage, useSet
 import { ProvisionAccountForm } from '../components/access/AccountForms';
 import { PurchaseDialog } from '../components/purchases/PurchaseControls';
 import { BusinessUsers, AccessActivity, AccessPagination } from './UserAccess';
+import { BackupManagement } from '../components/access/BackupManagement';
 import type { PlatformBusiness } from '../types/access';
 import './access-management.css';
 
@@ -19,14 +20,14 @@ export function AdminPage(){const {session,access,isLoading,accessError,signOut,
 }
 function AdminWorkspace(){
  const {access,signOut,switchBusiness}=useAuth();const navigate=useNavigate();useAppearance();
- const [section,setSection]=useState<'businesses'|'storage'|'activity'|'backups'>('businesses');const [selected,setSelected]=useState<PlatformBusiness|null>(null);
+ const [section,setSection]=useState<'businesses'|'storage'|'activity'|'backups'>(()=>new URLSearchParams(window.location.hash.split('?')[1]).get('section')==='backups'?'backups':'businesses');const [selected,setSelected]=useState<PlatformBusiness|null>(null);
  const [creating,setCreating]=useState(false);const [status,setStatus]=useState<PlatformBusiness|null>(null);const [page,setPage]=useState(0);const [search,setSearch]=useState('');const [error,setError]=useState('');const [entering,setEntering]=useState<string|null>(null);
  const summary=usePlatformDashboard();const businesses=usePlatformBusinesses(page,search);
  async function enter(business:PlatformBusiness){setError('');setEntering(business.tenant_id);try{await switchBusiness(business.tenant_id);navigate('/inventory');}catch(e){setError(e instanceof Error?e.message:'Business could not be opened.');}finally{setEntering(null);}}
  return <main className="admin-screen"><header className="admin-header"><div className="admin-brand"><ShieldCheck size={28}/><div><strong>NexusLPG</strong><span>Platform administration</span></div></div><div className="access-actions"><Link className="btn btn-secondary" to="/account">Account & password</Link><button className="btn btn-secondary" onClick={()=>void signOut()}><LogOut size={16}/>Sign out</button></div></header>
-  <div className="admin-content"><div className="access-heading"><div><h1>Platform overview</h1><p className="page-subtitle">Businesses, accounts and storage in one place.</p></div><button className="btn btn-primary" onClick={()=>setCreating(true)}><Plus size={17}/>Register business</button></div>
+  <div className="admin-content"><div className="access-heading"><div><h1>{section==='backups'?'Backup management':'Platform overview'}</h1><p className="page-subtitle">{section==='backups'?'Encrypted cloud protection and whole-system disaster recovery.':'Businesses, accounts and storage in one place.'}</p></div>{section!=='backups'&&<button className="btn btn-primary" onClick={()=>setCreating(true)}><Plus size={17}/>Register business</button>}</div>
    {summary.isPending&&<p role="status">Loading platform totals…</p>}{summary.error&&<p className="purchase-error" role="alert">{summary.error.message}</p>}
-   <dl className="admin-stats">{[{label:'Registered businesses',value:summary.data?.businesses},{label:'Active',value:summary.data?.active},{label:'Suspended',value:summary.data?.suspended},{label:'Total users',value:summary.data?.users},{label:'Database storage',value:summary.data?bytes(summary.data.database_bytes):undefined},{label:'Uploaded files',value:summary.data?bytes(summary.data.uploaded_bytes):undefined}].map(item=><div className="settings-card" key={item.label}><dt>{item.label}</dt><dd>{item.value??'—'}</dd></div>)}</dl>
+   {section!=='backups'&&<dl className="admin-stats">{[{label:'Registered businesses',value:summary.data?.businesses},{label:'Active',value:summary.data?.active},{label:'Suspended',value:summary.data?.suspended},{label:'Total users',value:summary.data?.users},{label:'Database storage',value:summary.data?bytes(summary.data.database_bytes):undefined},{label:'Uploaded files',value:summary.data?bytes(summary.data.uploaded_bytes):undefined}].map(item=><div className="settings-card" key={item.label}><dt>{item.label}</dt><dd>{item.value??'—'}</dd></div>)}</dl>}
    {access?.tenant_id&&<div className="settings-card access-heading"><p>You have an active business workspace: <strong>{access.business_name}</strong>.</p><div className="access-actions"><Link className="btn btn-secondary" to="/inventory">Resume workspace</Link><button className="btn btn-secondary" onClick={()=>void switchBusiness(null).catch(e=>setError(e.message))}>Close workspace</button></div></div>}
    <nav className="admin-tabs" aria-label="Administration sections">{[{id:'businesses',label:'Businesses & users',icon:Building2},{id:'storage',label:'Storage',icon:Database},{id:'activity',label:'Audit activity',icon:ShieldCheck},{id:'backups',label:'Backups',icon:Archive}].map(tab=><button key={tab.id} className="btn btn-secondary" aria-current={section===tab.id?'page':undefined} onClick={()=>{setSelected(null);setSection(tab.id as typeof section);}}><tab.icon size={16}/>{tab.label}</button>)}</nav>
    {error&&<p className="purchase-error" role="alert">{error}</p>}
@@ -37,7 +38,7 @@ function AdminWorkspace(){
     {businesses.data&&!businesses.data.total&&<p className="empty-state">No businesses match this search.</p>}{businesses.data&&<AccessPagination page={page} total={businesses.data.total} onChange={setPage} busy={businesses.isFetching}/>}
    </>)}
    {section==='storage'&&<PlatformStorage/>}{section==='activity'&&<AccessActivity/>}
-   {section==='backups'&&<section className="settings-card backup-reserved"><Archive size={28}/><h2>Backup management</h2><p>Reserved for future backup configuration, status, storage and recovery controls. No backup engine or Google Drive integration is configured here.</p></section>}
+   {section==='backups'&&<BackupManagement/>}
   </div>
   {creating&&<ProvisionAccountForm business onClose={()=>setCreating(false)}/>}{status&&<BusinessStatusForm business={status} onClose={()=>{setStatus(null);setSelected(null);}}/>}
  </main>;

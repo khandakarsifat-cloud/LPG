@@ -89,7 +89,7 @@ export const MovementsFeed = () => {
             : <span className="inv-history-reference-text" title="You do not have access to these transaction details">{reference}</span>}</>}</p>)}</div>
           <div className="inv-history-meta"><time dateTime={movement.created_at} title={created.toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' })}>
             {created.toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric' })} · {created.toLocaleTimeString('en-BD', { timeZone: 'Asia/Dhaka', hour: 'numeric', minute: '2-digit' })}</time>
-            {movement.user_profiles?.email && <span>by {movement.user_profiles.email.split('@')[0]}</span>}</div>
+            {movement.actor?.email && <span>by {movement.actor.email.split('@')[0]}</span>}</div>
         </div>
         <div className="inv-history-quantities">{([{ value: movement.filled_quantity_change, label: 'Filled', icon: Droplets }, { value: movement.empty_quantity_change, label: 'Empty', icon: Box }]).filter(entry => entry.value !== 0).map(({ value, label, icon: QuantityIcon }) =>
           <span key={label} className={value > 0 ? 'inv-quantity-in' : 'inv-quantity-out'} aria-label={`${value > 0 ? '+' : ''}${value} ${label.toLowerCase()}`} title={label}>

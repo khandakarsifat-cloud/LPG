@@ -24,6 +24,7 @@ try {
   await p.route('**/rest/v1/**',async r=>{
    const req=r.request(),url=new URL(req.url()),name=url.pathname.split('/').pop(),args=req.method()==='POST'?req.postDataJSON():{};calls.push({name,args});let data=[];
    if(name==='user_profiles')data=[{tenant_id:id(3),full_name:'Fixture owner',email:user.email,tenants:{business_name:'Directory layout fixtures'}}];
+   else if(name==='get_access_context')data={is_superadmin:false,must_change_password:false,reset_pending:false,tenant_id:id(3),business_name:'Directory layout fixtures',full_name:'Fixture owner',email:user.email,role:'OWNER',access_status:'active',permissions:['sales:view','purchases:view','purchases:manage','purchases:create','employees:view','customers:view','finance:manage','receipts:print']};
    else if(name==='get_my_preferences')data={theme:null};
    else if(name==='get_my_permissions')data=['sales:view','purchases:view','purchases:manage','employees:view','customers:view','finance:manage','receipts:print'];
    else if(name==='get_sales_directory'||name==='get_purchase_directory'){const category=args.p_filters.business_category;const rows=(name==='get_sales_directory'?sales:purchases).filter(s=>!category||category==='all'||s.business_category===category);data={entries:rows,total:rows.length};}
@@ -33,7 +34,7 @@ try {
    else if(name==='get_employee_directory')data={total:1,entries:[{employee_id:id(60),name:'Fixture employee',employee_type_name:'Driver',business_unit:'gas_business',is_active:true,primary_phone:'01712345678'}]};
    else if(name==='get_employee_presence')data={timezone:'Asia/Dhaka',entries:[]};
    else if(name==='can_cancel_purchases')data=true;
-   else if(name==='sales'){const s=sales.find(s=>url.searchParams.get('sale_id')==='eq.'+s.sale_id)??sales[1];data={...s,subtotal:2400,discount_amount:0,exchange_fee:0,notes:null,customers:{name:s.name,phone:s.phone},user_profiles:{full_name:'Fixture owner'},sale_items:[{item_id:id(30),type:'package',quantity:2,unit_price:1200,line_total:2400,items:{product_name:s.items[0].name,size_kg:0,image_url:null}}]};}
+   else if(name==='get_sale_details'){const s=sales.find(s=>args.p_sale_id===s.sale_id)??sales[1];data={...s,subtotal:2400,discount_amount:0,exchange_fee:0,notes:null,customers:{name:s.name,phone:s.phone},actor:{full_name:'Fixture owner'},sale_items:[{item_id:id(30),type:'package',quantity:2,unit_price:1200,line_total:2400,items:{product_name:s.items[0].name,size_kg:0,image_url:null}}]};}
    else if(name==='get_sale_settlement')data={status:'completed',total:2400,paid:1000,due:1400,payment_count:0,payments:[]};
    else if(name==='get_sale_bottles')data={expected:0,received:0,outstanding:0,obligations:[],actual:[],events:[],event_count:0};
    return r.fulfill({json:data});

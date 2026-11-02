@@ -9,7 +9,7 @@ import type { ProductInventory, SaveProductPrices } from '../types/inventory';
 import type { InventoryValuation } from '../types/inventory';
 import type { BuyingPrice, PriceType } from '../types/inventory';
 import { posKeys } from './usePOS';
-import { inventoryHistoryBounds, inventoryMovementSource, PURCHASE_MOVEMENT_FILTER, SALE_MOVEMENT_FILTER, type InventoryHistorySource } from '../lib/inventoryMovement';
+import type { InventoryHistorySource } from '../lib/inventoryMovement';
 
 // ── Query Keys ────────────────────────────────────────────────────────────────
 export const inventoryKeys = {
@@ -42,37 +42,16 @@ export const useInventoryHistory = ({ source, itemIds, page, from, to }: {
 }) => {
   const { can } = useAuth();
   const canReadSales = can('sales:view') || can('receipts:print');
-  return useQuery({
+  return useQuery<{ entries: Array<InventoryMovement & { saleCustomer: string | null }>; hasMore: boolean }>({
     queryKey: [...inventoryKeys.movements, 'history', source, itemIds ? [...itemIds].sort() : null, from, to, page, canReadSales],
     queryFn: async ({ signal }) => {
       if (itemIds?.length === 0) return { entries: [], hasMore: false };
-      let query = supabase.from('inventory_movements')
-        .select('*, items(product_name, size_kg, filled_quantity, empty_quantity, mouth_size, lpg_brands(brand_id, brand_name)), user_profiles(email)')
-        .order('created_at', { ascending: false }).order('movement_id', { ascending: false });
-      if (source === 'sale') query = query.or(SALE_MOVEMENT_FILTER);
-      if (source === 'purchase') query = query.or(PURCHASE_MOVEMENT_FILTER);
-      if (itemIds) query = query.in('item_id', itemIds);
-      const { since, until } = inventoryHistoryBounds(from, to);
-      if (since) query = query.gte('created_at', since);
-      if (until) query = query.lt('created_at', until);
-      const start = page * INVENTORY_HISTORY_PAGE_SIZE;
-      const { data, error } = await query.range(start, start + INVENTORY_HISTORY_PAGE_SIZE).abortSignal(signal);
+      const { data, error } = await supabase.rpc('get_inventory_history', {
+        p_filters: { source, item_ids: itemIds, from, to },
+        p_offset: page * INVENTORY_HISTORY_PAGE_SIZE, p_limit: INVENTORY_HISTORY_PAGE_SIZE,
+      }).abortSignal(signal);
       if (error) throw error;
-      const rows = (data ?? []) as InventoryMovement[];
-      const visible = rows.slice(0, INVENTORY_HISTORY_PAGE_SIZE);
-      const saleIds = [...new Set(visible.flatMap(movement => {
-        const ref = inventoryMovementSource(movement);
-        return ref.kind === 'sale' && ref.id ? [ref.id] : [];
-      }))];
-      const names = new Map<string, string | null>();
-      if (canReadSales && saleIds.length) {
-        const sales = await supabase.from('sales').select('sale_id, customers(name)')
-          .in('sale_id', saleIds).abortSignal(signal)
-          .overrideTypes<Array<{ sale_id: string; customers: { name: string } | null }>, { merge: false }>();
-        if (sales.error) throw sales.error;
-        for (const sale of sales.data ?? []) names.set(sale.sale_id, sale.customers?.name ?? null);
-      }
-      return { entries: visible.map(movement => ({ ...movement, saleCustomer: names.get(movement.reference_id ?? '') ?? null })), hasMore: rows.length > INVENTORY_HISTORY_PAGE_SIZE };
+      return data;
     },
     refetchInterval: 15_000,
   });

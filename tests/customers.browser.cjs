@@ -28,6 +28,7 @@ async page => {
     calls.push({ name, args, method: req.method() });
     let data = [];
     if (name === 'user_profiles') data = [{ tenant_id: tenant, email: user.email, full_name: 'Customer Operator', tenants: { business_name: 'Customer UI verification' } }];
+    else if (name === 'get_access_context') data = { is_superadmin:false, must_change_password:false, reset_pending:false, tenant_id:tenant, business_name:'Customer UI verification',full_name:'Customer Operator',email:user.email,role:'OWNER',access_status:'active',permissions:[...permissions,...(permissions.includes('customers:manage')?['customers:create','customers:edit']:[])] };
     else if(name==='get_my_preferences')data={theme:null};
     else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
     else if (name === 'get_my_permissions') data = permissions;
@@ -57,7 +58,7 @@ async page => {
     } else if (name === 'update_customer_details') {
       if (failUpdate) return route.fulfill({ status: 409, json: { message: 'A customer with this phone number already exists' } });
       const c = customers.find(c => c.customer_id === args.p_customer_id); Object.assign(c, args.p_payload); data = c;
-    } else if (name === 'sales') data = { sale_id: transactions[0].sale_id, sale_tier: 'wholesale', created_at: transactions[0].created_at, subtotal: 4900, discount_amount: 200, exchange_fee: 0, total_amount: 4700, notes: 'Delivered to shop; empties collected.', customers: customers[0], user_profiles: { full_name: 'Customer Operator' }, sale_items: lines };
+    } else if (name === 'get_sale_details') data = { sale_id: transactions[0].sale_id, sale_tier: 'wholesale', created_at: transactions[0].created_at, subtotal: 4900, discount_amount: 200, exchange_fee: 0, total_amount: 4700, notes: 'Delivered to shop; empties collected.', customers: customers[0], actor: { full_name: 'Customer Operator' }, sale_items: lines };
     else if (name === 'customers') {
       if (req.method() === 'POST') { const c = { ...args[0], customer_id: id(1000), created_at: new Date().toISOString(), transactions: 0, refill: 0, package: 0, total_sold: 0, total_sold_amount: 0, total_due: 0, last_transaction_at: null }; customers.push(c); data = c; }
       else data = [];

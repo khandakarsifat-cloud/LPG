@@ -142,7 +142,12 @@ def install(root, stage, project, api, approval):
         for name in ['lpg_db_data', 'lpg_storage_data', 'lpg_db-config']:
             run(['docker', 'volume', 'create', name], 'Create persistent volume')
         print('Pulling the pinned backend images; secrets generated privately on the VPS.', flush=True)
-        run(cmd + ['pull', *SERVICES], 'Pinned backend image pull')
+        if model['services']['db'].get('build'):
+            run(cmd + ['build', 'db'], 'Build backup client on pinned PostgreSQL')
+            run(cmd + ['pull', *[s for s in SERVICES if s != 'db']], 'Pinned backend image pull')
+            run(['python3', '-B', str(root / 'deploy/backup/install.py')], 'Configure cloud backup directories and timer')
+        else:
+            run(cmd + ['pull', *SERVICES], 'Pinned backend image pull')
         validate_proxy(model, root)
         # Platform migrations run before application migrations. No public proxy
         # is started until the complete application schema is in place.
@@ -184,8 +189,9 @@ def install(root, stage, project, api, approval):
                 if attempt == 23:
                     raise
                 time.sleep(5)
-        from backup import configure_backup
-        configure_backup(root)
+        if model['services']['db'].get('build'):
+            run(cmd + ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=lpg', 'stanza-create'], 'Initialize physical backup stanza')
+            run(cmd + ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=lpg', 'check'], 'Verify WAL archiving')
         marker.write_text(json.dumps({'api': api, 'complete': True}) + '\n')
         print('Fresh backend initialized; migration history and HTTPS health verified.', flush=True)
 

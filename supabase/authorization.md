@@ -97,9 +97,7 @@ password changes. Only the platform administrator or the relevant business OWNER
 can read its paged RPC. Credentials and tokens never enter audit payloads.
 Normal module activity retains its original source records and actual actor IDs.
 
-The backup panel is one reserved section. It implements no backup engine,
-Google Drive connection or recovery action. Existing infrastructure recovery
-backups remain outside this panel.
+The backup panel uses `/backups/v1/*` through the private account service and a root-owned Unix-socket controller. Every management request revalidates GoTrue identity and the current `get_access_context` superadmin/session gate; OWNER alone is insufficient. OAuth state is single use, session-bound and short lived, with PKCE and a fixed HTTPS callback. Credentials/refresh tokens remain root-only on the VPS. Routine reads use cached status; only explicit connection actions and nightly jobs access Google. Recovery is an isolated operator procedure, never a browser-triggered restore. See [cloud recovery](../deploy/backup/recovery.md).
 
 ## Auth administration service
 

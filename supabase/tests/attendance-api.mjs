@@ -157,7 +157,7 @@ try {
   const itemModal = page.getByRole('dialog', { name: 'Add New Item', exact: true });
   const weightOptions = await itemModal.getByLabel('Cylinder Weight (KG) *', { exact: true }).locator('option').allTextContents();
   assert(weightOptions.includes('7.5kg') && weightOptions.includes('6.5kg'));
-  await itemModal.getByRole('button', { name: 'Close', exact: true }).click();
+  await itemModal.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.goto(worker + '/?attendance-current=1#/settings');
   await page.getByRole('button', { name: 'Appearance', exact: true }).click(); await page.getByRole('button', { name: 'Dark', exact: true }).click(); await page.getByText('Appearance saved.', { exact: true }).waitFor(); assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
   await page.reload(); await page.getByRole('button', { name: 'Appearance', exact: true }).click(); assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
@@ -183,8 +183,9 @@ try {
  if (browser) await browser.close();
  if (tenants.length) {
   const ids = tenants.map(uuid).join(',');
-  const cleanup = ['attendance_adjustments', 'attendance_device_audit', 'attendance_configuration_audit', 'attendance_days', 'attendance_links', 'attendance_events', 'attendance_users', 'attendance_devices', 'attendance_cutoff_rules', 'attendance_settings', 'finance_requests', 'employee_activity', 'employee_terms', 'employee_phone_numbers', 'employees', 'employee_types', 'items', 'business_weights', 'lpg_brands', 'wallets', 'user_roles', 'role_permissions', 'roles', 'audit_logs', 'user_profiles', 'tenants'];
-  sql(`begin; do $$begin if exists(select 1 from public.tenants where tenant_id in (${ids}) and business_name not like 'Attendance API fixture %') then raise exception 'Not an attendance fixture'; end if; end$$; create temporary table attendance_fixture_cleanup(id integer); create function pg_temp.attendance_fixture_cleanup() returns trigger language plpgsql as $$begin ${cleanup.map(table => `delete from public.${table} where tenant_id in (${ids});`).join('\n')} return new; end$$; create trigger cleanup after insert on attendance_fixture_cleanup for each row execute function pg_temp.attendance_fixture_cleanup(); insert into attendance_fixture_cleanup values(1); commit;`);
+  const cleanup=sql("select c.table_schema||'.'||c.table_name from information_schema.columns c join information_schema.tables t using(table_catalog,table_schema,table_name) where c.table_schema in ('public','app_private') and c.column_name='tenant_id' and t.table_type='BASE TABLE' order by 1;").split('\n');
+  assert(cleanup.every(table=>/^(public|app_private)\.[a-z_]+$/.test(table)));
+  sql(`begin; do $$begin if (select count(*) from public.tenants t join public.user_profiles p using(tenant_id) where t.tenant_id in (${ids}) and t.business_name like 'Attendance API fixture %' and p.user_id in (${users.map(uuid).join(',')}) and p.email like 'attendance-%@example.invalid')<>${tenants.length} then raise exception 'Not an attendance fixture'; end if; end$$;set local session_replication_role=replica;${cleanup.map(table=>`delete from ${table} where tenant_id in (${ids});`).join('\n')}commit;`);
  }
  if (users.length) sql(`delete from auth.users where id in (${users.map(uuid).join(',')});`);
  for (const c of clients) await c.auth.signOut({ scope: 'local' });

@@ -44,7 +44,8 @@ def validate_model(model):
     require(enabled == set(SERVICES), 'Compose must enable exactly the reviewed backend services.')
     for name in SERVICES:
         service = model['services'][name]
-        require(not service.get('build'), f'Unexpected image build: {name}.')
+        require(not service.get('build') or (name == 'db' and service['image'] == 'lpg-postgres-backup:17.6.1.140-pgbackrest2.57.0'
+                and service['build']['context'].endswith('/deploy/backup') and service['build']['dockerfile'] == 'Dockerfile'), f'Unexpected image build: {name}.')
         require(set(service.get('depends_on', {})) <= set(SERVICES), f'Excluded dependency of {name}.')
         for port in service.get('ports', []):
             if name == 'caddy':
@@ -238,8 +239,21 @@ def update(root, stage, project, api_url, approval):
             require(name in ('attendance-receiver', 'account-service'), 'Unexpected new backend service.')
             continue
         before, after = old['services'][name], candidate['services'][name]
-        require(before.get('volumes') == after.get('volumes'), f'{name} mount definitions changed. Separate review required.')
-    require(old['services']['db']['image'] == candidate['services']['db']['image'], 'PostgreSQL image upgrade refused; use a reviewed upgrade procedure.')
+        # Only these backup additions are allowed. Existing data mounts cannot change.
+        additions = {'db': {'/etc/pgbackrest/pgbackrest.conf': str(root / 'deploy/backup/pgbackrest.conf'),
+                            '/var/lib/lpg-backup': str(root / 'backups/cloud')},
+                     'account-service': {'/run/lpg-backup': '/run/lpg-backup'}}.get(name, {})
+        filtered = [mount for mount in after.get('volumes', []) if not (mount['type'] == 'bind'
+                    and additions.get(mount['target']) == mount['source']
+                    and (mount['target'] == '/var/lib/lpg-backup' or mount.get('read_only')))]
+        previous = [mount for mount in before.get('volumes', []) if not (mount['type'] == 'bind'
+                    and additions.get(mount['target']) == mount['source']
+                    and (mount['target'] == '/var/lib/lpg-backup' or mount.get('read_only')))]
+        require(before.get('volumes') == after.get('volumes') or previous == filtered, f'{name} mount definitions changed. Separate review required.')
+    backup_image = 'lpg-postgres-backup:17.6.1.140-pgbackrest2.57.0'
+    original_image = 'public.ecr.aws/supabase/postgres:17.6.1.140'
+    adding_backup = old['services']['db']['image'] == original_image and candidate['services']['db']['image'] == backup_image
+    require(old['services']['db']['image'] == candidate['services']['db']['image'] or adding_backup, 'PostgreSQL image upgrade refused; use a reviewed upgrade procedure.')
 
     ids = run(old_cmd + ['--profile', '*', 'ps', '-q', *[s for s in SERVICES if s in old['services']]], 'Container discovery').split()
     require(len(CORE_SERVICES) <= len(ids) <= len(SERVICES), 'All eight core backend containers must be running; only reviewed supporting services may be added.')
@@ -252,7 +266,7 @@ def update(root, stage, project, api_url, approval):
     for name, destination, expected in [('db', '/var/lib/postgresql/data', 'lpg_db_data'), ('db', '/etc/postgresql-custom', 'lpg_db-config'), ('storage', '/var/lib/storage', 'lpg_storage_data')]:
         require(any(mount.get('Name') == expected and mount['Destination'] == destination for mount in current[name]['Mounts']), f'Unexpected existing {name} data volume.')
         run(['docker', 'volume', 'inspect', expected], 'External volume existence check')
-    require(current['db']['Config']['Image'] == candidate['services']['db']['image'], 'Running database image differs; automatic database upgrade refused.')
+    require(current['db']['Config']['Image'] == candidate['services']['db']['image'] or (adding_backup and current['db']['Config']['Image'] == original_image), 'Running database image differs; automatic database upgrade refused.')
     db_name = old['services']['db']['environment']['POSTGRES_DB']
     psql = old_cmd + ['exec', '-T', 'db', 'psql', '-X', '-U', 'supabase_admin', '-d', db_name, '-v', 'ON_ERROR_STOP=1', '-q', '-A', '-t']
     applied = run(psql + ['-c', 'select version from supabase_migrations.schema_migrations order by version'], 'Migration history inspection').split()
@@ -324,7 +338,10 @@ def update(root, stage, project, api_url, approval):
     # Only explicit runtime services/images are pulled; no dev dependencies.
     for name in SERVICES:
         if name in affected:
-            run(candidate_cmd + ['pull', name], f'Image availability for {name}')
+            if name == 'db' and candidate['services'][name].get('build'):
+                run(['docker', 'build', '-t', candidate['services']['db']['image'], str(stage / 'deploy/backup')], 'Build backup client on unchanged PostgreSQL image')
+            else:
+                run(candidate_cmd + ['pull', name], f'Image availability for {name}')
     if 'caddy' in affected:
         validate_proxy(candidate, stage)
     configure_attendance_token(root, candidate)
@@ -342,6 +359,16 @@ def update(root, stage, project, api_url, approval):
         temporary.write_text(content(stage / relative), encoding='utf-8', newline='\n')
         temporary.chmod(target.stat().st_mode & 0o777 if target.exists() else 0o644)
         temporary.replace(target)
+
+    source_files = {str(path.relative_to(stage)): digest(path) for path in uploaded}
+    source_version = {'backend_sha256': hashlib.sha256(json.dumps(source_files, sort_keys=True).encode()).hexdigest(),
+                      'files': source_files, 'deployed_at': stamp}
+    (root / 'deploy/.source-version.json').write_text(json.dumps(source_version, indent=2) + '\n')
+    (root / 'deploy/.source-version.json').chmod(0o600)
+
+    if candidate['services']['db']['image'] == backup_image:
+        # Create mount sources and private control service before recreation.
+        run(['python3', '-B', str(root / 'deploy/backup/install.py')], 'Configure private cloud backup control and nightly timer')
 
     if pending:
         sql = 'SET lock_timeout = \'10s\'; SET statement_timeout = \'5min\';\nLOCK TABLE supabase_migrations.schema_migrations IN EXCLUSIVE MODE;\n'
@@ -366,7 +393,9 @@ def update(root, stage, project, api_url, approval):
         run(['docker', 'stop', *excluded_ids], 'Stop excluded development/optional services (no volumes removed)')
     run(old_cmd + ['up', '-d', '--no-deps', '--no-build', '--pull', 'never', '--no-recreate', '--wait', '--wait-timeout', '180', *SERVICES], 'Final health verification (no recreation)')
     verify_health(candidate, api_url)
-    run(['python3', '-B', str(root / 'deploy/backup.py'), '--configure'], 'Verify daily backup scheduling')
+    if candidate['services']['db']['image'] == backup_image:
+        run(old_cmd + ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=lpg', 'stanza-create'], 'Initialize physical backup stanza')
+        run(old_cmd + ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=lpg', 'check'], 'Verify local WAL archiving')
     pending_file.unlink(missing_ok=True)
     print('Twelve backend services verified; data volumes and VPS environment preserved.', flush=True)
 

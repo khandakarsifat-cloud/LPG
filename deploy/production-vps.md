@@ -52,7 +52,7 @@ Caddy obtains/renews trusted TLS for the IP-based sslip.io hostname and redirect
 
 Fail2ban's sshd jail uses the journal/UFW, five failures in ten minutes and a one-hour ban. Daily unattended Ubuntu security upgrades retain automatic reboot/kernel removal disabled. Journals are persistent/compressed with 256 MiB system and 64 MiB runtime limits, fourteen-day retention. rsyslog/UFW/Fail2ban logs rotate weekly or at 50 MiB checks, four retained rotations; hourly logrotate checks and sysstat collection remain enabled.
 
-`lpg-resource-check.timer` runs after boot and every fifteen minutes. Its hardened unprivileged service warns locally at disk/inode usage 80%, available memory below 300 MiB or reboot required. No external notifications/uptime monitor is configured. `lpg-backup.timer` now makes encrypted recovery bundles daily at 21:00 UTC (03:00 Asia/Dhaka), with five-minute jitter. See [backup and recovery](README.md#backup-and-recovery) for the short Storage maintenance window, recovery key, HMAC, offload and restore boundaries. There is no automatic prune, application deployment or backup deletion.
+`lpg-resource-check.timer` runs after boot and every fifteen minutes. Its hardened unprivileged service warns locally at disk/inode usage 80%, available memory below 300 MiB or reboot required. No external notifications/uptime monitor is configured. `lpg-backup.timer` starts pgBackRest/Restic/rclone whole-system backups at 02:00 Asia/Dhaka, with no daytime catch-up. The root-only control service is reachable through a Unix socket mounted only into the existing account service, with current superadmin Auth checks. Database binaries remain 17.6.1.140; the derived image adds pgBackRest 2.57.0 and local WAL archival. The root-only secret directory is `/opt/lpg/deploy/backup-secrets`; keep the separately exported recovery kit outside this VPS. See [whole-system cloud recovery](backup/recovery.md) for retention, Storage pause, integrity/drill checks and new-VPS cutover. Legacy bundles remain preserved and are not bulk-pruned.
 
 ```sh
 sudo sshd -t
@@ -74,7 +74,7 @@ Do not print server environments, private keys, tokens or resolved Compose confi
 
 The root-only `/root/vps-prep-20261020/` archive preserves pre-hardening configuration and sensitive host material. Its `rollback-access.sh` deliberately weakens access controls and disables UFW; use only in an explicitly approved access emergency through trusted VNC. Do not restore that entire archive over the current host; restore selected reviewed files and reapply security afterward.
 
-Before production business use: configure SMTP, automatic independently managed offsite backups and external monitoring; review package updates, provider MFA/console recovery credentials, workload capacity, stable domain ownership and the application's production data-preservation policy. Physical printing and Android/PWA behavior remain separate acceptance boundaries.
+Before production business use: configure SMTP, verify automatic cloud recovery and arrange external monitoring; review package updates, provider MFA/console recovery credentials, workload capacity, stable domain ownership and the application's production data-preservation policy. Physical printing and Android/PWA behavior remain separate acceptance boundaries.
 
 ## Memory budget for the 6-core / 6 GB VPS
 

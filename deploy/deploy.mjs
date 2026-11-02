@@ -85,7 +85,8 @@ export function validateGraph(model) {
     for (const dependency of Object.keys(model.services[name].depends_on ?? {})) {
       if (!services.includes(dependency)) throw new Error(`${name} pulls in excluded service ${dependency}.`);
     }
-    if (model.services[name].build) throw new Error(`Production service ${name} unexpectedly builds an image.`);
+    if (model.services[name].build && !(name === 'db' && model.services[name].image === 'lpg-postgres-backup:17.6.1.140-pgbackrest2.57.0'
+      && model.services[name].build.context.replaceAll('\\', '/').endsWith('/deploy/backup') && model.services[name].build.dockerfile === 'Dockerfile')) throw new Error(`Production service ${name} unexpectedly builds an image.`);
     for (const port of model.services[name].ports ?? []) {
       if (name === 'caddy') {
         if (port.host_ip !== '0.0.0.0' || (port.protocol ?? 'tcp') !== 'tcp'
@@ -107,6 +108,7 @@ export function backendFiles(bootstrap = false) {
     versions.add(match[1]);
   }
   const files = ['compose.yml', 'compose.vps.yml', 'deploy/Caddyfile', 'deploy/backend.py', 'deploy/backup.py', 'deploy/restore-check.py', 'attendance-receiver/server.mjs', 'account-service/server.mjs', 'account-service/initialize-platform.mjs',
+    ...readdirSync(resolve(root, 'deploy/backup')).filter(name => /^(Dockerfile|pgbackrest\.conf|[a-z]+\.py|recovery\.md)$/.test(name)).map(name => `deploy/backup/${name}`),
     ...readdirSync(resolve(root, 'supabase/docker/volumes/api/envoy')).filter(name => /\.(yaml|sh)$/.test(name)).map(name => `supabase/docker/volumes/api/envoy/${name}`),
     ...migrations.map(name => `supabase/migrations/${name}`),
     ...(bootstrap ? ['.env.example', 'deploy/bootstrap.py', 'deploy/docker-firewall.sh',

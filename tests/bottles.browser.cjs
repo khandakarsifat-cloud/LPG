@@ -19,6 +19,7 @@ async page => {
  await page.route('**/rest/v1/**',async route=>{
   const req=route.request(),url=new URL(req.url()),name=url.pathname.split('/').pop(),a=req.method()==='POST'?req.postDataJSON():{};calls.push({name,a});let data=[];
   if(name==='user_profiles')data=[{tenant_id:tenant,email:user.email,full_name:'Owner',tenants:{business_name:'Bottle fixtures'}}];
+  else if(name==='get_access_context')data={is_superadmin:false,must_change_password:false,reset_pending:false,tenant_id:tenant,business_name:'Bottle fixtures',full_name:'Owner',email:user.email,role:'OWNER',access_status:'active',permissions:['sales:view','sales:collect_bottles','sales:collect_money','pos:sell','dashboard:view','receipts:print','finance:manage','finance:view']};
   else if(name==='get_my_preferences')data={theme:null};
   else if(name==='get_business_catalogs')data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))};
   else if(name==='get_my_permissions')data=['sales:view','sales:collect_bottles','pos:sell','dashboard:view','receipts:print','finance:manage','finance:view'];
@@ -28,7 +29,7 @@ async page => {
   else if(name==='create_pos_sale')data={sale_id:id(70),sale_tier:'retail',customer_id:customer.customer_id,subtotal:100,total_amount:100,paid_amount:100,due:0,customer_phone:customer.phone,customer_name:customer.name};
   else if(name==='wallets'||name==='get_payment_wallets')data=wallets;
   else if(name==='receipt_printers')data=null;
-  else if(name==='sales')data=sale;
+  else if(name==='get_sale_details')data={...sale,actor:{full_name:'Fixture operator'}};
   else if(name==='get_sales_overview')data={total:31,amount:15500,due:500-paid,bottles:5-received};
   else if(name==='get_sales_directory')data={total:31,entries:Array.from({length:Math.min(a.p_limit,31-a.p_offset)},(_,n)=>({sale_id:n+a.p_offset===0?sid:id(100+n+a.p_offset),created_at:sale.created_at,sale_tier:'retail',name:customer.name,phone:customer.phone,total_amount:500,additional_charges:0,paid_amount:paid,due:500-paid,expected:5,received_bottles:received,outstanding_bottles:5-received,items:[{item_id:sku,name:'Bashundhara 12kg 22mm',type:'refill',quantity:5}],bottle_dues:[{item_id:sku,name:'Bashundhara 12kg',quantity:5-received}]}))};
   else if(name==='get_sale_bottles')data={expected:5,received,outstanding:5-received,obligations:[{item_id:sku,name:'Bashundhara 12kg 22mm',size_kg:12,mouth_size:'22mm',expected:5,received,outstanding:5-received}],actual:[{item_id:sku,name:'Bashundhara 12kg',phase:'checkout',quantity:received-(received>=3?1:0)},...(received>=3?[{item_id:other,name:'Jamuna 12kg',phase:'collection',quantity:1}]:[])],event_count:1,events:[{id:id(30),kind:'bottles',phase:'checkout',created_at:sale.created_at,actor:'Fixture operator',amount:0,note:'Three bottles due later',lines:[]}]};
@@ -46,7 +47,7 @@ async page => {
  });
  const check=(v,m)=>{if(!v)throw Error(m);};
  await page.goto(origin+'/?bottle-fixtures=1#/sales');await page.locator('.sale-card').first().waitFor();
- await page.getByLabel('Money status',{exact:true}).selectOption('partial');await page.getByLabel('Bottle status',{exact:true}).selectOption('outstanding');await page.getByLabel('Search sales',{exact:false}).fill('Bashundhara, Jamuna');
+ await page.getByLabel('Status',{exact:true}).selectOption('partial');await page.getByLabel('Bottle status',{exact:true}).selectOption('outstanding');await page.getByLabel('Search sales',{exact:false}).fill('Bashundhara, Jamuna');
  await page.waitForFunction(()=>document.querySelector('.sales-grid')?.getAttribute('aria-busy')==='false');
  for(const width of [320,390,768,1440]){await page.setViewportSize({width,height:950});await page.locator('.sale-card').first().waitFor();check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Sales overflow ${width}`);
   check(await page.locator('.purchases-header').evaluate(header=>{
@@ -57,7 +58,7 @@ async page => {
    });
   }),`New sale obscures overview amount at ${width}`);
   await page.screenshot({path:`.temp/bottles-sales-${width}.png`,fullPage:true});}
- check(calls.some(c=>c.name==='get_sales_directory'&&c.a.p_filters.bottles==='outstanding'&&c.a.p_filters.payment==='partial'),'Combined server filters missing');
+ check(calls.some(c=>c.name==='get_sales_directory'&&c.a.p_filters.bottles==='outstanding'&&c.a.p_filters.status==='partial'),'Combined server filters missing');
  await page.locator('.sale-card').first().click();const detail=page.getByRole('dialog',{name:/Transaction #/});
  await detail.getByRole('button',{name:'Print receipt',exact:true}).click();
  const printDialog=page.getByRole('dialog',{name:'Print receipt',exact:true});await printDialog.getByLabel('80mm receipt preview').waitFor();

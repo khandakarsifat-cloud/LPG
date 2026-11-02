@@ -24,6 +24,13 @@ services:
       realtime:
         condition: service_healthy
   db:
+    image: lpg-postgres-backup:17.6.1.140-pgbackrest2.57.0
+    build:
+      context: ./deploy/backup
+      dockerfile: Dockerfile
+    volumes:
+      - ./deploy/backup/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro
+      - ./backups/cloud:/var/lib/lpg-backup
     logging: *bounded-logging
     mem_limit: 2560m
     shm_size: 768m
@@ -43,6 +50,10 @@ services:
       - max_wal_size=2GB
       - -c
       - max_connections=80
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=flock -s /var/lib/lpg-backup/repo.lock pgbackrest --stanza=lpg archive-push %p
       - -c
       - log_min_messages=warning
   auth:
@@ -133,6 +144,7 @@ services:
       - ./account-service/server.mjs:/app/server.mjs:ro
       - ./account-service/initialize-platform.mjs:/app/initialize-platform.mjs:ro
       - ./deploy/.account-service.json:/run/account-service.json:ro
+      - /run/lpg-backup:/run/lpg-backup:ro
     depends_on:
       auth:
         condition: service_healthy

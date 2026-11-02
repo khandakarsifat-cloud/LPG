@@ -13,7 +13,7 @@ export interface SaleTransaction {
   discount_amount: number;
   exchange_fee: number;
   notes?: string;
-  user_profiles?: { full_name: string | null; email: string | null } | null;
+  actor?: { full_name: string | null; email: string | null } | null;
   customers?: {
     name: string;
     phone: string;

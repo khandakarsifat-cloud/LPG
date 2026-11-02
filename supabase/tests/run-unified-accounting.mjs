@@ -54,7 +54,7 @@ const historicalReport = readFileSync('supabase/migrations/20261031140003_financ
 const baseline = historicalReport.slice(0,historicalReport.indexOf('-- Page headers')).replaceAll('app_private.accounting_position','app_private.benchmark_full_position').replaceAll('public.get_finance_analysis','public.benchmark_full_analysis') + '\n' +
  readFileSync('supabase/migrations/20261023012148_sales_bottle_receivables.sql','utf8').split('create or replace function public.get_customer_directory')[1].split('end $$;')[0].replace(/^/, 'create or replace function public.benchmark_full_directory')+'end $$;';
 const normalizedBaseline = baseline.replaceAll('case when s.payment_tracking then greatest(0,s.total_amount+s.additional_charges-s.paid_amount) else 0 end due','greatest(0,s.total_amount+s.additional_charges-s.paid_amount) due');
-const benchmark = 'grant execute on function public.benchmark_full_analysis(jsonb),public.benchmark_full_directory(jsonb,integer,integer,uuid) to authenticated;\n' + readFileSync('supabase/tests/accounting-overview-performance.sql','utf8');
+const benchmark = accessHelpers + '\n' + 'grant execute on function public.benchmark_full_analysis(jsonb),public.benchmark_full_directory(jsonb,integer,integer,uuid) to authenticated;\n' + adaptAccess(readFileSync('supabase/tests/accounting-overview-performance.sql','utf8'));
 const python = `import concurrent.futures,json,os,re,subprocess,sys,tempfile,time,uuid
 os.umask(0o077)
 p=json.load(sys.stdin)

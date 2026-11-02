@@ -35,23 +35,25 @@ async page => {
     const url=new URL(route.request().url());const name=url.pathname.split('/').pop();let data=[];
     switch(name){
       case 'user_profiles':data=[{tenant_id:tenant,full_name:'History verification',email:user.email,tenants:{business_name:'History verification'}}];break;
+      case 'get_access_context':data={is_superadmin:false,must_change_password:false,reset_pending:false,tenant_id:tenant,business_name:'History verification',full_name:'History verification',email:user.email,role:'MANAGER',access_status:'active',permissions:['inventory:view',...(!viewer?['inventory:manage','sales:view','purchases:view','purchases:manage']:[])]};break;
       case 'get_my_preferences': data={theme:null}; break;
       case 'get_business_catalogs': data={roles:['Owner','Manager','Salesman','Driver','Helper','General Staff'].map((name,i)=>({id:String(i),name,active:true,system:true,assigned:0})),weights:[5,12,25,35].map(size_kg=>({size_kg,active:true,assigned:0}))}; break;
       case 'get_my_permissions':data=['inventory:view',...(!viewer?['inventory:manage','sales:view','purchases:view','purchases:manage']:[])];break;
       case 'list_lpg_brands':data=brands;break;
       case 'items':data=items;break;
-      case 'inventory_movements':{
-        requests.push(url.searchParams);
+      case 'get_inventory_history':{
+        const args=route.request().postDataJSON(),filters=args.p_filters;
+        requests.push(args);
         if(failHistory)return route.fulfill({status:500,json:{message:'Fixture history failure'}});
         let rows=movements;
-        const or=url.searchParams.get('or')??'';
-        if(or.includes('purchase_dispatch'))rows=rows.filter(m=>m.reference_type?.startsWith('purchase_')||['purchase','refill','purchase_adjustment'].includes(m.movement_type));
-        else if(or.includes('sale'))rows=rows.filter(m=>m.reference_type==='sale'||m.movement_type==='sale');
-        const selected=url.searchParams.get('item_id');
+        if(filters.source==='purchase')rows=rows.filter(m=>m.reference_type?.startsWith('purchase_')||['purchase','refill','purchase_adjustment'].includes(m.movement_type));
+        else if(filters.source==='sale')rows=rows.filter(m=>m.reference_type==='sale'||m.movement_type==='sale');
+        const selected=filters.item_ids;
         if(selected)rows=rows.filter(m=>selected.includes(m.item_id));
-        for(const bound of url.searchParams.getAll('created_at')){const time=Date.parse(bound.slice(4));rows=rows.filter(m=>bound.startsWith('gte.')?Date.parse(m.created_at)>=time:Date.parse(m.created_at)<Date.parse(bound.slice(3)));}
-        const offset=Number(url.searchParams.get('offset')??0),limit=Number(url.searchParams.get('limit')??31);
-        data=rows.slice(offset,offset+limit);break;
+        if(filters.from)rows=rows.filter(m=>Date.parse(m.created_at)>=Date.parse(filters.from+'T00:00:00+06:00'));
+        if(filters.to)rows=rows.filter(m=>Date.parse(m.created_at)<Date.parse(filters.to+'T00:00:00+06:00')+86400000);
+        const offset=args.p_offset,limit=args.p_limit;
+        data={entries:rows.slice(offset,offset+limit).map(m=>({...m,actor:{email:user.email},saleCustomer:viewer?null:'Rahim'})),hasMore:rows.length>offset+limit};break;
       }
       case 'list_purchases':throw Error('Unbounded purchase read');
       case 'get_purchases_by_ids':if(viewer)throw Error('Viewer requested purchases');data=route.request().postDataJSON().p_ids.includes(purchaseId)?[purchase]:[];break;
@@ -59,13 +61,13 @@ async page => {
       case 'get_purchase_settlement':data={total:1000,paid:1000,due:0,refund_due:0,refunded:0,financial_closed_at:null,can_cancel:false,legacy:false,financial_locked:true,obligations:[],payments:[],payment_count:0};break;
       case 'get_sale_settlement':data={total:1200,paid:1200,due:0,payments:[],payment_count:0,receipt_payments:[]};break;
       case 'get_sale_bottles':data={expected:0,received:0,outstanding:0,obligations:[],actual:[],event_count:0,events:[]};break;
-      case 'sales':{
+      case 'get_sale_details':{
         if(viewer)throw Error('Viewer requested sales');
-        if(url.searchParams.get('select')?.includes('sale_items')){
+        {
           if(failSale)return route.fulfill({status:500,json:{message:'Fixture sale failure'}});
           data={sale_id:saleId,sale_tier:'retail',created_at:'2026-10-19T08:00:00Z',subtotal:1200,total_amount:1200,discount_amount:0,exchange_fee:0,customers:{name:'Rahim',phone:'01700000000',tier:'retail'},
             sale_items:[{quantity:1,unit_price:1200,line_total:1200,type:'refill',items:{brand:'Jamuna Gas',size_kg:5,lpg_brands:{brand_name:'Jamuna Gas'}}}]};
-        }else data=[{sale_id:saleId,sale_tier:'retail',customers:{name:'Rahim'}}];break;
+        }break;
       }
     }
     await route.fulfill({json:data});
@@ -86,7 +88,7 @@ async page => {
   await page.getByRole('combobox',{name:'Activity',exact:true}).selectOption('purchase');
   await page.waitForFunction(()=>document.querySelectorAll('.inv-history-row').length===5);
   check(!await page.getByText('Page 2',{exact:true}).count(),'source change resets page');
-  check(requests.at(-1).get('or').includes('purchase_cancellation'),'purchase reversals included by server filter');
+  check(requests.at(-1).p_filters.source==='purchase','purchase source sent to server');
   check((await page.locator('.inv-history').innerText()).includes('Received filled from Jamuna Gas (plant)'),'legacy purchase resolves full reference');
   await page.locator('.inv-history-reference').first().click();
   const purchaseDialog=page.getByRole('dialog',{name:'Completed purchase',exact:true});
@@ -111,8 +113,8 @@ async page => {
   await picker.locator('.inv-tile').last().click();
   await picker.getByRole('button',{name:'Apply 2 products',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.inv-filter-count')?.textContent==='2');
-  check(requests.at(-1).get('item_id').includes(items[0].item_id)&&requests.at(-1).get('item_id').includes(items[2].item_id),'all selected IDs sent to server');
-  check(requests.at(-1).get('or').includes('sale'),'source and product filters combined');
+  check(requests.at(-1).p_filters.item_ids.includes(items[0].item_id)&&requests.at(-1).p_filters.item_ids.includes(items[2].item_id),'all selected IDs sent to server');
+  check(requests.at(-1).p_filters.source==='sale','source and product filters combined');
   check(await page.locator('.inv-history-row').evaluateAll(rows=>rows.every(row=>!row.textContent.includes('12 kg'))),'unselected products excluded');
   await page.getByRole('button',{name:/Select products/}).click();
   await picker.getByRole('button',{name:'Clear selection',exact:true}).click();
@@ -136,8 +138,8 @@ async page => {
   await dates.getByLabel('To',{exact:true}).fill('2026-10-18');
   await dates.getByRole('button',{name:'Apply dates',exact:true}).click();
   await page.getByText('No inventory history matches these filters.',{exact:true}).waitFor();
-  check(requests.at(-1).getAll('created_at').includes('gte.2026-10-17T18:00:00.000Z')&&requests.at(-1).getAll('created_at').includes('lt.2026-10-18T18:00:00.000Z'),'Dhaka calendar bounds must filter on the server before pagination');
-  check(Number(requests.at(-1).get('offset')??0)===0,'Timeline change resets history page');
+  check(requests.at(-1).p_filters.from==='2026-10-18'&&requests.at(-1).p_filters.to==='2026-10-18','Calendar bounds sent to the server before pagination');
+  check(requests.at(-1).p_offset===0,'Timeline change resets history page');
   await page.getByRole('button',{name:'Filter inventory history dates',exact:true}).click();
   await dates.getByLabel('From',{exact:true}).fill('2026-10-19');
   await dates.getByRole('button',{name:'Cancel',exact:true}).click();

@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -46,6 +46,36 @@ export function createAccountService(config, request = fetch) {
     try {
       if (req.method === 'GET' && ['/healthz', '/accounts/v1/healthz'].includes(req.url)) { send(200, { status: 'ok' }); return; }
       if (origin && !origins.has(origin)) throw new APIError('Origin not allowed', 403);
+      if (req.url?.startsWith('/backups/v1/')) {
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204, { 'Access-Control-Allow-Origin': origin ?? '', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'authorization, content-type', Vary: 'Origin' }); res.end(); return;
+        }
+        const callback = req.method === 'GET' && req.url.startsWith('/backups/v1/oauth/callback?');
+        if (!callback && req.method !== 'POST') throw new APIError('Not found', 404);
+        if (!callback && !/^Bearer [A-Za-z0-9._-]+$/.test(req.headers.authorization ?? '')) throw new APIError('Sign in required', 401);
+        let size = 0; const chunks = [];
+        for await (const chunk of req) { size += chunk.length; if (size > 8192) throw new APIError('Request too large', 413); chunks.push(chunk); }
+        const body = Buffer.concat(chunks);
+        // The root-owned Unix API validates Auth + the current superadmin session.
+        // This service has no Docker socket, host credentials or backup secrets.
+        const result = await new Promise((resolve, reject) => {
+          const proxy = httpRequest({ socketPath: config.backupSocket ?? '/run/lpg-backup/control.sock', path: req.url,
+            method: req.method, headers: { authorization: req.headers.authorization ?? '', 'content-type': 'application/json', 'content-length': body.length }, timeout: 25_000 }, upstream => {
+            let length = 0; const parts = [];
+            upstream.on('data', chunk => { length += chunk.length; if (length > 2_000_000) { upstream.destroy(); reject(new APIError('Backup response too large', 502)); } else parts.push(chunk); });
+            upstream.on('end', () => resolve({ status: upstream.statusCode, headers: upstream.headers, body: Buffer.concat(parts) }));
+            upstream.on('error', reject);
+          });
+          proxy.on('timeout', () => proxy.destroy(new Error('timeout')));
+          proxy.on('error', () => reject(new APIError('Backup control service is unavailable. Retry shortly.', 503)));
+          proxy.end(body);
+        });
+        res.writeHead(result.status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+          ...(result.headers.location ? { Location: result.headers.location } : {}),
+          ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}) });
+        res.end(result.body); return;
+      }
       if (req.method === 'OPTIONS') {
         res.writeHead(204, { 'Access-Control-Allow-Origin': origin ?? '', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
           'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Max-Age': '600', Vary: 'Origin' }); res.end(); return;

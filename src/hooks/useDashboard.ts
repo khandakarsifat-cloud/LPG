@@ -28,11 +28,7 @@ export const useSaleDetails = (saleId: string | null) => useQuery<SaleTransactio
   queryKey: ['sales', 'detail', saleId], enabled: Boolean(saleId),
   queryFn: async ({ signal }) => {
     if (!saleId) throw new Error('No sale selected');
-    const { data, error } = await supabase.from('sales').select(`
-      sale_id, sale_tier, status, business_category, created_at, total_amount, additional_charges, paid_amount, subtotal, discount_amount, exchange_fee, notes,
-      customers(name, phone, shop_name, address, tier), user_profiles(full_name, email),
-      sale_items(item_id, quantity, unit_price, line_total, type, items(item_id, image_url, product_name, brand_id, size_kg, mouth_size, lpg_brands(brand_name)))
-    `).eq('sale_id', saleId).abortSignal(signal).single().overrideTypes<SaleTransaction, { merge: false }>();
+    const { data, error } = await supabase.rpc('get_sale_details', { p_sale_id: saleId }).abortSignal(signal);
     if (error) throw error; return data;
   },
 });

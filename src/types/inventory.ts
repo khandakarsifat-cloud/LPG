@@ -109,7 +109,7 @@ export interface InventoryMovement {
   created_by: string | null;
   created_at: string;
   items: ({ product_name?: string | null } & Pick<Item, 'size_kg' | 'filled_quantity' | 'empty_quantity' | 'mouth_size'> & { lpg_brands: LPGBrand | null }) | null;
-  user_profiles: { email: string | null } | null;
+  actor: { email: string | null } | null;
 }
 
 export interface CreateItemPayload {

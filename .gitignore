@@ -43,5 +43,9 @@ deploy/.attendance-token
 deploy/.attendance-token.new
 deploy/.account-service.json
 deploy/.account-service.new
+deploy/backup-secrets/
+backups/
+deploy/.source-version.json
+deploy/backup/__pycache__/
 supabase/docker/volumes/storage/
 supabase/docker/volumes/db/data/

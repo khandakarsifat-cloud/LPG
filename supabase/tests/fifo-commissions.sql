@@ -48,9 +48,9 @@ do $$declare f fifo_fixture;p uuid;s uuid;before numeric;remaining numeric;r jso
  perform pg_temp.assert((select sum(amount)=1500 from public.accounting_lines where tenant_id=f.t and account='bottle_receivable' and entity_id=s),'One unreturned cylinder retains exactly its FIFO shell asset');
  perform pg_temp.assert((select filled_quantity=2 and empty_quantity=6 and filled_value+empty_value=14000 from public.inventory_costs where tenant_id=f.t and item_id=f.lpg),'Refill retains returned shells without counting their value twice');
  perform pg_temp.assert((public.get_customer_directory(jsonb_build_object('dues','both'))->>'total')::integer=1,'Both dues filter includes the buyer with payment and bottle dues');
- perform pg_temp.assert((public.get_customer_directory(jsonb_build_object('dues','payment'))->>'total')::integer=1,'Payment-only dues filter excludes bottle-due customers');
+ perform pg_temp.assert((public.get_customer_directory(jsonb_build_object('dues','payment'))->>'total')::integer=2,'Payment Due includes customers with both money and bottle dues');
 end $$;
-select 'PASS: independent package/refill shell costs, bottle asset, and server-side dues partitions';
+select 'PASS: independent package/refill shell costs, bottle asset, and inclusive server-side dues';
 -- Historical purchase dates are deliberately different from record-entry time.
 do $$declare f fifo_fixture;p uuid;q uuid;prev date:=(date_trunc('month',now() at time zone 'Asia/Dhaka')-interval '1 month')::date;d date:=(now() at time zone 'Asia/Dhaka')::date;payload jsonb;key uuid;before numeric;after_value numeric;begin
  select * into f from fifo_fixture;
