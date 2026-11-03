@@ -31,6 +31,7 @@ update att_fixture set employee=(select employee_id from public.employees where 
 -- Test-only backdating on the isolated database lets old date/DST/late-upload
 -- scenarios execute without altering the clock or any application records.
 update public.attendance_links set linked_at='2026-10-20 00:00+06' where tenant_id=(select tenant_id from att_fixture);
+update public.attendance_devices set accept_events_from='2026-10-01 00:00+06' where tenant_id=(select tenant_id from att_fixture);
 set local role attendance_receiver;
 select pg_temp.reject_attendance($q$select public.attendance_receive('UNKNOWN','upload','[]',null)$q$,'Unauthorized');
 select pg_temp.reject_attendance('select * from public.attendance_events','permission denied');
@@ -150,13 +151,14 @@ do $$ declare t uuid;begin
  insert into public.attendance_cutoff_rules values(t,'2026-10-24','04:00');
  perform pg_temp.check_attendance(app_private.attendance_date(t,'2026-10-25 03:59-04','America/New_York')='2026-10-24','early morning before cutoff belongs to previous day');
  perform pg_temp.check_attendance(app_private.attendance_date(t,'2026-10-25 04:00-04','America/New_York')='2026-10-25','exact cutoff begins next workday');
- -- A capability alone must not impersonate trusted OWNER/MANAGER membership.
- update public.roles set name='ATTENDANCE_CAPABILITY_ONLY' where tenant_id=t;
+ -- Employee read/manage capabilities do not grant attendance management.
+ update public.user_roles set role_id=(select role_id from public.roles where tenant_id=t and name='SALESMAN') where tenant_id=t;
+ insert into app_private.user_permission_sets values(t,'ab222222-2222-4222-8222-222222222222',array['employees:view','employees:manage']);
 end $$;
 set local role authenticated;
 do $$ declare e uuid;begin
  e:=(public.get_employee_directory()->'entries'->0->>'employee_id')::uuid;
- perform pg_temp.reject_attendance(format('select public.get_attendance_edit(%L,''2026-10-20'')',e),'Owner or Manager');
+ perform pg_temp.reject_attendance(format('select public.get_attendance_edit(%L,''2026-10-20'')',e),'Permission');
 end $$;
 reset role;
 set local role authenticated;

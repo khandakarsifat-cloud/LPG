@@ -42,3 +42,14 @@
  .attendance-history-table td:first-child small { margin:0;font-weight:400; }
  .attendance-history-table td[data-label]::before { content:attr(data-label);display:block;font-size:.65rem;color:var(--text-muted);margin-bottom:.25rem; }
 }
+
+.attendance-day-window { display:grid;gap:.3rem;padding:.75rem;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-muted);font-size:var(--font-sm); }
+.attendance-day-window small { color:var(--text-muted); }
+.attendance-clock { min-width:0;margin:0;padding:.65rem;border:1px solid var(--border-subtle);border-radius:var(--radius-md); }
+.attendance-clock legend { padding:0 .25rem;font-size:var(--font-sm);font-weight:600; }
+.attendance-clock-controls { display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,.8fr);gap:.5rem; }
+.attendance-clock-controls label { min-width:0; }
+.attendance-clock-controls select { width:100%;min-width:0;padding-inline:.45rem; }
+.attendance-clock-controls label span { font-size:var(--font-xs);color:var(--text-muted); }
+.attendance-clock>.btn { margin-top:.3rem;font-size:var(--font-xs); }
+@media(max-width:380px) { .attendance-clock-controls { grid-template-columns:repeat(2,minmax(0,1fr)); } .attendance-clock-controls label:first-child { grid-column:1/-1; } }

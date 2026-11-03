@@ -13,7 +13,7 @@ Start here before changing a workflow. This map reflects the canonical developme
 | [Dashboard](modules/dashboard.md) | Daily accounting/collection definitions, sold quantities, attention filters and source activity |
 | [Finance](modules/finance.md) | Wallet ownership, migration baselines, payment posting, collections and ledger integrity |
 | [Employees](modules/employees-and-payroll.md) | Employee profiles, dated salary revisions, fixed monthly salary payments, named bonuses and trip accounting |
-| [Attendance](modules/attendance.md) | ADMS receiver, device/source registration, scans, workday summaries, estimated presence and hardware acceptance |
+| [Attendance](modules/attendance.md) | ADMS receiver, dated business device registrations, effective employee links, separate day/clock-out boundaries, compact daily endpoints, workday summaries, estimated presence and hardware acceptance |
 | [Tenant authorization](../supabase/authorization.md) | Trusted membership, capabilities, RLS, RPC gates and grants |
 | [Whole-system recovery](../deploy/backup/recovery.md) | Nightly Google Drive backups, encryption/key custody, exact retention and empty-VPS restoration |
 | [Deployment internals](../deploy/README.md) | VPS/Cloudflare boundaries, migration approval, backups and recovery |

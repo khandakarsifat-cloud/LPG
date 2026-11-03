@@ -70,11 +70,13 @@ try {
  const payload = { name: 'Attendance fixture employee', employee_type_name: 'Driver', phones: [{ phone: '01700000071', is_primary: true }], business_unit: 'gas_business', terms: { monthly_salary: 10000, effective_from: '2025-01-01', is_active: true }, attendance_links: [{ device_id: device, pin: '001', expected: null }] };
  const eid = (await checked(c.rpc('save_employee', { p_payload: payload, p_request_id: randomUUID() }))).employee_id;
  assert.equal((await checked(c.rpc('get_attendance_history', { p_employee_id: eid }))).total, 0);
- await delay(1100); const first = localStamp();
+ // Fixture-only server timestamps avoid workstation/VPS clock skew.
+ const phaseTimes = JSON.parse(sql(`insert into public.attendance_cutoff_rules(tenant_id,effective_from,cutoff,clock_out_cutoff) values(${uuid(owner.tenant)},(now() at time zone 'Asia/Dhaka')::date,'00:00',((clock_timestamp()+interval '4 seconds') at time zone 'Asia/Dhaka')::time(0)) on conflict(tenant_id,effective_from) do update set clock_out_cutoff=excluded.clock_out_cutoff; select json_build_object('first',to_char((clock_timestamp()+interval '1 second') at time zone 'Asia/Dhaka','YYYY-MM-DD HH24:MI:SS'),'last',to_char((clock_timestamp()+interval '7 seconds') at time zone 'Asia/Dhaka','YYYY-MM-DD HH24:MI:SS'));`));
+ const first = phaseTimes.first;
  assert.equal((await upload(`001\t${first}\t0\t1\t0\t0\t0\t0\t0\t0\t0`)).status, 200);
- await delay(1100); const last = localStamp(); const batch = `001\t${last}\t0\t1\t0`;
+ const last = phaseTimes.last; const batch = `001\t${last}\t0\t1\t0`;
  const concurrent = await Promise.all([upload(batch), upload(batch), upload(batch)]); concurrent.forEach(result => assert.deepEqual(result, { status: 200, body: 'OK: 1' }));
- let history = await checked(c.rpc('get_attendance_history', { p_employee_id: eid })); assert.equal(history.total, 1); assert(history.entries[0].worked_seconds > 0);
+ let history = await checked(c.rpc('get_attendance_history', { p_employee_id: eid })); assert.equal(history.total, 1); assert(history.entries[0].worked_seconds > 0, JSON.stringify({ first,last, day:history.entries[0], endpoints:sql(`select json_build_object('first',first_at,'last',last_at,'threshold',clock_out_from,'server_now',clock_timestamp()) from public.attendance_days where tenant_id=${uuid(owner.tenant)} and employee_id=${uuid(eid)};`) }));
  const activity = await checked(c.rpc('get_employee_activity', { p_filters: { employee_id: eid, kind: 'attendance' } })); assert.equal(activity.total, 2);
  for (let i = 2; i < 17; i++) {
   const day = dateBefore(today, i);
@@ -101,8 +103,17 @@ try {
   await dialog.getByRole('button', { name: 'Monthly', exact: true }).click(); await dialog.getByRole('columnheader', { name: 'Month', exact: true }).waitFor();
   await dialog.getByRole('button', { name: 'Daily', exact: true }).click(); await dialog.getByRole('button', { name: 'Edit history', exact: true }).click();
   const editor = page.getByRole('dialog', { name: 'Edit attendance history', exact: true });
-  await editor.getByLabel('Correction date', { exact: true }).fill(past); await editor.getByText(past + ' 08:00:00', { exact: true }).waitFor();
-  await editor.getByLabel('Corrected clock out', { exact: true }).fill(`${past}T18:00`); await editor.getByLabel('Reason for correction').fill('Published browser correction fixture');
+  const loadedCorrection = page.waitForResponse(response => response.url().endsWith('/rest/v1/rpc/get_attendance_edit') && response.request().postDataJSON()?.p_day === past);
+  await editor.getByLabel('Correction date', { exact: true }).fill(past); await loadedCorrection; await editor.getByText('Allowed attendance window', { exact: true }).waitFor();
+  await editor.getByLabel('Corrected clock out hour', { exact: true }).selectOption('18'); await editor.getByLabel('Corrected clock out minute', { exact: true }).selectOption('00'); await editor.getByLabel('Reason for correction').fill('Published browser correction fixture');
+  for (const width of [1440, 375, 320]) {
+   await page.setViewportSize({ width, height: 950 });
+   await page.screenshot({ path: `.temp/attendance-current/correction-clock-${width}.png` });
+   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Correction clock overflow at ${width}`);
+  }
+  await page.setViewportSize({ width: 1440, height: 950 });
+  const arrivalHours = await editor.getByLabel('Corrected clock in hour', { exact: true }).locator('option').evaluateAll(nodes => nodes.map(node => node.value));
+  assert(!arrivalHours.includes('19'), 'Arrival picker excludes hours beyond chosen departure');
   await editor.getByRole('button', { name: 'Review changes', exact: true }).click();
   const correctionRequests = []; let loseCorrectionResponse = true;
   await page.route('**/rest/v1/rpc/correct_employee_attendance', async route => {
@@ -137,7 +148,15 @@ try {
   assert.equal(links.length, 2); assert.equal(links.find(link => !link.unlinked_at).pin, '003');
   await page.getByRole('dialog', { name: 'Employee profile', exact: true }).getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.goto(worker + '/?attendance-current=1#/settings');
-  await page.getByRole('heading', { name: 'Attendance', exact: true }).waitFor(); await page.getByRole('button', { name: 'Register device', exact: true }).click(); await page.getByRole('dialog', { name: 'Register attendance device' }).getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('heading', { name: 'Attendance', exact: true }).waitFor(); await page.getByLabel('End of attendance day', { exact: true }).waitFor(); await page.getByLabel('Clock-out cutoff', { exact: true }).waitFor(); await page.getByRole('button', { name: 'Register device', exact: true }).click(); await page.getByRole('dialog', { name: 'Register attendance device' }).getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByLabel('End of attendance day', { exact: true }).fill('04:00');
+  await page.getByLabel('Clock-out cutoff', { exact: true }).fill('16:00');
+  const settingsSaved = page.waitForResponse(response => response.url().endsWith('/rest/v1/rpc/save_attendance_configuration') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Save attendance rules', exact: true }).click();
+  assert((await settingsSaved).ok(), 'Both attendance time controls save through the published app');
+  const savedRules = await checked(c.rpc('get_attendance_configuration'));
+  assert.equal(savedRules.next_cutoff, '04:00:00'); assert.equal(savedRules.next_clock_out_cutoff, '16:00:00');
+  assert.notEqual(savedRules.cutoff, savedRules.next_cutoff, 'Day boundary remains effective-dated');
   await page.getByRole('button', { name: 'Edit device', exact: true }).click(); const deviceForm = page.getByRole('dialog', { name: 'Edit attendance device' }); await deviceForm.getByLabel('Device name', { exact: true }).fill('Renamed fixture terminal'); await deviceForm.getByRole('button', { name: 'Save device', exact: true }).click(); await deviceForm.waitFor({ state: 'hidden' });
   for (const theme of ['light', 'dark']) {
    await checked(c.rpc('save_my_preferences', { p_theme: theme })); await page.reload();
@@ -176,6 +195,61 @@ try {
  assert.deepEqual(await checked(c.rpc('get_attendance_history', { p_employee_id: eid })), historyBeforeRemoval);
  assert((await checked(c.rpc('get_employee_attendance', { p_employee_id: eid, p_month: today }))).links.every(link => !!link.unlinked_at));
  console.log('PASS: device removal blocks direct uploads, ends current links and preserves attendance history');
+ const moved = (await checked(foreign.c.rpc('save_attendance_device', { p_device_id: null, p_serial: serial, p_name: 'Transferred fixture terminal', p_action: 'register' }))).device_id;
+ assert.notEqual(moved, device);
+ assert.equal((await fetch(route('ping'))).status, 403);
+ assert((await c.rpc('save_attendance_device', { p_device_id: moved, p_serial: null, p_name: null, p_action: 'remove' })).error);
+ assert((await c.rpc('save_attendance_device', { p_device_id: null, p_serial: serial, p_name: 'Duplicate fixture', p_action: 'register' })).error);
+ await checked(foreign.c.rpc('save_attendance_device', { p_device_id: moved, p_serial: null, p_name: null, p_action: 'approve' }));
+ assert.deepEqual(await upload(`001\t${first}\t0\t1\t0\nOLD-PIN\t${past} 08:00:00\t0\t1\t0`, 'transfer-old'), { status: 200, body: 'OK: 2' });
+ let movedConfig = await checked(foreign.c.rpc('get_attendance_configuration'));
+ assert.equal(movedConfig.devices[0].last_ignored_count, 2);
+ assert.equal(movedConfig.devices[0].last_event_at, null);
+ assert.equal(movedConfig.devices[0].unmapped, 0);
+ const newEmployee = (await checked(foreign.c.rpc('save_employee', { p_payload: { ...payload, name: 'Transferred fixture employee', attendance_links: [{ device_id: moved, pin: '001', expected: null }] }, p_request_id: randomUUID() }))).employee_id;
+ assert.equal((await checked(foreign.c.rpc('get_attendance_history', { p_employee_id: newEmployee }))).total, 0);
+ await delay(1100); const movedScan = `001\t${localStamp()}\t0\t1\t0`;
+ assert.equal((await upload(movedScan, 'transfer-new')).status, 200);
+ assert.equal((await upload(movedScan, 'transfer-new')).status, 200);
+ assert.equal((await checked(foreign.c.rpc('get_employee_attendance', { p_employee_id: newEmployee, p_month: today }))).entries[0].scan_count, 1);
+ assert.deepEqual(await checked(c.rpc('get_attendance_history', { p_employee_id: eid })), historyBeforeRemoval);
+ // Return to an old backlog packet to inspect the skipped-count UI as well.
+ assert.equal((await upload(`OLD-PIN\t${past} 08:00:00\t0\t1\t0`, 'transfer-last')).status, 200);
+ movedConfig = await checked(foreign.c.rpc('get_attendance_configuration'));
+ assert.equal(movedConfig.devices[0].last_ignored_count, 1);
+ if (browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 950 } });
+  await context.addInitScript(({ host, session }) => localStorage.setItem(`sb-${host}-auth-token`, JSON.stringify(session)), { host: new URL(api).host, session: foreign.session });
+  const page = await context.newPage();
+  await page.goto(worker + '/?attendance-transfer=1#/settings');
+  await page.getByText('Earlier punches skipped in the last upload: 1.', { exact: false }).waitFor();
+  await page.getByRole('button', { name: 'Edit device', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Edit attendance device' }).getByRole('button', { name: 'Remove device', exact: true }).click();
+  const removal = page.getByRole('dialog', { name: 'Remove device', exact: true });
+  await removal.getByText('Before removing, reconnect the machine', { exact: false }).waitFor();
+  for (const width of [1440, 375, 320]) {
+   await page.setViewportSize({ width, height: 950 });
+   await page.screenshot({ path: `.temp/attendance-current/transfer-removal-${width}.png` });
+   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Transfer removal overflow at ${width}`);
+  }
+  await removal.getByRole('button', { name: 'Remove device', exact: true }).click();
+  await removal.waitFor({ state: 'hidden' });
+  await page.getByText('Register your first attendance device to get started.').waitFor();
+  await page.getByRole('button', { name: 'Register device', exact: true }).click();
+  const register = page.getByRole('dialog', { name: 'Register attendance device' });
+  await register.getByLabel('Serial number', { exact: true }).fill(serial);
+  await register.getByLabel('Device name', { exact: true }).fill('Fresh browser registration');
+  for (const width of [1440, 375, 320]) {
+   await page.setViewportSize({ width, height: 950 });
+   await page.screenshot({ path: `.temp/attendance-current/transfer-register-${width}.png` });
+   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Transfer registration overflow at ${width}`);
+  }
+  await register.getByRole('button', { name: 'Register device', exact: true }).click();
+  await register.waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: 'Approve', exact: true }).waitFor();
+  await context.close();
+ }
+ console.log('PASS: same serial transfers to another business with fresh approval/links, old backlog is skipped without leaking PINs, new scans deduplicate, history is preserved, and browser removal/re-registration succeeds');
 } catch (error) {
  if (browser) { for (const context of browser.contexts()) { for (const page of context.pages()) { await page.screenshot({ path: '.temp/attendance-current/failure.png' }).catch(() => {}); const alerts = await page.getByRole('alert').allTextContents().catch(() => []); if (alerts.length) console.log('Browser alerts:', alerts.join(' | ')); } } }
  console.error(String(error?.message ?? error).replaceAll(secret.LPG_TEST_PASSWORD, '[redacted]').replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted JWT]')); process.exitCode = 1;
