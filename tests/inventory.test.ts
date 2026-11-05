@@ -31,7 +31,7 @@ test('inventory history describes separate effects, counterparties and cancellat
   const movement = { movement_type: 'sale' as const, reference_type: 'sale', filled_quantity_change: -2, empty_quantity_change: 2 };
   assert.deepEqual(inventoryMovementActions(movement, 'sale', 'Rahim'), ['Sold to Rahim on POS sale', 'Received empty from Rahim on POS sale']);
   assert.deepEqual(inventoryMovementActions({ ...movement, filled_quantity_change: 0, empty_quantity_change: -5, reference_type: 'purchase_dispatch' }, 'purchase', 'Jamuna Gas'), ['Sent empty to Jamuna Gas (plant) on purchase']);
-  assert.deepEqual(inventoryMovementActions({ ...movement, filled_quantity_change: 5, empty_quantity_change: 0, reference_type: 'purchase_receipt_new' }, 'purchase', 'Jamuna Gas'), ['Received package from Jamuna Gas (plant) on purchase']);
+  assert.deepEqual(inventoryMovementActions({ ...movement, filled_quantity_change: 5, empty_quantity_change: 0, reference_type: 'purchase_receipt' }, 'purchase', 'Jamuna Gas'), ['Received filled from Jamuna Gas (plant) on purchase']);
   assert.deepEqual(inventoryMovementActions({ ...movement, reference_type: 'purchase_cancellation' }, 'purchase', 'Jamuna Gas'), ['Reversed received stock from Jamuna Gas (plant) on cancelled purchase', 'Restored empty from Jamuna Gas (plant) on cancelled purchase']);
 });
 test('selling price ignores MRP, expired prices and future prices, with wholesale fallback', () => {

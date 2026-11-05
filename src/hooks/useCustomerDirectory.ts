@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useBatchedDirectory } from './useBatchedDirectory';
 import { supabase } from '../lib/supabase';
@@ -70,7 +71,7 @@ export function useUpdateCustomer() {
       return data as Customer;
     },
     onSuccess: () => {
-      for (const key of [customerKeys.all, ['sales'], ['dashboard'], ['inventory', 'movements'], ['pos']]) void qc.invalidateQueries({ queryKey: key });
+      for (const key of [customerKeys.all, ['sales'], ['dashboard'], ['inventory', 'movements'], ['pos']]) void invalidateFreshQueries(qc, { queryKey: key });
     },
   });
 }

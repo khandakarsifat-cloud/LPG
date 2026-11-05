@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { readAllRows } from '../lib/queryPages';
 import { useState } from 'react';
 import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest } from '../lib/pendingRequest';
@@ -7,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import type { Item, ItemWithBrand, InventoryMovement, CreateItemPayload } from '../types/inventory';
 import type { ProductInventory, SaveProductPrices } from '../types/inventory';
 import type { InventoryValuation } from '../types/inventory';
-import type { BuyingPrice, PriceType } from '../types/inventory';
+import type { BuyingPrice, BuyingComponent } from '../types/inventory';
 import { posKeys } from './usePOS';
 import type { InventoryHistorySource } from '../lib/inventoryMovement';
 
@@ -79,7 +80,7 @@ export const useCreateItem = () => {
       return data as Item;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: inventoryKeys.balances });
+      invalidateFreshQueries(qc, { queryKey: inventoryKeys.balances });
     },
   });
 };
@@ -105,8 +106,8 @@ export const useSaveProductPrices = () => {
     },
     onSuccess: async () => {
       await Promise.all([
-        qc.invalidateQueries({ queryKey: inventoryKeys.all }),
-        qc.invalidateQueries({ queryKey: posKeys.priceBooks }),
+        invalidateFreshQueries(qc, { queryKey: inventoryKeys.all }),
+        invalidateFreshQueries(qc, { queryKey: posKeys.priceBooks }),
       ]);
     },
   });
@@ -129,12 +130,12 @@ export function useSetBuyingPrice() {
   const { profile, user } = useAuth(); const qc = useQueryClient();
   const key = `lpg-buying-price:${profile?.tenant_id}:${user?.id}`;
   const [pending, setPending] = useState(() => hasPendingRequest(key));
-  const mutation = useMutation({ mutationFn: async (payload: { item_id: string; price_type: PriceType; is_manual: boolean; price?: number; reason: string; expected: string | null } | undefined) => {
+  const mutation = useMutation({ mutationFn: async (payload: { item_id: string; price_type: BuyingComponent; is_manual: boolean; price?: number; reason: string; expected: string | null } | undefined) => {
     if (!profile || !user) throw new Error('Sign in before saving prices.');
     const request = prepareRequest(key, payload); setPending(true);
     const { error } = await supabase.rpc('set_product_buying_price', { p_payload: request.body, p_request_id: request.id });
     if (!error || isDefiniteRejection(error.code)) { finishRequest(key, request.id); setPending(false); }
     if (error) throw new Error(error.message);
-  }, onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.all }) });
+  }, onSuccess: () => invalidateFreshQueries(qc, { queryKey: inventoryKeys.all }) });
   return { ...mutation, hasPending: pending };
 }

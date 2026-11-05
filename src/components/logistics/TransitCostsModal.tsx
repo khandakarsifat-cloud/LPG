@@ -11,8 +11,6 @@ import { transitStatus, type Transit } from '../../types/logistics';
 import '../purchases/purchases.css';
 import { OperatingPayments } from './OperatingPayments';
 import { useVehicleExpenseCategories } from '../../hooks/useVehicleAccounting';
-import { useTransitPayroll } from '../../hooks/useEmployees';
-import { TransitEmployeePayButton } from '../employees/TransitEmployeePayments';
 const transitDraft = (transit: Transit) => ({ driverCost: Number(transit.driver_cost), helperCost: Number(transit.helper_cost),
   oilCost: Number(transit.oil_cost), othersCost: Number(transit.others_cost ?? 0), additionalCosts: transit.additional_costs ?? [] });
 export function TransitCostsModal({ open, onClose, transit }: { open: boolean; onClose: () => void; transit: Transit }) {
@@ -23,22 +21,31 @@ function TransitDetails({ onClose, transit }: { onClose: () => void; transit: Tr
   const cats=useVehicleExpenseCategories();
   const update = useUpdateTransitCosts();
   const transition = useTransitionTransit();
-  const payroll = useTransitPayroll(transit.transit_id);
-  const remainingCost = Math.max(0, Number(transit.total_cost) - Number(transit.driver_cost) - Number(transit.helper_cost));
-  const crewOutstanding = Math.max(0, Number(transit.driver_cost) - (payroll.data?.driver_paid ?? 0)) + Math.max(0, Number(transit.helper_cost) - (payroll.data?.helper_paid ?? 0));
-  const outstanding=crewOutstanding+Math.max(0,remainingCost-Number(transit.operating_paid));
+  const clientDue = !transit.purchase_id && transit.status !== 'cancelled' ? Math.max(0, Number(transit.transport_fee) - Number(transit.client_paid)) : 0;
   const [saveReview,setSaveReview]=useState(false);
   const [draft, setDraft] = useState(() => transitDraft(transit));
   const costPages = useListPage(draft.additionalCosts, 6, transit.transit_id);
   const [draftRevision, setDraftRevision] = useState(transit.revision);
   const [baseline, setBaseline] = useState(() => JSON.stringify(transitDraft(transit)));
   const [error, setError] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<'complete' | 'cancel' | 'return' | null>(null);
+  const [confirm, setConfirm] = useState<'complete' | 'cancel' | null>(null);
+  const [confirmRevision, setConfirmRevision] = useState(transit.revision);
+  function review(action: 'complete' | 'cancel') {
+    if (action === 'complete' && draft.additionalCosts.some(c => !c.name.trim())) { setError('Name each additional cost or remove its row.'); return; }
+    setConfirmRevision(dirty ? draftRevision : transit.revision); setConfirm(action);
+  }
   const busy = update.isPending || transition.isPending;
   const locked = !!transit.closed_at || !can('logistics:costs');
   const dirty = JSON.stringify(draft) !== baseline;
   const total = ([draft.driverCost, draft.helperCost, draft.oilCost, draft.othersCost, ...draft.additionalCosts.map(c => c.amount)]
     .reduce((sum, n) => sum + Math.round(n * 100), 0)) / 100;
+  const driverDue = Math.max(0, Math.round(draft.driverCost * 100) - Math.round(Number(transit.driver_paid) * 100)) / 100;
+  const helperDue = Math.max(0, Math.round(draft.helperCost * 100) - Math.round(Number(transit.helper_paid) * 100)) / 100;
+  const remainingCost = Math.max(0, Number(transit.total_cost) - Number(transit.driver_cost) - Number(transit.helper_cost));
+  const crewOutstanding = (Math.round(driverDue * 100) + Math.round(helperDue * 100)) / 100;
+  const expenseDue = Math.max(0, Math.round(total * 100) - Math.round(draft.driverCost * 100) - Math.round(draft.helperCost * 100) - Math.round(Number(transit.operating_paid) * 100)) / 100;
+  const outstanding = (Math.round(crewOutstanding * 100) + Math.round(expenseDue * 100)) / 100;
+  const paymentDenied = crewOutstanding > 0 && !can('payroll:pay') || (expenseDue + clientDue > 0) && !can('logistics:pay');
   const label = transitStatus(transit);
   function loadSaved() {
     const saved = transitDraft(transit);
@@ -57,8 +64,10 @@ function TransitDetails({ onClose, transit }: { onClose: () => void; transit: Tr
   async function act() {
     if (!confirm) return;
     try {
-      await transition.mutateAsync({ transitId: transit.transit_id, revision: transit.revision, action: confirm });
-      toast.success(confirm === 'complete' ? 'Transit completed' : confirm === 'cancel' ? 'Transit cancelled; client refunds can be recorded separately' : 'Vehicle returned Home');
+      await transition.mutateAsync({ transitId: transit.transit_id, revision: confirmRevision, action: confirm,
+        costs: confirm === 'complete' && dirty ? { driver_cost: draft.driverCost, helper_cost: draft.helperCost, oil_cost: draft.oilCost, others_cost: draft.othersCost, additional_costs: draft.additionalCosts } : undefined });
+      if (confirm === 'complete') setBaseline(JSON.stringify(draft));
+      toast.success(confirm === 'complete' ? 'Transit completed; costs paid from Cash Register' : 'Transit cancelled; client refunds can be recorded separately');
       setConfirm(null); setError(null);
     } catch (cause) { setConfirm(null); setError(cause instanceof Error ? cause.message : 'Action failed.'); }
   }
@@ -79,8 +88,8 @@ function TransitDetails({ onClose, transit }: { onClose: () => void; transit: Tr
           </section>
           {error && <p role="alert" className="purchase-error">{error}</p>}
           {dirty && draftRevision !== transit.revision && <p className="purchase-alert">Transit costs changed while you were editing. <button type="button" className="btn btn-secondary" onClick={loadSaved}>Reload saved costs</button></p>}
-          <p className="purchase-alert">{transit.closed_at ? 'Transit expenses are settled and locked.' : transit.purchase_id && transit.status === 'active' ? 'Receive or cancel this shipment in Purchases. Save earnings and pay its recorded crew here.' : 'Save crew earnings, record payments, then complete the transit. Returning the vehicle Home releases it for another journey while earnings remain payable.'}</p>
-          {!transit.closed_at && outstanding > 0 && <p className="purchase-alert" role="status">Complete transit is unavailable: {formatBDT(outstanding)} in transit obligations remains unpaid.</p>}
+          <p className="purchase-alert">{transit.closed_at ? 'Transit expenses are settled and locked.' : transit.purchase_id && transit.status === 'active' ? 'Receive or cancel this shipment in Purchases first. Then Complete transit pays the remaining crew and operating costs from Cash Register.' : 'Enter the trip costs, then choose Complete transit. Confirm once to save and pay all remaining costs from Cash Register and return the vehicle Home.'}</p>
+          {!transit.closed_at && outstanding > 0 && <p className="purchase-alert" role="status">{formatBDT(outstanding)} will be paid from Cash Register when you confirm completion.</p>}
           <section className="purchase-section"><h3>Operating costs</h3>
             <fieldset className="transit-cost-fields" disabled={locked || busy}>
               {(['driverCost', 'helperCost', 'oilCost', 'othersCost'] as const).map((key, index) =>
@@ -98,23 +107,31 @@ function TransitDetails({ onClose, transit }: { onClose: () => void; transit: Tr
             </fieldset>; })}
             <Pagination {...costPages} onChange={costPages.setPage} label="additional costs" />
           </section>
-          <section className="purchase-section"><h3>Transit earnings & payments</h3>{payroll.isPending && <p role="status">Loading earnings…</p>}{payroll.error && <p className="purchase-error" role="alert">Earnings unavailable. <button type="button" className="btn btn-secondary" onClick={() => void payroll.refetch()}>Retry</button></p>}{payroll.data && <><dl className="logistics-facts"><div><dt>Driver paid / remaining</dt><dd>{formatBDT(payroll.data.driver_paid)} / {formatBDT(Math.max(0, Number(transit.driver_cost)-payroll.data.driver_paid))}</dd></div><div><dt>Helper paid / remaining</dt><dd>{formatBDT(payroll.data.helper_paid)} / {formatBDT(Math.max(0, Number(transit.helper_cost)-payroll.data.helper_paid))}</dd></div></dl><TransitEmployeePayButton transit={transit} paid={payroll.data} disabled={dirty || busy} /></>}</section>
-          <OperatingPayments parent={{transit_id:transit.transit_id}} due={Math.max(0,remainingCost-transit.operating_paid)} locked={!!transit.closed_at||dirty||busy} clientDue={transit.purchase_id?undefined:Math.max(0,transit.transport_fee-transit.client_paid)} clientRefund={transit.purchase_id?0:transit.client_paid} clientReceipts={transit.status!=='cancelled'}/>
-          <dl className="transit-settlement"><div><dt>External transport revenue</dt><dd>{formatBDT(transit.revenue)}</dd></div><div><dt>{dirty ? 'Profit / loss after proposed costs' : 'Recorded transit profit / loss'}</dt><dd>{formatBDT(dirty ? transit.profit + Number(transit.total_cost) - total : transit.profit)}</dd></div><div><dt>Total operating cost</dt><dd>{formatBDT(total)}</dd></div><div><dt>Employee payments recorded</dt><dd>{payroll.data ? formatBDT(payroll.data.paid) : '…'}</dd></div><div><dt>Non-employee expenses incurred</dt><dd>{formatBDT(Math.max(0, total - draft.driverCost - draft.helperCost))}</dd></div>{!transit.purchase_id && <><div><dt>Client cash collected (net)</dt><dd>{formatBDT(transit.client_paid)}</dd></div><div><dt>{transit.status==='cancelled'?'Client refund outstanding':'Client receivable'}</dt><dd>{formatBDT(transit.status==='cancelled'?transit.client_paid:Math.max(0,transit.transport_fee-transit.client_paid))}</dd></div></>}</dl>
+          {paymentDenied && !transit.closed_at && <p className="purchase-error" role="alert">Completion needs Payroll payment permission for crew earnings and Logistics payment permission for other costs or client collections.</p>}
+          <details className="purchase-section"><summary>Payment history & adjustments</summary>
+            <OperatingPayments parent={{transit_id:transit.transit_id}} due={Math.max(0,remainingCost-transit.operating_paid)} locked={dirty||busy} automaticSettlement clientSettlementsOnly={!!transit.closed_at} clientDue={clientDue} clientRefund={transit.status==='cancelled'&&!transit.purchase_id?transit.client_paid:0} clientReceipts={!!transit.closed_at}/>
+          </details>
+          <dl className="transit-settlement"><div><dt>External transport revenue</dt><dd>{formatBDT(transit.revenue)}</dd></div><div><dt>{dirty ? 'Profit / loss after proposed costs' : 'Recorded transit profit / loss'}</dt><dd>{formatBDT(dirty ? transit.profit + Number(transit.total_cost) - total : transit.profit)}</dd></div><div><dt>Total operating cost</dt><dd>{formatBDT(total)}</dd></div><div><dt>Employee payments recorded</dt><dd>{formatBDT(Number(transit.driver_paid) + Number(transit.helper_paid))}</dd></div><div><dt>Non-employee expenses incurred</dt><dd>{formatBDT(Math.max(0, total - draft.driverCost - draft.helperCost))}</dd></div>{!transit.purchase_id && <><div><dt>Client cash collected (net)</dt><dd>{formatBDT(transit.client_paid)}</dd></div><div><dt>{transit.status==='cancelled'?'Client refund outstanding':'Client receivable'}</dt><dd>{formatBDT(transit.status==='cancelled'?transit.client_paid:Math.max(0,transit.transport_fee-transit.client_paid))}</dd></div></>}</dl>
         </div>
         <div className="modal-footer">
-          {!transit.closed_at && can('logistics:transits') && !transit.purchase_id && transit.status !== 'cancelled' && <button type="button" className="btn btn-secondary purchase-danger-action" disabled={busy || dirty} onClick={() => setConfirm('cancel')}>Cancel transit</button>}
+          {!transit.closed_at && can('logistics:transits') && !transit.purchase_id && transit.status !== 'cancelled' && <button type="button" className="btn btn-secondary purchase-danger-action" disabled={busy || dirty} onClick={() => review('cancel')}>Cancel transit</button>}
           <button type="button" className="btn btn-secondary" disabled={busy} onClick={onClose}>Close</button>
           {!locked && <button type="submit" className="btn btn-secondary" disabled={busy || !dirty}><Save size={15} /> Save changes</button>}
-          {!transit.closed_at && can('logistics:transits') && transit.status === 'active' && !transit.purchase_id && <button type="button" className="btn btn-secondary" disabled={busy || dirty} onClick={() => setConfirm('return')}>Return vehicle Home</button>}
-          {!transit.closed_at && can('logistics:transits') && !(transit.purchase_id && transit.status === 'active') && <button type="button" className="btn btn-primary" disabled={busy || dirty || !payroll.data || (outstanding > 0 || transit.status === 'cancelled' && transit.client_paid > 0)} onClick={() => setConfirm('complete')}>Complete transit</button>}
-          {dirty && <span className="purchase-hint">Save costs before continuing.</span>}
+          {!transit.closed_at && can('logistics:transits') && !(transit.purchase_id && transit.status === 'active') && <button type="button" className="btn btn-primary" disabled={busy || dirty && draftRevision !== transit.revision || paymentDenied || (transit.status === 'cancelled' && transit.client_paid > 0)} onClick={() => review('complete')}>Complete transit</button>}
+          {dirty && <span className="purchase-hint">Completion also saves your cost changes.</span>}
         </div>
       </form>
     </PurchaseDialog>
-    {saveReview && <PurchaseConfirmation title="Confirm transit changes" action="Save changes" busy={busy} onCancel={()=>setSaveReview(false)} onConfirm={()=>void save()}><p>Save operating costs totaling <strong>{formatBDT(total)}</strong>?</p><p>Driver earnings: {formatBDT(draft.driverCost)} · Helper earnings: {formatBDT(draft.helperCost)}. Saving records earnings due; payment is recorded separately.</p>{error && <p role="alert" className="purchase-error">{error}</p>}</PurchaseConfirmation>}
-    {confirm && <PurchaseConfirmation title={confirm === 'complete' ? 'Complete this transit?' : confirm === 'cancel' ? 'Cancel this transit?' : 'Return vehicle Home?'} action="Confirm" busy={busy} onCancel={() => setConfirm(null)} onConfirm={() => void act()}>
-      {confirm === 'complete' ? <p>All transit obligations are settled. Complete the transit and lock its costs and payments. Completion creates no wallet transaction.</p> : confirm === 'cancel' ? <p>Cancel earned revenue and release the vehicle. Record any actual client refund separately. Incurred earnings and operating costs remain payable.</p> : <p>Release the vehicle for its next journey. This transit remains open for earnings, payments and completion.</p>}
+    {saveReview && <PurchaseConfirmation title="Confirm transit changes" action="Save changes" busy={busy} onCancel={()=>setSaveReview(false)} onConfirm={()=>void save()}><p>Save operating costs totaling <strong>{formatBDT(total)}</strong>?</p><p>Driver earnings: {formatBDT(draft.driverCost)} · Helper earnings: {formatBDT(draft.helperCost)}. Complete transit pays these saved costs from Cash Register after confirmation.</p>{error && <p role="alert" className="purchase-error">{error}</p>}</PurchaseConfirmation>}
+    {confirm && <PurchaseConfirmation title={confirm === 'complete' ? 'Complete this transit?' : 'Cancel this transit?'} action={confirm === 'complete' ? 'Pay & complete transit' : 'Confirm cancellation'} busy={busy} confirmDisabled={confirmRevision !== transit.revision} onCancel={() => setConfirm(null)} onConfirm={() => void act()}>
+      {confirmRevision !== transit.revision && <p role="alert" className="purchase-error">This transit changed. Go back and review the latest amounts before confirming.</p>}
+      {confirm === 'complete' ? <>
+        <p>Pay <strong>{formatBDT(outstanding)}</strong> from <strong>Cash Register</strong> and complete this transit?</p>
+        <dl className="logistics-facts"><div><dt>Driver · {transit.driver_name || 'None'}</dt><dd>{formatBDT(driverDue)}</dd></div><div><dt>Helper · {transit.helper_name || 'None'}</dt><dd>{formatBDT(helperDue)}</dd></div><div><dt>Other operating costs</dt><dd>{formatBDT(expenseDue)}</dd></div></dl>
+        {clientDue > 0 && <p>Also confirm collection of the remaining client fee, <strong>{formatBDT(clientDue)}</strong>, into Cash Register. Net Cash Register change: <strong>{formatBDT(clientDue - outstanding)}</strong>.</p>}
+        <p>{transit.status === 'active' ? 'The vehicle returns Home and becomes available for its next journey. Costs and payments will be locked.' : 'The vehicle return stays as recorded. This transit’s costs and payments will be locked.'}</p>
+      </> : <p>Cancel earned revenue and release the vehicle. Record any actual client refund separately. Incurred earnings and operating costs remain payable.</p>}
     </PurchaseConfirmation>}
+
   </>;
 }

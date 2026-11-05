@@ -132,7 +132,7 @@ export const BalancesGrid = () => {
       {/* Toolbar */}
       <div className="inventory-catalog-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          Select a product for prices, commissions and weekly history.
+          Select a product for prices and weekly history.
         </p>
         <button
           className="btn btn-ghost"

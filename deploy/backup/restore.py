@@ -14,11 +14,16 @@ import time
 import urllib.request
 import urllib.error
 
-from core import ROOT, SECRETS, STATE, command, now, read, restic, write
+from core import ROOT, SECRETS, STATE, command, generation_id, now, read, restic, write
 from worker import tree_hashes
 
 
-def drill(snapshot, local_repo=None):
+def verify_generation(manifest, allow_previous_generation=False):
+    if manifest.get('generation', 'original') != generation_id() and not allow_previous_generation:
+        raise RuntimeError('This recovery point belongs to a previous business-data generation. Use an isolated recovery host and explicitly acknowledge --allow-previous-generation; never replace the current system with it.')
+
+
+def drill(snapshot, local_repo=None, allow_previous_generation=False):
     if not snapshot or not all(c in '0123456789abcdef' for c in snapshot) or len(snapshot) not in (8, 64):
         raise RuntimeError('A specific cloud snapshot ID is required.')
     # A fresh directory and new container/network identities are mandatory.
@@ -38,6 +43,7 @@ def drill(snapshot, local_repo=None):
             repository('restore', snapshot, '--target', str(work / 'download'), '--verify')
             captured = work / 'download' / str(STATE / 'capture').lstrip('/')
             manifest = read(captured / 'manifest.json')
+            verify_generation(manifest, allow_previous_generation)
             expected = read(captured / 'file-hashes.json')
             for name, hashes in expected.items():
                 if tree_hashes(captured / name) != hashes:
@@ -94,11 +100,21 @@ def drill(snapshot, local_repo=None):
                 'rls_tables', (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relrowsecurity),
                 'roles', (select count(*) from pg_roles),
                 'migrations', (select count(*) from supabase_migrations.schema_migrations),
+                'migration_fingerprint', (select md5(string_agg(version,',' order by version)) from supabase_migrations.schema_migrations),
                 'constraints', (select count(*) from pg_constraint where connamespace='public'::regnamespace),
                 'journal_imbalance', (select count(*) from (select journal_id from public.accounting_lines group by journal_id having abs(sum(amount))>0.001) x))"""
             result = json.loads(command(['docker', 'exec', db_name, 'psql', '-X', '-U', 'supabase_admin', '-d', 'postgres', '-At', '-v', 'ON_ERROR_STOP=1', '-c', sql]))
-            if not result['recovery_finished'] or not result['businesses'] or result['rls_tables'] < 10 or not result['migrations'] or result['journal_imbalance']:
+            if not result['recovery_finished'] or result['rls_tables'] < 10 or not result['migrations'] or result['journal_imbalance']:
                 raise RuntimeError('Isolated database recovery assertions failed.')
+            if manifest.get('admin_evidence'):
+                identity_sql = """select json_build_object('administrators',(select count(*) from app_private.platform_superadmins),
+                  'auth_identity',(select md5(coalesce(string_agg(concat_ws(':',u.id,u.email,u.encrypted_password,u.raw_app_meta_data::text,u.role,u.aud), '|' order by u.id),'')) from auth.users u join app_private.platform_superadmins a on a.user_id=u.id),
+                  'platform_authority',(select md5(coalesce(json_agg(to_jsonb(a) order by a.user_id)::text,'')) from app_private.platform_superadmins a),
+                  'bootstrap',(select md5(coalesce(json_agg(to_jsonb(b))::text,'')) from app_private.platform_bootstrap b))"""
+                restored_admin = json.loads(command(['docker', 'exec', db_name, 'psql', '-X', '-U', 'supabase_admin', '-d', 'postgres', '-At', '-v', 'ON_ERROR_STOP=1', '-c', identity_sql]))
+                if restored_admin != manifest['admin_evidence'] or restored_admin['administrators'] < 1:
+                    raise RuntimeError('Restored administrator identity, credentials or platform authority differ from capture.')
+                result['admin_identity_verified'] = True
             # Bring up restored Auth/REST/Storage inside the private network using saved secrets.
             for service in ['rest', 'auth', 'imgproxy', 'storage']:
                 spec = model['services'][service]
@@ -182,6 +198,7 @@ def drill(snapshot, local_repo=None):
                 files_verified += 1
             write(STATE / ('local-restore.json' if local_repo else 'restore.json'), {'verified_at': now().isoformat(), 'snapshot_id': snapshot,
                 'label': manifest['label'], 'database': result, 'files_verified': True,
+                'backend_source_sha256': manifest.get('source', {}).get('backend_sha256'),
                 'storage_downloads_verified': files_verified, 'burner_auth_and_rls': bool(acceptance),
                 'auth_health': True, 'storage_health': True, 'network': 'isolated; no public ports',
                 'limitation': 'Physical restore and internal service health; frontend cutover and external providers require operator acceptance.'})
@@ -196,5 +213,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--snapshot', required=True)
     parser.add_argument('--local-repo')
+    parser.add_argument('--allow-previous-generation', action='store_true')
     args = parser.parse_args()
-    drill(args.snapshot, args.local_repo)
+    drill(args.snapshot, args.local_repo, args.allow_previous_generation)

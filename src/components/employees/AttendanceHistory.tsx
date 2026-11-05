@@ -49,10 +49,10 @@ function AttendanceCorrectionForm({ employeeId, date, data, timezone, onClose, o
  const [baseline] = useState(data);
  const [clockIn, setClockIn] = useState(localAttendanceInput(baseline.day?.clock_in ?? null, timezone)); const [clockOut, setClockOut] = useState(localAttendanceInput(baseline.day?.clock_out ?? null, timezone));
  const start = localAttendanceInput(baseline.window.starts_at, timezone); const end = localAttendanceInput(baseline.window.ends_at, timezone); const latest = localAttendanceInput(baseline.window.latest_at, timezone);
- const validation = (clockIn && (clockIn < start || clockIn >= end || clockIn > latest)) || (clockOut && (clockOut < start || clockOut > end || clockOut > latest)) ? 'Choose times within this attendance day and not in the future.' : clockOut && (!clockIn || clockOut <= clockIn) ? 'Clock-out must be later than clock-in.' : '';
+ const validation = (clockIn && (clockIn < start || clockIn >= end || clockIn > latest)) || (clockOut && (clockOut < start || clockOut >= end || clockOut > latest)) ? 'Choose times within this attendance day and not in the future.' : clockOut && (!clockIn || clockOut <= clockIn) ? 'Clock-out must be later than clock-in.' : '';
  const [reason, setReason] = useState(''); const [confirmed, setConfirmed] = useState<AttendanceCorrection | null>(null); const operation = useAttendanceCorrection(onClose);
  return <>
-  <div className="attendance-day-window"><strong>Allowed attendance window</strong><span>{correctionTime(start)} → {correctionTime(end)}</span><small>Times in {timezone}. Future times are unavailable.</small></div>
+  <div className="attendance-day-window"><strong>Calendar-day time range</strong><span>{employeeDate(date)} · 12:00 AM–11:59 PM</span><small>Times in {timezone}. Future times are unavailable.</small></div>
   <dl className="employee-confirm-details"><div><dt>Current clock in</dt><dd>{correctionTime(localAttendanceInput(baseline.day?.clock_in ?? null, timezone))}</dd></div><div><dt>Current clock out</dt><dd>{correctionTime(localAttendanceInput(baseline.day?.clock_out ?? null, timezone))}</dd></div></dl>
   <form className="attendance-form" onSubmit={event => { event.preventDefault(); if (validation) return; setConfirmed({ employee_id: employeeId, day: date, clock_in: clockIn, clock_out: clockOut, reason: reason.trim(), revision: baseline.day?.revision ?? 0, request_id: crypto.randomUUID() }); }}>
    <fieldset className="employee-fields" disabled={operation.isPending || operation.hasPending}>

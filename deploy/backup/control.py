@@ -11,8 +11,9 @@ import socketserver
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
-from core import CALLBACK, FRONTEND, ROOT, SECRETS, STATE, Lock, command, event, next_run, now, read, write
+from core import CALLBACK, FRONTEND, ROOT, SECRETS, STATE, Lock, command, event, next_run, now, process_identity, read, write
 
 
 class Fault(Exception):
@@ -127,21 +128,67 @@ def status():
         connection['status'] = 'Configured · awaiting nightly validation'
     settings = read(STATE / 'settings.json', {'enabled': True})
     history = read(STATE / 'history.json', [])
-    latest = next((p for p in history if p.get('status') == 'verified'), None)
+    current_generation = read(STATE / 'generation.json', {}).get('id', 'original')
+    history = [{**point, 'previous_generation': point.get('generation', 'original') != current_generation} for point in history]
+    latest = next((p for p in history if p.get('status') == 'verified' and not p['previous_generation']), None)
     overdue = bool(latest and now().timestamp() - dt.datetime.fromisoformat(latest['captured_at']).timestamp() > 36 * 3600)
     job = read(STATE / 'job.json', {'status': 'idle'})
     # A killed process must not leave a permanent optimistic running indicator.
     if job.get('status') == 'running':
+        if not job.get('process_started') or process_identity(job.get('pid')) != job['process_started']:
+            job = {**job, 'status': 'interrupted', 'error': 'Backup worker ended before verification. Sealed data is preserved; retry the full backup.'}
+    if job.get('status') == 'queued' and now().timestamp() - dt.datetime.fromisoformat(job['started_at']).timestamp() > 30:
+        state = command(['systemctl', 'show', '--property=ActiveState', '--value', 'lpg-backup-manual.service']).strip()
+        if state not in ('active', 'activating', 'reloading'):
+            job = {**job, 'status': 'interrupted', 'error': 'The full-backup worker did not start. Retry the full backup.'}
+    if job.get('status') == 'interrupted':
         try:
-            os.kill(job.get('pid', -1), 0)
-        except (OSError, ValueError):
-            job = {**job, 'status': 'interrupted', 'error': 'Backup was interrupted. Sealed uploads will retry next night.'}
+            with Lock(ROOT / 'deploy/.deployment.lock'):
+                current = read(STATE / 'job.json', {})
+                if current.get('job_id') == job.get('job_id') and current.get('status') in ('queued', 'running'):
+                    job.update(failed_at=now().isoformat())
+                    write(STATE / 'job.json', job)
+                    jobs = [entry for entry in read(STATE / 'jobs.json', []) if entry.get('job_id') != job.get('job_id')]
+                    write(STATE / 'jobs.json', ([job] + jobs)[:400])
+        except BlockingIOError:
+            pass  # An active worker/deployer owns lifecycle state.
     return {'connection': connection, 'settings': settings, 'job': job, 'history': history[:400], 'overdue': overdue,
         'next_run': next_run(), 'queued': (STATE / 'queued.json').exists(),
         'recovery': read(STATE / 'restore.json'), 'usage': read(STATE / 'usage.json'),
         'credentials_installed': (SECRETS / 'google-client.json').exists(),
         'authorization_error': read(STATE / 'authorization-error.json'),
-        'key_exported': (STATE / 'key-exported.json').exists()}
+        'key_exported': (STATE / 'key-exported.json').exists(), 'jobs': read(STATE / 'jobs.json', [])[:400]}
+
+
+def start_full(body, actor):
+    if set(body) != {'request_id'}:
+        raise Fault('A full-backup request ID is required.')
+    try:
+        request_id = str(uuid.UUID(body['request_id']))
+    except (ValueError, TypeError, AttributeError):
+        raise Fault('Invalid full-backup request ID.')
+    previous = status()['job']
+    attempts = read(STATE / 'jobs.json', [])
+    if any(job.get('job_id') == request_id for job in [previous, *attempts]):
+        return {'ok': True, 'job_id': request_id, 'already_requested': True}
+    if not (SECRETS / 'rclone.conf').exists():
+        raise Fault('Connect Google Drive before creating a full backup.')
+    if previous.get('status') in ('queued', 'running'):
+        raise Fault('A backup is already queued or running. Follow its progress below.', 409)
+    with Lock(ROOT / 'deploy/.deployment.lock'):
+        requested = now().isoformat()
+        write(STATE / 'manual-request.json', {'request_id': request_id, 'actor': actor, 'requested_at': requested})
+        write(STATE / 'job.json', {'job_id': request_id, 'status': 'queued', 'mode': 'manual-full',
+              'phase': 'Preparing', 'requested_at': requested, 'started_at': requested, 'percent': None,
+              'detail': 'The server has accepted the full backup request.'})
+        try:
+            command(['systemctl', 'start', '--no-block', 'lpg-backup-manual.service'])
+        except Exception:
+            write(STATE / 'job.json', {'job_id': request_id, 'status': 'failed', 'phase': 'Failed',
+                  'started_at': requested, 'failed_at': now().isoformat(), 'error': 'The backup worker could not start. Retry or inspect its service health.'})
+            raise
+        event('manual_full_backup_requested', actor)
+    return {'ok': True, 'job_id': request_id}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -193,6 +240,8 @@ class Handler(BaseHTTPRequestHandler):
                 path = parsed.path
                 if path == '/backups/v1/status':
                     result = status()
+                elif path == '/backups/v1/full':
+                    result = start_full(body, actor)
                 elif path == '/backups/v1/connect':
                     result = start_connect(self.headers['Authorization'], actor)
                 elif path == '/backups/v1/disconnect':

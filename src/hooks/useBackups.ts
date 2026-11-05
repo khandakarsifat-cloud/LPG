@@ -14,11 +14,12 @@ async function backupRequest<T>(path: string, body: Record<string, unknown> = {}
   return result;
 }
 export function useBackups() {
-  return useQuery({ queryKey: ['platform-backups'], queryFn: () => backupRequest<BackupStatus>('status'), refetchInterval: 30_000 });
+  return useQuery({ queryKey: ['platform-backups'], queryFn: () => backupRequest<BackupStatus>('status'),
+    refetchInterval: query => ['queued', 'running'].includes(query.state.data?.job.status ?? '') ? 2_000 : 30_000 });
 }
 export function useBackupAction() {
   const cache = useQueryClient();
-  return useMutation({ mutationFn: ({ action, body }: { action: 'connect' | 'disconnect' | 'queue' | 'settings'; body?: Record<string, unknown> }) =>
+  return useMutation({ mutationFn: ({ action, body }: { action: 'connect' | 'disconnect' | 'queue' | 'settings' | 'full'; body?: Record<string, unknown> }) =>
     backupRequest<{ ok?: boolean; url?: string }>(action, body),
   onSuccess: () => cache.invalidateQueries({ queryKey: ['platform-backups'] }) });
 }

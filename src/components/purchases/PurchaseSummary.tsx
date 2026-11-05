@@ -8,7 +8,6 @@ import { formatBDT } from '../../lib/formatBDT';
 import { PurchaseFinancials, PurchaseStatuses } from './PurchaseControls';
 import type { Purchase } from '../../types/purchase';
 import { ProductImage } from '../inventory/ProductImage';
-import { PurchaseCommission } from './PurchaseCommission';
 
 export function PurchaseIdentity({ purchase }: { purchase: Purchase }) {
   return <section className="purchase-section"><PurchaseStatuses purchase={purchase} />
@@ -31,20 +30,18 @@ export function PurchaseIdentity({ purchase }: { purchase: Purchase }) {
 export function PurchaseSummary({ purchase, showNotes = true }: { purchase: Purchase; showNotes?: boolean }) {
   const paging = useListPage(purchase.items, 8, purchase.purchase_id);
   return <>
-    <PurchaseCommission purchase={purchase}/>
     <section className="purchase-section"><h3>Products & inventory</h3>
       {purchase.items.length ? <div className="purchase-table-wrap"><table className="purchase-summary-table">
-        <thead><tr><th scope="col">Product</th>{purchase.business_category !== 'stove' && <th scope="col">Empties sent</th>}<th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Billed</th><th scope="col">Unit price</th><th scope="col">Amount</th></tr></thead>
+        <thead><tr><th scope="col">Product</th>{purchase.business_category !== 'stove' && <th scope="col">Empties sent</th>}<th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Unit price</th><th scope="col">Amount</th></tr></thead>
         <tbody>{paging.entries.map(item => <tr key={item.purchase_item_id}>
-          <td><div className="product-with-image">{item.image_url && <ProductImage path={item.image_url} name={item.product_name || item.brand_name} />}<div>{item.product_name || `${item.brand_name} ${item.size_kg} kg ${item.mouth_size ?? ''}`}<small>{purchase.business_category === 'stove' ? 'Product' : item.type === 'refill' ? 'Refill' : 'New cylinders'}</small></div></div></td>
-          {purchase.business_category !== 'stove' && <td data-label="Empties sent">{item.empty_dispatched}</td>}<td data-label="Expected">{item.quantity}</td><td data-label="Received">{item.received_quantity ?? 'Pending'}</td><td data-label="Billed">{item.billed_quantity}</td>
-          <td data-label="Unit price">{formatBDT(Number(item.unit_price))}</td><td data-label="Amount">{formatBDT(Number(item.line_total))}</td>
+          <td><div className="product-with-image">{item.image_url && <ProductImage path={item.image_url} name={item.product_name || item.brand_name} />}<div>{item.product_name || `${item.brand_name} ${item.size_kg} kg ${item.mouth_size ?? ''}`}<small>{purchase.business_category === 'stove' ? 'Product' : `${item.quantity} Gas + ${item.bottle_quantity} Bottle`}</small></div></div></td>
+          {purchase.business_category !== 'stove' && <td data-label="Empties sent">{item.empty_dispatched}</td>}<td data-label="Expected">{item.quantity}</td><td data-label="Received">{purchase.status === 'received' ? item.quantity : 'Pending'}</td>
+          <td data-label="Unit price">{formatBDT(Number(item.unit_price))}{purchase.business_category !== 'stove' && <small>Bottle: {formatBDT(Number(item.bottle_unit_price))}</small>}</td><td data-label="Amount">{formatBDT(Number(item.line_total))}</td>
         </tr>)}</tbody>
       </table></div> : <p className="purchase-hint">Products have not been added.</p>}
       <Pagination {...paging} onChange={paging.setPage} label="purchase lines" />
       {purchase.receipt_notes && <p className="purchase-hint">Receipt notes: {purchase.receipt_notes}</p>}
-      {purchase.items.some(item => item.received_quantity !== null && item.received_quantity !== item.billed_quantity) &&
-        <p className="purchase-alert">Delivery quantities differ from the prepaid bill. Inventory reflects the actual delivery; the settled financial amount is unchanged.</p>}
+
     </section>
     <PurchaseFinancials draft={purchaseDraft(purchase)} totals={purchase} businessCategory={purchase.business_category} />
     {showNotes && purchase.notes && <section className="purchase-section"><h3>Notes</h3><p style={{ whiteSpace: 'pre-wrap', fontSize: '.875rem' }}>{purchase.notes}</p></section>}

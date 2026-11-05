@@ -12,6 +12,7 @@ export type MovementType =
 
 export type MouthSize = '20mm' | '22mm';
 export type PriceType = 'refill' | 'package';
+export type BuyingComponent = 'gas' | 'bottle';
 export type CustomerTier = 'retail' | 'wholesale';
 
 export interface ProductPrice {
@@ -30,16 +31,11 @@ export interface ProductWeek {
   sold_refill: number;
   sold_package: number;
   empty_return: number;
-  bought_package: number;
-  bought_refill: number;
+  bought_bottles: number;
+  bought_gas: number;
 }
 
-export interface MonthlyCommission {
- month: string; package_rate: number; refill_rate: number; source: 'manual' | 'inferred_partial'; revision: number;
- modified_at: string; modified_by: string | null; calculation: Record<string, unknown>;
-}
 export interface ProductInventory {
-  commission: MonthlyCommission | null;
   can_manage_prices: boolean;
   prices: ProductPrice[];
   buying_prices: BuyingPrice[];
@@ -48,10 +44,10 @@ export interface ProductInventory {
 }
 
 export interface BuyingPrice {
-  history_id: string; price_type: PriceType; new_price: number | null; previous_price: number | null;
-  automatic_price: number | null; is_manual: boolean; bottle_cost: number | null; overhead_per_unit: number | null;
-  commission_per_unit: number | null; commission_month: string | null; commission_revision: number | null; purchase_id: string | null; source: string; reason: string; effective_at: string;
-  actor?: string; reconstructed: boolean;
+  history_id: string; price_type: BuyingComponent; new_price: number | null; previous_price: number | null;
+  automatic_price: number | null; is_manual: boolean; invoice_unit_price: number | null; overhead_per_unit: number | null;
+  purchase_id: string | null; source: string; reason: string; effective_at: string;
+  actor?: string;
 }
 
 

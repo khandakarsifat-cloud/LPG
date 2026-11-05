@@ -17,7 +17,7 @@ declare t uuid;who uuid:=auth.uid();email text;begin
  insert into public.user_profiles(user_id,tenant_id,email,full_name) values(who,t,email,owner_name);
  insert into public.roles(tenant_id,name) values(t,'OWNER'),(t,'MANAGER'),(t,'SALESMAN');
  insert into public.role_permissions(tenant_id,role_id,permission_id) select t,r.role_id,p.permission_id from public.roles r cross join public.permissions p
- where r.tenant_id=t and (r.name='OWNER' or r.name='MANAGER' and not p.owner_only or r.name='SALESMAN' and p.permission_id in ('dashboard:view','pos:sell','sales:view','receipts:print','preferences:manage'));
+ where r.tenant_id=t and (r.name='OWNER' or r.name='MANAGER' and not p.owner_only or r.name='SALESMAN' and p.permission_id in ('dashboard:view','pos:sell','sales:view','receipts:print','preferences:manage','wallets:use'));
  insert into public.user_roles(tenant_id,user_id,role_id) select t,who,role_id from public.roles where tenant_id=t and name='OWNER';
  return jsonb_build_object('tenant_id',t,'user_id',who,'role','OWNER');
 end $$;

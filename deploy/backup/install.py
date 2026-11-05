@@ -4,7 +4,7 @@ from pathlib import Path
 import secrets
 import shutil
 
-from core import ROOT, SECRETS, STATE, command, pg, write
+from core import ROOT, SECRETS, STATE, command, pg, read, write
 
 
 def configure():
@@ -89,6 +89,11 @@ Unit=lpg-backup.service
 [Install]
 WantedBy=timers.target
 '''}
+    units['lpg-backup-manual.service'] = units['lpg-backup.service'].replace(
+        'Description=LPG encrypted whole-system Google Drive recovery point',
+        'Description=LPG administrator-requested immediate full backup').replace(
+        'ExecStart=/usr/bin/python3 -B /opt/lpg/deploy/backup.py',
+        'ExecStart=/usr/bin/python3 -B /opt/lpg/deploy/backup/worker.py --manual-full')
     changed = False
     for name, value in units.items():
         path = Path('/etc/systemd/system') / name
@@ -100,7 +105,7 @@ WantedBy=timers.target
         command(['systemctl', 'daemon-reload'])
     command(['systemctl', 'enable', 'lpg-backup-control.service', 'lpg-backup.timer'])
     command(['systemctl', 'restart', 'lpg-backup-control.service'])
-    command(['systemctl', 'restart', 'lpg-backup.timer'])
+    command(['systemctl', 'stop' if read(STATE / 'core-baseline.json', {}).get('active') else 'restart', 'lpg-backup.timer'])
 
 
 if __name__ == '__main__':

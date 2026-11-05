@@ -26,7 +26,7 @@ export function useAttendanceOperation() {
  const cache = useQueryClient();
  return useMutation({ mutationFn: async (operation: AttendanceOperation) => {
   const response = operation.action === 'settings'
-   ? await supabase.rpc('save_attendance_configuration', { p_timezone: operation.timezone, p_day_end: operation.day_end, p_clock_out_cutoff: operation.clock_out_cutoff })
+   ? await supabase.rpc('save_attendance_configuration', { p_timezone: operation.timezone, p_clock_out_cutoff: operation.clock_out_cutoff })
    : await supabase.rpc('save_attendance_device', { p_device_id: operation.device_id, p_serial: operation.serial, p_name: operation.name, p_action: operation.operation });
   if (response.error) throw new Error(response.error.message);
   return response.data;

@@ -50,5 +50,4 @@ deploy/backup/__pycache__/
 supabase/docker/volumes/storage/
 supabase/docker/volumes/db/data/
 
-
 LPG-System-Recovery

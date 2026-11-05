@@ -50,13 +50,13 @@ The catalog includes module/view permissions and action capabilities:
 | Area | Delegable actions | Additional protected actions |
 | --- | --- | --- |
 | Sales | POS checkout, saved sales/receipts, bottle collection, money collection | Cancellation and customer refunds require OWNER |
-| Inventory | Product registration, product/photo edits, stock alerts | Selling/buying prices, monthly commissions and valued stock adjustments require OWNER |
-| Purchases | Create, edit, dispatch, receive, payments, supplier refunds | Cancellation and commission corrections require OWNER |
+| Inventory | Product registration, product/photo edits, stock alerts | Selling/buying prices and valued stock adjustments require OWNER; product commission rates are removed |
+| Purchases | Create, edit, dispatch, receive, payments, supplier refunds | Cancellation and manual company rebate entry/corrections require OWNER; rebate settlement also requires purchase edit/manage/pay capabilities |
 | Customers | View, create, edit; POS includes checkout customer creation | All operations stay within trusted membership |
 | Logistics | Vehicle edits, transits, incurred costs, operating payments, service trips | Vehicle acquisition accounting, retirement and availability retain OWNER checks |
 | Employees | Create/edit profiles and dated terms; device links/attendance corrections | Job titles never affect application permissions |
 | Payroll | Read balances/history, pay, return/correct payments | Linked transit payments also require Logistics management |
-| Finance | View ledger/registers, financial entries and returns, wallet configuration/transfers | Loans, assets, capital, opening positions and balance corrections require OWNER |
+| Finance | Separate history, own/all entries, stock/FIFO, accounting activity and loan read scopes; entry creation/returns and wallet configuration/transfers | Loans, assets, capital, opening positions and balance corrections require OWNER |
 | Reports | Financial Analysis, breakdowns and reports | Requires Finance view |
 | Settings | Business profile, catalogs, financial types, brands, plants and printers | Configuration changes never rewrite historical accounting recognition |
 | Access | None for staff | Account creation, status, roles, permissions and resets require OWNER or superadmin |
@@ -231,3 +231,9 @@ Physical Android behavior,
 physical printing and payment-provider settlement are separate checks. The
 application remains in development under `AGENTS.md`; this account system does
 not certify the rest of the infrastructure for production.
+
+## Per-wallet access
+
+`app_private.user_wallet_access` stores tenant/user/wallet overrides for Use, Balance and History. `wallets:use`, `wallets:balances` and `wallets:ledger` supply defaults where no override exists. `manage_business_user` saves capabilities, account status and optional wallet overrides atomically under the existing revision lock and access audit. An empty override array restores defaults. Foreign-tenant wallet IDs, duplicates and malformed scope flags are rejected. New SALESMAN accounts can use wallets for authorized operations without seeing their balances; MANAGER defaults retain delegable read/action capabilities. OWNER remains unrestricted.
+
+The canonical wallet posting trigger enforces Use, including automatic Cash Register operations and both transfer legs. `get_payment_wallets` and trip selectors return only usable wallets. Browser SELECT on raw wallets/transactions is revoked; `get_finance_wallets` and `get_wallet_ledger` enforce visibility server-side and redact hidden balance fields. General Finance access is only workspace access. `finance:entries:view` reads own records; `finance:entries:all` permits other staff records; returns require read scope and the separate return action. `finance:loans` gates the loan register/history. Analysis, accounting activity and audit capabilities are ineffective unless every wallet balance is visible, preventing aggregate and audit-snapshot disclosure. The access-context revision invalidates cached data even when the capability list itself stays unchanged.

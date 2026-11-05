@@ -14,7 +14,7 @@ export function AttendanceSettings() {
  return <section className="settings-section attendance-settings" aria-label="Attendance settings">
   <header className="settings-section-heading"><div><h2>Attendance</h2><p>Workday rules and connected devices. Attendance does not change salary or payroll.</p></div></header>
   {query.isPending && <p role="status">Loading attendance settings…</p>}{query.isError && <p role="alert" className="purchase-error">Settings unavailable. <button className="btn btn-secondary" onClick={() => void query.refetch()}>Retry</button></p>}
-  {query.data && <><AttendanceRules key={query.data.timezone + query.data.next_cutoff + query.data.next_clock_out_cutoff} config={query.data} />
+  {query.data && <><AttendanceRules key={query.data.timezone + query.data.next_clock_out_cutoff} config={query.data} />
    <div className="settings-card"><div className="settings-section-heading"><div><h3>Attendance devices</h3><p>Devices connect directly over HTTPS ADMS. No fixed public IP is needed.</p></div><button className="btn btn-secondary" onClick={() => setRegister(true)}><Plus size={14} />Register device</button></div>
     <div className="attendance-device-list">{query.data.devices.map(device => <DeviceCard key={device.device_id} device={device} />)}</div>
     {!query.data.devices.length && <p className="employee-empty">Register your first attendance device to get started.</p>}
@@ -25,16 +25,15 @@ export function AttendanceSettings() {
 }
 
 function AttendanceRules({ config }: { config: AttendanceConfiguration }) {
- const [zone, setZone] = useState(config.timezone); const [cutoff, setCutoff] = useState(config.next_cutoff.slice(0, 5)); const [departure, setDeparture] = useState(config.next_clock_out_cutoff.slice(0, 5)); const operation = useAttendanceOperation();
- return <form className="settings-card attendance-rules" onSubmit={event => { event.preventDefault(); operation.mutate({ action: 'settings', timezone: zone, day_end: cutoff, clock_out_cutoff: departure }); }}>
+ const [zone, setZone] = useState(config.timezone); const [departure, setDeparture] = useState(config.next_clock_out_cutoff.slice(0, 5)); const operation = useAttendanceOperation();
+ return <form className="settings-card attendance-rules" onSubmit={event => { event.preventDefault(); operation.mutate({ action: 'settings', timezone: zone, clock_out_cutoff: departure }); }}>
   <div className="settings-section-heading"><div><h3>Workday rules</h3><p>Use the same local clock on your terminal.</p></div></div>
   <fieldset className="employee-fields attendance-rules-fields" disabled={operation.isPending}><TimezoneSelect value={zone} onChange={setZone} />
-   <div className="attendance-cutoff-field"><label className="input-group"><span className="input-label">End of attendance day</span><input className="input-field" required type="time" value={cutoff} onChange={event => setCutoff(event.target.value)} /></label><p className="employee-hint">One attendance day ends and the next starts at this time. Use midnight for calendar days, or a later boundary for overnight shifts.</p>
-   <label className="input-group"><span className="input-label">Clock-out cutoff</span><input className="input-field" required type="time" value={departure} onChange={event => setDeparture(event.target.value)} /></label><p className="employee-hint">Before this time: keep the earliest clock-in. At or after it: keep the latest clock-out. Extra punches update the same daily record. Missing punches stay missing.</p>
-   <p className="employee-hint">Current day boundary: {config.cutoff.slice(0, 5)} · Clock-out cutoff: {config.clock_out_cutoff.slice(0, 5)}. Saved changes start with the next attendance day; earlier days keep their rules.</p>
-   {cutoff === departure && <p className="purchase-error" role="alert">Choose different times so the day has both a clock-in and a clock-out period.</p>}</div>
+   <div className="attendance-cutoff-field"><label className="input-group"><span className="input-label">Clock-out cutoff</span><input className="input-field" required type="time" min="00:01" max="23:59" value={departure} onChange={event => setDeparture(event.target.value)} /></label><p className="employee-hint">Before this time: keep the earliest clock-in. At or after it: keep the latest clock-out. Extra punches update the same daily record. Missing punches stay missing.</p>
+   <p className="employee-hint">Attendance follows calendar dates, from 12:00 AM to the next midnight in your business timezone. There is no adjustable day boundary.</p>
+   <p className="employee-hint">Current clock-out cutoff: {config.clock_out_cutoff.slice(0, 5)}. Saved changes start tomorrow; earlier dates keep their cutoff.</p></div>
   </fieldset>
-  <div className="settings-save-row"><button className="btn btn-primary" disabled={operation.isPending || cutoff === departure || (zone === config.timezone && cutoff === config.next_cutoff.slice(0, 5) && departure === config.next_clock_out_cutoff.slice(0, 5))}>{operation.isPending ? 'Saving…' : 'Save attendance rules'}</button>{operation.isSuccess && <span role="status">Attendance rules saved.</span>}</div>
+  <div className="settings-save-row"><button className="btn btn-primary" disabled={operation.isPending || !departure || departure === '00:00' || (zone === config.timezone && departure === config.next_clock_out_cutoff.slice(0, 5))}>{operation.isPending ? 'Saving…' : 'Save attendance rules'}</button>{operation.isSuccess && <span role="status">Attendance rules saved.</span>}</div>
   {operation.isError && <p className="purchase-error" role="alert">{operation.error.message}</p>}
  </form>;
 }

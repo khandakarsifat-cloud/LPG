@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useJournalEntries, useJournalLines } from '../../hooks/useAccounting';
 import type { JournalEntry, JournalFilters } from '../../types/accounting';
+import { businessNames, type BusinessLine } from '../../types/financial';
 import { formatBDT } from '../../lib/formatBDT';
 import { Pagination } from '../ui/Pagination';
+import './accounting-activity.css';
 
 export function JournalAudit({ filters, accounts }: { filters: JournalFilters; accounts: { account: string; name: string }[] }) {
   const [page, setPage] = useState(0); const [search, setSearch] = useState(''); const [source, setSource] = useState(''); const [account, setAccount] = useState('');
@@ -21,5 +23,5 @@ function JournalCard({ entry, filters }: { entry: JournalEntry; filters: Journal
 }
 export function JournalLines({ filters, id }: { filters: JournalFilters; id: string }) {
   const [page, setPage] = useState(0); const q = useJournalLines(filters, id, page);
-  return <>{q.isPending && <p role="status">Loading entry lines…</p>}{q.error && <p className="payment-error" role="alert">{q.error.message}</p>}{q.data && <><div className="accounting-table-wrap" aria-busy={q.isFetching}><table><thead><tr><th>Account / related record</th><th>Activity</th><th>Debit</th><th>Credit</th></tr></thead><tbody>{q.data.entries.map(l => <tr key={l.line_no}><td><strong>{l.account}</strong>{l.entity_name !== l.account && <small>{l.entity_name}</small>}</td><td>{l.type_name}<small>{l.business_category}</small>{l.consolidated_amount !== l.amount && <small>Consolidated {formatBDT(l.consolidated_amount)}</small>}</td><td>{l.amount > 0 ? formatBDT(l.amount) : '—'}</td><td>{l.amount < 0 ? formatBDT(-l.amount) : '—'}</td></tr>)}</tbody></table></div><Pagination page={page} pageSize={25} total={q.data.total} onChange={setPage} busy={q.isFetching} label="entry lines" alwaysVisible /></>}</>;
+  return <>{q.isPending && <p role="status">Loading entry lines…</p>}{q.error && <p className="payment-error" role="alert">{q.error.message}</p>}{q.data && <><div className="accounting-table-wrap" aria-busy={q.isFetching}><table className="journal-lines-table"><thead><tr><th>Account / related record</th><th>Activity</th><th>Debit</th><th>Credit</th></tr></thead><tbody>{q.data.entries.map(l => <tr key={l.line_no}><td><strong>{l.account}</strong>{l.entity_name !== l.account && <small>{l.entity_name}</small>}</td><td>{l.type_name}<small>{businessNames[l.business_category as BusinessLine] ?? l.business_category}</small></td><td data-label="Debit" className={`journal-line-amount ${l.amount>0?'':'journal-line-zero'}`}>{l.amount > 0 ? formatBDT(l.amount) : '—'}</td><td data-label="Credit" className={`journal-line-amount ${l.amount<0?'':'journal-line-zero'}`}>{l.amount < 0 ? formatBDT(-l.amount) : '—'}</td></tr>)}</tbody></table></div><Pagination page={page} pageSize={25} total={q.data.total} onChange={setPage} busy={q.isFetching} label="entry lines" alwaysVisible /></>}</>;
 }

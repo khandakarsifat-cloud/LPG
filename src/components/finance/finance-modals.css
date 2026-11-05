@@ -50,3 +50,7 @@
 .financial-return-wallet-date { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; align-items: end; }
 .financial-return-wallet-date > .input-group { min-width: 0; }
 @media(max-width:420px) { .financial-return-wallet-date { grid-template-columns: minmax(0,1fr); } }
+
+.finance-filter-dates { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.finance-filter-grid > *, .finance-filter-dates > * { min-width: 0; }
+@media (max-width: 540px) { .finance-filter-dates { grid-template-columns: 1fr; } }

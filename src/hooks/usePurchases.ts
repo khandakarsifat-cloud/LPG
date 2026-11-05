@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBatchedDirectory } from './useBatchedDirectory';
 import { supabase } from '../lib/supabase';
@@ -79,15 +80,15 @@ function usePurchaseMutation<T>(mutationFn: (payload: T) => Promise<unknown>) {
     mutationFn,
     onError: async () => {
       await Promise.all([
-        qc.invalidateQueries({ queryKey: purchaseKeys.all }),
-        qc.invalidateQueries({ queryKey: ['inventory'] }),
-        qc.invalidateQueries({ queryKey: ['logistics'] }), qc.invalidateQueries({ queryKey: ['finance'] }),
+        invalidateFreshQueries(qc, { queryKey: purchaseKeys.all }),
+        invalidateFreshQueries(qc, { queryKey: ['inventory'] }),
+        invalidateFreshQueries(qc, { queryKey: ['logistics'] }), invalidateFreshQueries(qc, { queryKey: ['finance'] }),
       ]);
     },
     onSuccess: async () => {
       await Promise.all([
-        qc.invalidateQueries({ queryKey: purchaseKeys.all }), qc.invalidateQueries({ queryKey: ['inventory'] }),
-        qc.invalidateQueries({ queryKey: ['logistics'] }), qc.invalidateQueries({ queryKey: ['finance'] }), qc.invalidateQueries({ queryKey: ['dashboard'] }),
+        invalidateFreshQueries(qc, { queryKey: purchaseKeys.all }), invalidateFreshQueries(qc, { queryKey: ['inventory'] }),
+        invalidateFreshQueries(qc, { queryKey: ['logistics'] }), invalidateFreshQueries(qc, { queryKey: ['finance'] }), invalidateFreshQueries(qc, { queryKey: ['dashboard'] }),
       ]);
     },
   });
@@ -134,11 +135,11 @@ export const useUpdatePurchase = () => usePurchaseMutation((payload: {
   p_purchase_id: payload.purchase_id, p_revision: payload.revision, p_payload: payload.draft,
 }));
 
-type Transition = { purchase_id: string; revision: number; received_on?: string; commission_month?: string };
+type Transition = { purchase_id: string; revision: number; received_on?: string };
 export const useDispatchPurchase = () => usePurchaseMutation((payload: Transition) =>
   purchaseRpc('dispatch_purchase', { p_purchase_id: payload.purchase_id, p_revision: payload.revision }));
 export const useReceivePurchase = () => usePurchaseMutation((payload: Transition) =>
-  purchaseRpc('receive_purchase', { p_purchase_id: payload.purchase_id, p_revision: payload.revision, p_received_on: payload.received_on ?? null, p_commission_month: payload.commission_month ? `${payload.commission_month}-01` : null }));
+  purchaseRpc('receive_purchase', { p_purchase_id: payload.purchase_id, p_revision: payload.revision, p_received_on: payload.received_on ?? null }));
 
 export const usePurchaseSettlement = (id: string, page = 0) => useQuery<PurchaseSettlement>({
   queryKey: [...purchaseKeys.detail(id), 'settlement', page], refetchInterval: 30_000,
@@ -151,6 +152,7 @@ export const usePurchaseSettlement = (id: string, page = 0) => useQuery<Purchase
 
 type PurchaseOperation = { action: 'payment'; purchase_id: string; payments: PaymentInput[] }
   | { action: 'refund'; purchase_id: string; obligation_id: string; payments: PaymentInput[] }
+  | { action: 'rebate'; purchase_id: string; revision: number; amount: number; notes: string }
   | { action: 'cancel'; purchase_id: string; revision: number; confirmation: string };
 
 /** Retain the original request across response loss, dialog closure and reload. */
@@ -162,8 +164,10 @@ export function usePurchaseOperation() {
     if (!profile || !user) throw new Error('Sign in before recording a purchase transaction.');
     const request = prepareRequest(key, operation); setHasPending(true);
     const body = request.body;
-    const name = body.action === 'payment' ? 'record_purchase_payment' : body.action === 'refund' ? 'refund_purchase' : 'initiate_purchase_cancellation';
-    const parameters = body.action === 'cancel'
+    const name = body.action === 'rebate' ? 'set_purchase_rebate' : body.action === 'payment' ? 'record_purchase_payment' : body.action === 'refund' ? 'refund_purchase' : 'initiate_purchase_cancellation';
+    const parameters = body.action === 'rebate'
+      ? { p_purchase_id: body.purchase_id, p_payload: { amount: body.amount, revision: body.revision, notes: body.notes }, p_request_id: request.id }
+      : body.action === 'cancel'
       ? { p_purchase_id: body.purchase_id, p_revision: body.revision, p_confirmation: body.confirmation, p_request_id: request.id }
       : { p_purchase_id: body.purchase_id, p_payments: body.payments, p_request_id: request.id, ...(body.action === 'refund' ? { p_obligation_id: body.obligation_id } : {}) };
     const { data, error } = await supabase.rpc(name, parameters);

@@ -8,15 +8,14 @@ const amount = (value: unknown): string | null =>
     ? formatBDT(Number(value)) : null;
 
 const titles: Record<string, string> = {
+  rebate_settled: 'Company rebate settled',
   created: 'Purchase created', updated: 'Purchase updated', dispatched: 'Vehicle dispatched',
   received: 'Shipment received', paid: 'Full payment recorded', logistics_updated: 'Operating costs updated',
-  legacy_import: 'Historical purchase retained', cancelled: 'Purchase cancelled', transit_closed: 'Transit completed',
-  transport_funded: 'Transport funding adjusted', payment_recorded: 'Purchase payment recorded',
+  cancelled: 'Purchase cancelled', transit_closed: 'Transit completed',
+  payment_recorded: 'Purchase payment recorded',
   cancellation_confirmed: 'Owner confirmed cancellation', cancellation_initiated: 'Cancellation initiated',
   refund_recorded: 'Refund / funding reversal recorded', refund_completed: 'Refunds completed', financially_closed: 'Purchase financially closed',
   wallet_entry: 'Wallet transaction',
-  commission_corrected: 'Supplier commission corrected',
-  archived_accounting_evidence: 'Archived accounting evidence',
 };
 
 /** Describe recorded evidence only; current purchase values are used for labels, never historical amounts. */
@@ -26,16 +25,13 @@ export function describePurchaseActivity(activity: PurchaseActivity, purchase: P
   const changes: string[] = [];
   const totals: string[] = [];
   const snapshots: string[] = [];
-  if (activity.action === 'commission_corrected') {
-    changes.push(`Deduction: ${amount(details.previous_amount)} → ${amount(details.amount)}`);
-    if (typeof details.month === 'string') changes.push(`Earned month: ${details.month.slice(0,7)}`);
-    if (typeof details.reason === 'string') changes.push(details.reason);
-  }
   const moneyFields = [
-    ['commission', 'Commission'], ['transport_cost', 'Transport'], ['labour_cost', 'Labour'],
+    ['rebate_amount', 'Commission rebate'], ['transport_cost', 'Transport'], ['labour_cost', 'Labour'],
     ['subtotal', 'Product subtotal'], ['company_payable', 'Company payable'], ['total_cost', 'Total cost'],
   ];
-  if (activity.action === 'updated') {
+  if (activity.action === 'rebate_settled') {
+    for (const [key, label] of [['rebate_amount', 'Rebate applied'], ['rebate_income', 'New rebate income'], ['company_credit_change', 'Company credit change']]) { const value = amount(details[key]); if (value !== null) changes.push(`${label}: ${value}`); }
+  } else if (activity.action === 'updated') {
     for (const [key, label] of moneyFields) {
       if (amount(before[key]) !== null && amount(after[key]) !== null && Number(before[key]) !== Number(after[key]))
         (['subtotal', 'company_payable', 'total_cost'].includes(key) ? totals : changes).push(`${label}: ${amount(before[key])} → ${amount(after[key])}`);
@@ -51,13 +47,13 @@ export function describePurchaseActivity(activity: PurchaseActivity, purchase: P
     const items = Array.isArray(details.items) ? details.items.map(record) : null;
     const label = (item: Record<string, unknown>) => {
       const product = purchase.items.find(line => line.item_id === item.item_id);
-      return `${product ? `${product.brand_name} ${product.size_kg} kg${product.mouth_size ? ` ${product.mouth_size}` : ''}` : 'Product'} ${item.type === 'refill' ? 'refill' : 'new cylinders'}`;
+      return `${product ? `${product.brand_name} ${product.size_kg} kg${product.mouth_size ? ` ${product.mouth_size}` : ''}` : 'Product'} Gas + Bottle`;
     };
     if (items) {
       for (const item of items) {
         snapshots.push(`${label(item)}: ${item.quantity} × ${amount(item.unit_price) ?? 'price not recorded'}`);
         if (Array.isArray(oldItems)) {
-          const old = oldItems.map(record).find(line => line.item_id === item.item_id && line.type === item.type);
+          const old = oldItems.map(record).find(line => line.item_id === item.item_id);
           if (!old) changes.push(`Added ${label(item)}: ${item.quantity} × ${amount(item.unit_price) ?? 'price not recorded'}`);
           else {
             if (Number(old.quantity) !== Number(item.quantity)) changes.push(`${label(item)} quantity: ${old.quantity} → ${item.quantity}`);
@@ -67,7 +63,7 @@ export function describePurchaseActivity(activity: PurchaseActivity, purchase: P
         }
       }
       if (Array.isArray(oldItems)) for (const old of oldItems.map(record)) {
-        if (!items.some(item => item.item_id === old.item_id && item.type === old.type)) changes.push(`Removed ${label(old)} (${old.quantity})`);
+        if (!items.some(item => item.item_id === old.item_id)) changes.push(`Removed ${label(old)} (${old.quantity})`);
       }
     }
     changes.push(...totals);
@@ -75,19 +71,10 @@ export function describePurchaseActivity(activity: PurchaseActivity, purchase: P
       ? 'Purchase saved. Product quantities and prices are recorded below; earlier product values were not captured in this entry.'
       : 'Purchase saved; no recorded field changes.');
   } else {
-    if (activity.action === 'archived_accounting_evidence') {
-      const original = record(details.original);
-      changes.push(String(details.reason ?? 'Original accounting evidence retained'));
-      changes.push(`${String(original.wallet_name_snapshot ?? 'Original wallet')} · ${amount(original.amount) ?? 'Unknown amount'} · ${String(original.type ?? 'Historical entry')}`);
-      if (original.description) changes.push(String(original.description));
-      if (original.transaction_id) changes.push(`Original ledger: ${String(original.transaction_id)}`);
-      if (original.balance_after !== undefined) changes.push(`Original recorded balance: ${amount(original.balance_after)}`);
-    }
     if (!activity.wallet_entries?.length && Array.isArray(details.payments)) for (const value of details.payments) {
       const payment = record(value);
       changes.push(`${String(payment.wallet_name ?? 'Wallet')} · ${String(payment.component ?? 'payment')}: ${amount(payment.amount) ?? 'Unknown amount'}${payment.reference ? ` · Ref: ${String(payment.reference)}` : ''}`);
       if (payment.payment_id) changes.push(`Payment reference: ${String(payment.payment_id)}`);
-      if (Number(payment.logistics_reversal) > 0) changes.push(`Logistics funding reversed: ${amount(payment.logistics_reversal)}; vehicle expenses retained.`);
     }
     for (const [key, label] of [['paid_amount', 'Total paid'], ['due', 'Outstanding'], ['refunded', 'Refund / reversal'], ['refund_due', 'Refund remaining'], ['amount', 'Amount']]) {
       const value = amount(details[key]); if (value !== null) changes.push(`${label}: ${value}`);
@@ -103,7 +90,7 @@ export function describePurchaseActivity(activity: PurchaseActivity, purchase: P
     if (activity.action === 'received' && !details.notes) changes.push('Shipment received into inventory.');
     if (activity.action === 'cancelled' && typeof details.previous_status === 'string')
       changes.push(`Cancelled from ${details.previous_status.replaceAll('_', ' ')}.`);
-    for (const [key, label] of [['company_payable', 'Company payment'], ['transport_cost', 'Transport'], ['labour_cost', 'Labour'],
+    for (const [key, label] of [['company_payable', 'Company payment'], ['rebate_amount', 'Commission rebate'], ['transport_cost', 'Transport'], ['labour_cost', 'Labour'],
       ['total_cost', 'Settled total'], ['transport_fee', 'Transport fee'], ['operating_cost', 'Operating costs']]) {
       const value = amount(details[key]);
       if (value !== null) changes.push(`${label}: ${value}`);

@@ -10,7 +10,7 @@ if __name__ == '__main__':
     os.umask(0o077)
     try:
         if len(sys.argv) != 1:
-            raise RuntimeError('Nightly backups use lpg-backup.timer. Queue manual requests in Superadmin > Backups.')
+            raise RuntimeError('Nightly backups use lpg-backup.timer. Start immediate full backups in Superadmin > Backups.')
         nightly()
     except Exception as error:
         print(str(error), file=sys.stderr)

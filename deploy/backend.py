@@ -10,12 +10,14 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 import urllib.error
 
 SERVICES = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'studio', 'api-gw', 'attendance-receiver', 'account-service', 'caddy']
 CORE_SERVICES = set(SERVICES) - {'studio', 'meta', 'attendance-receiver', 'account-service'}
 EXCLUDED = ['frontend', 'functions', 'supavisor', 'mailpit']
+ACCOUNTING_CUTOVER = '20261105020000'
 
 
 def require(condition, message):
@@ -29,6 +31,59 @@ def run(args, label, *, data=None, output=None, stdin=None):
     # Raw Compose/SQL output can contain credentials or user data. Never print it.
     require(result.returncode == 0, f'{label} failed (exit {result.returncode}); inspect privately on the VPS.')
     return result.stdout.decode() if output is None else ''
+
+
+def apply_migration_batch(psql, sql, pending, compose, current, backup):
+    """Quiesce the reviewed posting cutover; other forward migrations are unchanged.
+
+    The caller already holds the deployment/backup lock and verified all services.
+    Keep recovery intent beside the fresh dump; always restore prior cron/runtime
+    intent if SQL fails. A process/host interruption needs that recorded recovery.
+    """
+    if ACCOUNTING_CUTOVER not in {version for version, _ in pending}:
+        run(psql + ['--single-transaction', '-f', '-'], 'Approved migrations (entire batch is transactional)', data=sql.encode())
+        return
+    writers = [name for name in ['rest', 'account-service', 'attendance-receiver'] if name in current]
+    jobs = json.loads(run(psql + ['-c', "select coalesce(json_agg(json_build_object('id',jobid,'active',active)),'[]') from cron.job"], 'Capture scheduler intent'))
+    intent = backup / 'accounting-cutover.json'
+    intent.write_text(json.dumps({'services': writers, 'cron': jobs, 'phase': 'pausing'}, indent=2))
+    intent.chmod(0o600)
+    print('Pausing transaction writers for the reviewed accounting cutover.', flush=True)
+    try:
+        for job in jobs:
+            if job['active']:
+                run(psql + ['-c', f"select cron.alter_job({int(job['id'])},active=>false)"], 'Pause scheduled database writer')
+        run(compose + ['stop', '--timeout', '30', *writers], 'Drain application transaction writers')
+        for _ in range(30):
+            active = int(run(psql + ['-c', "select (select count(*) from pg_stat_activity a where a.datname=current_database() and a.pid<>pg_backend_pid() and ((a.usename='authenticator' and a.backend_type='client backend') or (a.application_name like 'pg_cron%' and a.state='active') or exists(select 1 from cron.job_run_details j where j.job_pid=a.pid and j.end_time is null and j.status in ('starting','running'))))+(select count(*) from cron.job_run_details where end_time is null and (status='starting' or status='running' and job_pid is null))"], 'Drain scheduled database writers').strip())
+            if active == 0:
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Existing API or scheduled transactions did not drain; migration was not applied.')
+        # Capture the exact quiesced source as well as the updater's earlier dump.
+        dump = backup / 'quiesced-accounting.dump'
+        db_name = psql[psql.index('-d') + 1]
+        with dump.open('wb') as output:
+            dump.chmod(0o600)
+            run(compose + ['exec', '-T', 'db', 'pg_dump', '-U', 'supabase_admin', '-d', db_name, '-Fc'], 'Quiesced accounting recovery point', output=output)
+        with dump.open('rb') as source:
+            run(compose + ['exec', '-T', 'db', 'pg_restore', '--list'], 'Validate quiesced recovery archive', stdin=source)
+        run(psql + ['--single-transaction', '-f', '-'], 'Approved migrations (entire batch is transactional)', data=sql.encode())
+    finally:
+        errors = []
+        try:
+            run(compose + ['up', '-d', '--no-deps', '--no-recreate', '--wait', '--wait-timeout', '180', *writers], 'Resume transaction writers')
+        except Exception:
+            errors.append('transaction writers')
+        for job in jobs:
+            try:
+                run(psql + ['-c', f"select cron.alter_job({int(job['id'])},active=>{'true' if job['active'] else 'false'})"], 'Restore scheduler intent')
+            except Exception:
+                errors.append('scheduler')
+        intent.write_text(json.dumps({'services': writers, 'cron': jobs, 'phase': 'recovery_required' if errors else 'resumed'}, indent=2))
+        intent.chmod(0o600)
+        require(not errors, 'Accounting cutover runtime restoration failed; recover using private accounting-cutover.json before accepting writes.')
 
 
 def content(path):
@@ -378,7 +433,7 @@ def update(root, stage, project, api_url, approval):
             sql += source + '\n;\n'
             sql += 'INSERT INTO supabase_migrations.schema_migrations(version, name, statements) VALUES (' + ', '.join([sql_literal(version), sql_literal(name), 'ARRAY[' + sql_literal(source) + ']']) + ');\n'
         sql += "NOTIFY pgrst, 'reload schema';\n"
-        run(psql + ['--single-transaction', '-f', '-'], 'Approved migrations (entire batch is transactional)', data=sql.encode())
+        apply_migration_batch(psql, sql, pending, old_cmd, current, backup)
     # Record applied source hashes even if a subsequent health check fails.
     receipts.update({path.name[:14]: digest(path) for path in files})
     temporary = receipt_file.with_suffix('.new')

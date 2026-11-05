@@ -48,10 +48,12 @@ function DealershipWallet() {
   const { data, isLoading, isError } = useWallets();
   const dashboard = pathname === '/';
   const cash = data?.find(wallet => wallet.type === 'cash');
-  const balance = dashboard ? (cash ? Number(cash.balance) : undefined) : data?.reduce((sum, wallet) => sum + Number(wallet.balance), 0);
+  const visible = data?.filter(wallet => wallet.can_balance);
+  const balance = dashboard ? (cash?.can_balance ? Number(cash.balance) : undefined) : visible?.length ? visible.reduce((sum, wallet) => sum + Number(wallet.balance), 0) : undefined;
+  if (!isLoading && !isError && (dashboard ? !cash?.can_balance : !visible?.length)) return null;
   return <div className={`topbar-wallet${Number(balance) < 0 ? ' negative' : ''}`}>
     <Wallet size={19} aria-hidden="true" />
-    <div><span>{dashboard ? 'Cash Register' : 'All wallets'}</span><strong>{isLoading ? '…' : isError || balance === undefined ? '—' : formatBDT(balance)}</strong></div>
+    <div><span>{dashboard ? 'Cash Register' : 'Visible wallets'}</span><strong>{isLoading ? '…' : isError || balance === undefined ? '—' : formatBDT(balance)}</strong></div>
   </div>;
 }
 
@@ -235,7 +237,7 @@ export const Layout = () => {
           </div>
 
           <div className="topbar-actions">
-            {hasAnyPermission(permissions, ['finance:view', 'finance:manage']) && <DealershipWallet />}
+            <DealershipWallet />
           </div>
         </header>
 

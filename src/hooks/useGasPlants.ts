@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { readAllRows } from '../lib/queryPages';
@@ -36,7 +37,7 @@ export const useCreateGasPlant = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => invalidateFreshQueries(qc, { queryKey: QUERY_KEY }),
   });
 };
 
@@ -54,7 +55,7 @@ export const useUpdateGasPlant = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => invalidateFreshQueries(qc, { queryKey: QUERY_KEY }),
   });
 };
 
@@ -73,7 +74,7 @@ export const useCreateAreaOfficer = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => invalidateFreshQueries(qc, { queryKey: QUERY_KEY }),
   });
 };
 
@@ -90,6 +91,6 @@ export const useUpdateAreaOfficer = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => invalidateFreshQueries(qc, { queryKey: QUERY_KEY }),
   });
 };

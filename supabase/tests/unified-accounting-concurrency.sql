@@ -8,7 +8,7 @@ grant insert on app_private.unified_concurrency_fixture to authenticated;
 set local role authenticated;
 do $$declare t uuid:=app_private.current_tenant_id();d date:=(now() at time zone 'Asia/Dhaka')::date;w uuid;b uuid;tid uuid;i uuid;l uuid;a uuid;p uuid;begin
  select wallet_id into w from public.get_payment_wallets() where type='cash';select wallet_id into b from public.get_payment_wallets() where type='dealership';
- perform public.accounting_operation(jsonb_build_object('action','opening_cash','wallet_id',w,'amount',10000,'date',d,'description','Concurrency funds'),gen_random_uuid());
+ perform public.accounting_operation(jsonb_build_object('action','capital','wallet_id',w,'amount',10000,'date',d,'description','Concurrency funds'),gen_random_uuid());
  select type_id into tid from public.get_stove_product_types() limit 1;
  i:=(public.save_stove_product(jsonb_build_object('name','Concurrency stove','type_id',tid),gen_random_uuid())->>'item_id')::uuid;
  p:=(public.create_purchase(jsonb_build_object('business_category','stove','supplier_name','Concurrency supplier','request_id',gen_random_uuid(),'items',jsonb_build_array(jsonb_build_object('item_id',i,'type','package','quantity',10,'unit_price',100))))->>'purchase_id')::uuid;

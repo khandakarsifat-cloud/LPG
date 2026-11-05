@@ -1,16 +1,17 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { readAllRows } from '../lib/queryPages';
 import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest } from '../lib/pendingRequest';
 import { useBatchedDirectory } from './useBatchedDirectory';
-import type { AdditionalCost, Assignment, LogisticsFilters, LogisticsSummary, Transit, Vehicle, VehicleInput, Wallet } from '../types/logistics';
+import type { AdditionalCost, Assignment, LogisticsFilters, LogisticsSummary, Transit, TransitDirectoryEntry, Vehicle, VehicleInput, Wallet } from '../types/logistics';
 
 export const logisticsKeys = { all: ['logistics'] as const };
 export const useWallets = () => {
- const { can } = useAuth();
- return useQuery<Wallet[]>({ queryKey: ['logistics', 'wallets'], enabled: can('finance:view') || can('finance:manage'), refetchInterval: 30_000,
- queryFn: async () => { const { data, error } = await supabase.from('wallets').select('*').order('created_at').order('wallet_id'); if (error) throw error; return data ?? []; } });
+ const { profile } = useAuth();
+ return useQuery<Wallet[]>({ queryKey: ['logistics', 'wallets'], enabled: Boolean(profile), refetchInterval: 30_000,
+ queryFn: async ({signal}) => { const { data, error } = await supabase.rpc('get_finance_wallets').abortSignal(signal); if (error) throw error; return data ?? []; } });
 };
 export const useVehicles = () => useQuery<Vehicle[]>({ queryKey: ['logistics', 'vehicles', 'catalog'],
  queryFn: ({ signal }) => readAllRows<Vehicle>((from, to) => supabase.rpc('list_vehicles').range(from, to).abortSignal(signal)) });
@@ -28,7 +29,7 @@ export function useTransit(id: string | null) {
   queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_transit', { p_transit_id: id }).abortSignal(signal); if (error) throw error; return data; } });
 }
 export function useTransitDirectory(filters: LogisticsFilters, pageSize: number) {
- return useBatchedDirectory<Transit>(['logistics', 'transits', filters], pageSize, async (offset, limit, signal) => {
+ return useBatchedDirectory<TransitDirectoryEntry>(['logistics', 'transits', filters], pageSize, async (offset, limit, signal) => {
   const { data, error } = await supabase.rpc('get_transit_directory', { p_filters: filters, p_offset: offset, p_limit: limit }).abortSignal(signal); if (error) throw error; return data;
  });
 }
@@ -53,20 +54,20 @@ export function useLogisticsOperation() {
   const { data, error } = request.body.action === 'availability' ? await supabase.rpc('set_vehicle_availability', { p_vehicle_id: availability?.vehicle_id, p_available: availability?.available, p_reason: availability?.reason, p_request_id: request.id }) : await supabase.rpc(request.body.action === 'vehicle' ? 'save_vehicle' : 'create_custom_transit', { p_payload: request.body.payload, p_request_id: request.id });
   if (!error || isDefiniteRejection(error.code)) finishRequest(key, request.id);
   if (error) throw new Error(error.message); return data;
- }, onSuccess: () => Promise.all([['logistics'], ['employees'], ['purchases'], ['finance']].map(queryKey => qc.invalidateQueries({ queryKey }))) });
+ }, onSuccess: () => Promise.all([['logistics'], ['employees'], ['purchases'], ['finance'], ['dashboard']].map(queryKey => invalidateFreshQueries(qc, { queryKey }))) });
  return { ...mutation, hasPending: hasPendingRequest(key) };
 }
 export function useUpdateTransitCosts() {
  const qc = useQueryClient();
  return useMutation({ mutationFn: async (p: { transitId: string; revision: number; driverCost: number; helperCost: number; oilCost: number; othersCost: number; additionalCosts: AdditionalCost[] }) => {
   const { data, error } = await supabase.rpc('save_transit_costs', { p_transit_id: p.transitId, p_revision: p.revision, p_costs: { driver_cost: p.driverCost, helper_cost: p.helperCost, oil_cost: p.oilCost, others_cost: p.othersCost, additional_costs: p.additionalCosts } }); if (error) throw new Error(error.message); return data;
- }, onSettled: () => Promise.all([['finance'], ['logistics'], ['purchases'], ['employees']].map(queryKey => qc.invalidateQueries({ queryKey }))) });
+ }, onSettled: () => Promise.all([['finance'], ['logistics'], ['purchases'], ['employees'], ['dashboard']].map(queryKey => invalidateFreshQueries(qc, { queryKey }))) });
 }
 export function useTransitionTransit() {
  const qc = useQueryClient();
- return useMutation({ mutationFn: async (p: { transitId: string; revision: number; action: 'complete' | 'cancel' | 'return' }) => {
-  const { data, error } = await supabase.rpc('transition_transit', { p_transit_id: p.transitId, p_action: p.action, p_revision: p.revision }); if (error) throw new Error(error.message); return data;
- }, onSettled: () => Promise.all([['logistics'], ['purchases'], ['finance'], ['employees']].map(queryKey => qc.invalidateQueries({ queryKey }))) });
+ return useMutation({ mutationFn: async (p: { transitId: string; revision: number; action: 'complete' | 'cancel'; costs?: { driver_cost: number; helper_cost: number; oil_cost: number; others_cost: number; additional_costs: AdditionalCost[] } }) => {
+  const { data, error } = await supabase.rpc('transition_transit', { p_transit_id: p.transitId, p_action: p.action, p_revision: p.revision, p_costs: p.costs ?? null }); if (error) throw new Error(error.message); return data;
+ }, onSettled: () => Promise.all([['logistics'], ['purchases'], ['finance'], ['employees'], ['dashboard']].map(queryKey => invalidateFreshQueries(qc, { queryKey }))) });
 }
 
 export function useCrewOptions(role:'Driver'|'Helper'){return useQuery<{employee_id:string;name:string}[]>({queryKey:['employees','crew-options',role],queryFn:({signal})=>readAllRows<{employee_id:string;name:string}>((from,to)=>supabase.rpc('get_vehicle_crew_options',{p_role:role}).range(from,to).abortSignal(signal))});}

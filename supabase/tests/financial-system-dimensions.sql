@@ -22,10 +22,10 @@ do $$declare f financial_fixture;d date:=(now() at time zone 'Asia/Dhaka')::date
  perform pg_temp.assert(not exists(select 1 from public.accounting_lines where tenant_id=f.t group by journal_id,business_category having sum(amount)<>0),'Shared opening entry overrides single-business caller defaults consistently on both sides');
  -- No available-balance gate: same-wallet transfer creates a negative LPG
  -- business amount while preserving total cash, with no profit or debt.
- body:=jsonb_build_object('action','transfer','wallet_id',f.wallet,'destination_id',f.wallet,'business','lpg','destination_business','stove','amount',100,'reason','Independent business allocation');
+ body:=jsonb_build_object('action','transfer','transfer_mode','business','wallet_id',f.wallet,'destination_id',f.wallet,'business','lpg','destination_business','stove','amount',100,'reason','Independent business allocation');
  perform public.move_wallet_money(body,k);perform public.move_wallet_money(body,k);
  perform pg_temp.assert((select balance=0 and (business_balances->>'lpg')::numeric=-100 and (business_balances->>'stove')::numeric=100 from public.wallets where tenant_id=f.t and wallet_id=f.wallet),'Same-wallet business transfer, deficit and exact retry');
- perform public.move_wallet_money(jsonb_build_object('action','transfer','wallet_id',f.bank,'destination_id',f.wallet,'business','logistics','destination_business','lpg','amount',200,'reason','Independent overdraft transfer'),gen_random_uuid());
+ perform public.move_wallet_money(jsonb_build_object('action','transfer','transfer_mode','business','wallet_id',f.bank,'destination_id',f.wallet,'business','logistics','destination_business','lpg','amount',200,'reason','Independent overdraft transfer'),gen_random_uuid());
  perform pg_temp.assert((select balance=-200 from public.wallets where tenant_id=f.t and wallet_id=f.bank),'Overall wallet deficits supported');
  asset:=(public.accounting_operation(jsonb_build_object('action','asset_register','kind','equipment','name','Shared shop equipment','amount',100000,'funding','wallet','wallet_id',f.wallet,'date',d,'description','Independent shared ownership','allocations',jsonb_build_object('lpg',60,'stove',40)),gen_random_uuid())->>'id')::uuid;
  perform public.accounting_operation(jsonb_build_object('action','asset_depreciate','asset_id',asset,'amount',1000,'date',d,'description','Independent shared depreciation'),gen_random_uuid());
@@ -80,9 +80,9 @@ end $$;
 do $$declare f financial_fixture;w uuid;d date:=(now() at time zone 'Asia/Dhaka')::date;begin
  select * into f from financial_fixture;
  w:=public.save_finance_wallet(jsonb_build_object('name','Zero-net business allocation wallet','kind','other','details','','is_active',true));
- perform public.move_wallet_money(jsonb_build_object('action','transfer','wallet_id',w,'destination_id',w,'business','lpg','destination_business','stove','amount',100,'reason','Offset portions at zero total'),gen_random_uuid());
+ perform public.move_wallet_money(jsonb_build_object('action','transfer','transfer_mode','business','wallet_id',w,'destination_id',w,'business','lpg','destination_business','stove','amount',100,'reason','Offset portions at zero total'),gen_random_uuid());
  begin perform public.save_finance_wallet(jsonb_build_object('wallet_id',w,'revision',1,'name','Zero-net business allocation wallet','kind','other','details','','is_active',false));raise exception 'FAIL: wallet with stranded business portions archived';exception when raise_exception then if sqlerrm like 'FAIL:%' then raise;end if;perform pg_temp.assert(sqlerrm like 'Clear every business balance%','Expected archive ownership guard');end;
- perform public.move_wallet_money(jsonb_build_object('action','transfer','wallet_id',w,'destination_id',w,'business','stove','destination_business','lpg','amount',100,'reason','Clear portions before closure'),gen_random_uuid());
+ perform public.move_wallet_money(jsonb_build_object('action','transfer','transfer_mode','business','wallet_id',w,'destination_id',w,'business','stove','destination_business','lpg','amount',100,'reason','Clear portions before closure'),gen_random_uuid());
  perform public.save_finance_wallet(jsonb_build_object('wallet_id',w,'revision',1,'name','Zero-net business allocation wallet','kind','other','details','','is_active',false));
  begin
   perform app_private.post_journal(f.t,'opening_entry',gen_random_uuid(),'test',d,'Disposable source-bug injection',jsonb_build_array(app_private.accounting_line('other_assets',1,'lpg'),app_private.accounting_line('other_liability',-1,'stove')));

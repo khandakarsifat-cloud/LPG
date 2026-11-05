@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,6 +57,6 @@ export function useProductPhoto(initialPath: string | null = null) {
 export function useSaveProductImage() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: async ({ itemId, path }: { itemId: string; path: string | null }) => { const { error } = await supabase.rpc('set_product_image', { p_item_id: itemId, p_image_path: path }); if (error) throw new Error(error.message); },
-    onSuccess: () => Promise.all([['inventory'], ['price_books'], ['purchases'], ['sales'], ['dashboard']].map(queryKey => qc.invalidateQueries({ queryKey }))),
+    onSuccess: () => Promise.all([['inventory'], ['price_books'], ['purchases'], ['sales'], ['dashboard']].map(queryKey => invalidateFreshQueries(qc, { queryKey }))),
   });
 }

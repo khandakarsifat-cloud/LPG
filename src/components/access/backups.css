@@ -13,3 +13,5 @@
 @media(max-width:35rem){.backup-history-table td:last-child{display:block}.backup-history-table td:last-child:before{margin-bottom:.3rem}.backup-history-table td small.purchase-error{margin-top:.5rem}}
 
 .backup-columns{align-items:start}
+.backup-progress progress { width: 100%; height: 1rem; accent-color: var(--primary); }
+.backup-progress > p { margin-block: .75rem; }

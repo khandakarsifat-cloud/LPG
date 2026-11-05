@@ -23,8 +23,8 @@ do $$declare t uuid:=app_private.current_tenant_id();i uuid;l uuid;b uuid;pid uu
 end $$;
 do $$declare f fifo_fixture;p uuid;s uuid;d date:=(now() at time zone 'Asia/Dhaka')::date;report jsonb;begin
  select * into f from fifo_fixture;
- perform public.accounting_operation(jsonb_build_object('action','opening_cash','wallet_id',f.wallet,'date',d,'amount',100000,'description','Independent fixture funding'),gen_random_uuid());
- perform public.adjust_inventory(jsonb_build_object('item_id',f.item,'kind','opening','filled_quantity',10,'empty_quantity',0,'filled_unit_cost',100,'reason','First batch: ten at 100'),gen_random_uuid());
+ perform public.accounting_operation(jsonb_build_object('action','capital','wallet_id',f.wallet,'date',d,'amount',100000,'description','Independent fixture funding'),gen_random_uuid());
+ perform public.adjust_inventory(jsonb_build_object('item_id',f.item,'kind','capital','filled_quantity',10,'empty_quantity',0,'filled_unit_cost',100,'reason','First batch: ten at 100'),gen_random_uuid());
  p:=(public.create_purchase(jsonb_build_object('business_category','stove','supplier_name','Stove maker','request_id',gen_random_uuid(),'items',jsonb_build_array(jsonb_build_object('item_id',f.item,'type','package','quantity',10,'unit_price',300))))->>'purchase_id')::uuid;
  perform public.receive_purchase(p,1);
  insert into public.price_books(tenant_id,item_id,price_type,customer_tier,price,effective_from) values(f.t,f.item,'package','retail',500,now()-interval '1 day');
@@ -40,7 +40,7 @@ end $$;
 select 'PASS: independently calculated FIFO, partial layers, COGS, profit and sale reversal';
 do $$declare f fifo_fixture;p uuid;s uuid;before numeric;remaining numeric;r jsonb;begin
  select * into f from fifo_fixture;
- perform public.adjust_inventory(jsonb_build_object('item_id',f.lpg,'kind','opening','filled_quantity',5,'empty_quantity',5,'filled_unit_cost',2500,'empty_unit_cost',1500,'reason','Five full cylinders and five spare shells'),gen_random_uuid());
+ perform public.adjust_inventory(jsonb_build_object('item_id',f.lpg,'kind','capital','filled_quantity',5,'empty_quantity',5,'filled_unit_cost',2500,'empty_unit_cost',1500,'reason','Five full cylinders and five spare shells'),gen_random_uuid());
  insert into public.price_books(tenant_id,item_id,price_type,customer_tier,price,effective_from) values(f.t,f.lpg,'package','retail',3000,now()-interval '1 day'),(f.t,f.lpg,'refill','retail',1300,now()-interval '1 day');
  s:=(public.create_pos_sale('01700000512','Package buyer',null,null,'retail',0,0,null,jsonb_build_array(jsonb_build_object('item_id',f.lpg,'type','package','quantity',1,'unit_price',3000)),null,gen_random_uuid(),'[]',null)->>'sale_id')::uuid;
  perform pg_temp.assert((select filled_quantity=4 and empty_quantity=5 and filled_value+empty_value=17500 from public.inventory_costs where tenant_id=f.t and item_id=f.lpg),'A package consumes its own shell exactly once and no spare empty shell');

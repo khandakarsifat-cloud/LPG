@@ -1,0 +1,46 @@
+/* Product identity stays above its own paired quantity/price controls. */
+.purchase-dialog .modal-body > .purchase-section:first-child,
+.purchase-dialog .modal-body > .purchase-section:last-child { padding: 1rem; }
+.purchase-dialog .purchase-section { margin: 0 0 1rem; padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--surface); }
+.purchase-dialog .purchase-section:last-child { margin-bottom: 0; }
+.purchase-dialog .purchase-section > h3 { margin-bottom: 1rem; padding-bottom: .625rem; border-bottom: 1px solid var(--border-color); }
+.purchase-dialog .modal-body { background: var(--surface-muted); padding: 1rem; }
+.purchase-dialog .purchase-section-heading { margin-bottom: 1rem; }
+.purchase-product-card { min-width: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
+.purchase-product-card + .purchase-product-card { margin-top: .5rem; }
+.purchase-product-header { display: flex; align-items: center; justify-content: space-between; padding: .5rem 1rem; gap: .75rem; background: var(--primary-weak); border-bottom: 1px solid var(--border-color); }
+.purchase-product-index { font-weight: 700; color: var(--primary); font-size: .875rem; }
+.purchase-product-card .purchase-line-product, .purchase-product-card > .product-with-image { padding: 1rem; position: relative; }
+.purchase-product-card .purchase-line-product { display: block; }
+.purchase-product-card .purchase-line-product:has(img) { padding-right: 5rem; }
+.purchase-product-card .purchase-line-product img { position: absolute; right: 1rem; top: 1rem; width: 3rem; height: 3rem; object-fit: contain; }
+.purchase-stock-caption { margin: .375rem 0 0; font-size: .75rem; color: var(--text-muted); }
+.purchase-stock-caption span { padding: 0 .375rem; }
+.purchase-component-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; padding: 0 1rem 1rem; }
+.purchase-component { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; align-content: start; padding: .875rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); min-width: 0; }
+.purchase-component h4 { grid-column: 1 / -1; margin: 0; font-size: .8125rem; }
+.purchase-component > p, .purchase-component > dl { grid-column: 1 / -1; }
+.purchase-component-gas { background: var(--primary-weak); border-top: 3px solid var(--primary); }
+.purchase-component-gas h4 { color: var(--primary); }
+.purchase-component-bottle { background: var(--accent-weak); border-top: 3px solid var(--accent); }
+.purchase-component-bottle h4 { color: var(--accent); }
+.purchase-dialog .purchase-component .input-label { color: var(--text-main); font-weight: 600; }
+.purchase-product-footer { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 1rem; background: var(--surface-muted); border-top: 1px solid var(--border-color); font-size: .8125rem; }
+.purchase-product-footer > span { min-width: 0; overflow-wrap: anywhere; }
+.purchase-product-footer > strong { white-space: nowrap; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.purchase-dialog .purchase-product-card .input-field { min-height: 44px; }
+.purchase-dialog .purchase-product-card .purchase-remove { margin: 0; min-height: 44px; }
+.purchase-dialog .purchase-cost-fields { align-content: start; }
+@media(max-width:760px) { .purchase-component-fields { grid-template-columns: minmax(0,1fr); } }
+@media(max-width:540px) {
+ .purchase-dialog .modal-body { padding: .75rem; }
+ .purchase-dialog .purchase-section, .purchase-dialog .modal-body > .purchase-section:first-child, .purchase-dialog .modal-body > .purchase-section:last-child { padding: .875rem; }
+ .purchase-dialog .input-field { font-size: 1rem; min-height: 44px; }
+ .purchase-dialog .input-label { font-size: .8125rem; }
+ .purchase-dialog .purchase-section-heading { flex-wrap: wrap; gap: .75rem; }
+ .purchase-component-fields { padding: 0 .75rem .75rem; }
+ .purchase-component { padding: .75rem; gap: .75rem; }
+ .purchase-product-card .purchase-line-product { padding: .75rem; }
+ .purchase-product-header, .purchase-product-footer { padding: .5rem .75rem; }
+ .purchase-dialog .purchase-cost-fields { grid-template-columns: minmax(0,1fr); }
+}

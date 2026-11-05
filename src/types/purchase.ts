@@ -1,6 +1,5 @@
 export type PurchaseStatus = 'created' | 'in_transit' | 'received' | 'cancelled';
 export type PurchasePaymentStatus = 'unpaid' | 'partial' | 'paid';
-export type PurchaseType = 'refill' | 'package';
 
 export interface PurchaseItem {
   image_url?: string | null;
@@ -10,18 +9,15 @@ export interface PurchaseItem {
   brand_name: string;
   size_kg: number;
   mouth_size: string | null;
-  type: PurchaseType;
   quantity: number;
   empty_dispatched: number;
-  received_quantity: number | null;
-  billed_quantity: number;
   unit_price: number;
-  shell_unit_cost?: number | null;
+  bottle_quantity: number;
+  bottle_unit_price: number;
   line_total: number;
 }
 
 export interface Purchase {
-  transport_wallet_id?: string | null;
   purchase_id: string;
   business_category?: 'lpg' | 'stove';
   supplier_name?: string;
@@ -34,13 +30,12 @@ export interface Purchase {
   status: PurchaseStatus;
   payment_status: PurchasePaymentStatus;
   subtotal: number;
-  commission: number;
-  commission_month?: string | null;
   company_payable: number;
   transport_cost: number;
   labour_cost: number;
   total_cost: number;
   payable_amount: number;
+  rebate_amount: number;
   notes: string | null;
   receipt_notes: string | null;
   created_at: string;
@@ -59,7 +54,7 @@ export interface Purchase {
 
 export interface PurchaseRefundObligation {
   obligation_id: string;
-  component: string;
+  component: 'purchase';
   amount: number;
   refunded: number;
   remaining: number;
@@ -67,7 +62,7 @@ export interface PurchaseRefundObligation {
 }
 
 export interface PurchaseSettlement {
-  total: number; paid: number; due: number; refund_due: number; refunded: number;
+  total: number; rebate_amount: number; rebate_applied: number; company_credit: number; can_rebate: boolean; paid: number; due: number; refund_due: number; refunded: number;
   financial_closed_at: string | null; can_cancel: boolean; financial_locked: boolean;
   obligations: PurchaseRefundObligation[];
   payment_count: number;
@@ -77,19 +72,17 @@ export interface PurchaseSettlement {
 export interface PurchaseLinePayload {
   purchase_item_id?: string;
   item_id: string;
-  type: PurchaseType;
   quantity: number;
-  empty_dispatched: number;
   unit_price: number;
-  shell_unit_cost?: number | null;
+  bottle_quantity: number;
+  bottle_unit_price: number;
 }
 
 export interface PurchaseDraft {
-  transport_wallet_id?: string | null;
   vehicle_id: string | null;
   transport_cost: number;
   labour_cost: number;
-  commission: number;
+  rebate_amount: number;
   notes: string;
   items: PurchaseLinePayload[];
 }

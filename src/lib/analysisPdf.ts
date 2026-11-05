@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import type { JournalReport } from '../types/accounting';
+import { columns, tabular, subtract } from './businessTabular';
 
 /** Export the loaded canonical report; never fetch or recalculate a different scope. */
 export function exportAnalysisPdf(r: JournalReport) {
@@ -14,7 +15,7 @@ export function exportAnalysisPdf(r: JournalReport) {
   line(`${r.from} to ${r.to} | Asia/Dhaka | ${r.all_time ? 'All time' : 'Selected period'}`);
   line('Assets = Liabilities + Capital + Revenue - Expenses - Owner Withdrawals + Other Equity');
   line(!r.complete ? 'Incomplete: essential recorded asset values are missing.' : r.estimated ? 'Reconstructed development estimates are included and identified below.' : 'Recorded accounting values.');
-  line(`Business line: ${r.category === 'all' ? 'Consolidated organization (internal transport eliminated)' : r.category.toUpperCase()}`);
+  line(`Business line: ${r.category === 'all' ? 'Combined businesses (sum of LPG, Stove and Logistics)' : r.category.toUpperCase()}`);
   heading('Overview');
   for (const [label, value] of [['Net profit', r.totals.profit], ['Available cash at period end', r.closing.cash], ['Total assets', r.closing.assets], ['Total liabilities', r.closing.liabilities], ["Owner's equity", r.closing.equity], ['Invested capital', r.invested_capital], ['Period owner withdrawals', r.totals.withdrawals], ['Net cash flow', r.totals.cash_flow]] as const) line(`${label}: ${money(value)}`);
   for (const [label, position] of [['Opening position', r.opening], ['Closing position', r.closing]] as const) {
@@ -23,6 +24,16 @@ export function exportAnalysisPdf(r: JournalReport) {
     line(`Capital ${money(position.capital)} + Cumulative revenue ${money(position.revenue)} - Cumulative expenses ${money(position.expenses)} - Owner withdrawals ${money(position.withdrawals)}`);
     if (position.other_equity) line(`Other recorded equity movements: ${money(position.other_equity)}`);
     for (const account of position.accounts) line(`${account.kind}: ${account.account === 'cash' ? account.entity_name ?? account.name : account.name}: ${money(account.amount)}`);
+  }
+  heading('Business tabular analysis');
+  line('Cash + Accounts Receivable + Supplies + Equipment = Loan + Accounts Payable + Capital + Revenue - Expenses - Withdrawals');
+  line('Capital includes legitimate other equity. Business Cash is pooled across real wallets. Combined adds the three businesses without eliminating transport.');
+  for (const scope of r.business_positions) {
+    heading(scope.category === 'all' ? 'Combined' : scope.category.toUpperCase());
+    const opening = tabular(scope.opening), closing = tabular(scope.closing);
+    for (const [label, values] of [['Opening', opening], ['Period movement', subtract(closing, opening)], ['Closing', closing]] as const) {
+      line(label + ': ' + columns.map(([key, name]) => name + ' ' + money(values[key])).join(' | '));
+    }
   }
   heading('Income comparison');
   line(`Opening accumulated income ${money(r.opening.accumulated_income)}`);
@@ -43,7 +54,7 @@ export function exportAnalysisPdf(r: JournalReport) {
   line(`Cash received ${money(r.totals.cash_in)} | Cash paid ${money(r.totals.cash_out)} | Net ${money(r.totals.cash_flow)}`);
   line('Transfers are shown separately above and excluded from net cash flow. Wallet movement includes every cash movement.');
   heading('Business activity comparison');
-  line('Business lines include internal transport. Organization totals eliminate internal revenue and its related stock/COGS value.');
+  line('Combined totals add the separate businesses, including transport revenue and its related Supplies/COGS value.');
   for (const business of r.businesses) line(`${business.business_category}: revenue ${money(business.revenue)}, expenses ${money(business.expenses)}, profit ${money(business.revenue - business.expenses)}`);
   heading('Financial position and income trends');
   line('Each row uses the same interval and records as the on-screen charts.');
@@ -51,7 +62,7 @@ export function exportAnalysisPdf(r: JournalReport) {
   heading('Reconciliation and valuation basis');
   line(`Assets ${money(r.closing.assets)} = Liabilities ${money(r.closing.liabilities)} + Equity ${money(r.closing.equity)}`);
   line(`Period profit from changes in net assets after contributions, withdrawals and other equity movements: ${money(r.totals.position_profit)}`);
-  line('Inventory uses FIFO acquisition layers net of applicable historical monthly LPG commission. Later deductions settle earned supplier rebates and do not discount the new shipment. Approximate buying prices remain operational references.');
+  line('Inventory uses actual Gas and Bottle FIFO acquisition costs. Received exchange bottles use their recorded current-price snapshot; exchange differences are separately identified. Approximate buying prices remain operational references.');
   for (const coverage of r.coverage) line(coverage.note);
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page++) { doc.setPage(page); doc.setFontSize(8); doc.text(`Financial analysis | ${r.from} - ${r.to} | Page ${page} of ${pages}`, 16, 289); }

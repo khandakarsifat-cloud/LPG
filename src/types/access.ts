@@ -1,5 +1,6 @@
 export type BusinessRole = 'OWNER' | 'MANAGER' | 'SALESMAN';
 export interface AccessContext {
+  access_revision: number;
   tenant_id: string | null; business_name: string | null; full_name: string; email: string;
   role: BusinessRole | 'SUPERADMIN' | null; is_superadmin: boolean;
   must_change_password: boolean; reset_pending: boolean;
@@ -12,6 +13,7 @@ export interface BusinessUser {
   reset_pending: boolean; custom_permissions: string[] | null; permissions: string[];
 }
 export interface BusinessUserDirectory { entries: BusinessUser[]; total: number; role_defaults: Record<'MANAGER' | 'SALESMAN', string[]> }
+export interface UserWalletAccess { wallet_id: string; name: string; can_use: boolean | null; can_balance: boolean | null; can_history: boolean | null }
 export interface PlatformBusiness { tenant_id: string; business_name: string; status: 'active' | 'suspended'; created_at: string; users: number }
 export interface PlatformDashboard { businesses: number; active: number; suspended: number; users: number; database_bytes: number; uploaded_bytes: number; files: number }
 export interface StorageUsage { measured_at: string; database_bytes: number; uploaded_bytes: number; businesses: { tenant_id: string; business_name: string; database_estimate_bytes: number; uploaded_bytes: number; files: number }[] }

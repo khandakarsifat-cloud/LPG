@@ -32,6 +32,8 @@ export function OperatingPayments({
   clientDue,
   clientRefund = 0,
   clientReceipts = true,
+  automaticSettlement = false,
+  clientSettlementsOnly = false,
 }: {
   parent: { transit_id?: string; service_trip_id?: string };
   due: number;
@@ -40,6 +42,8 @@ export function OperatingPayments({
   clientDue?: number;
   clientRefund?: number;
   clientReceipts?: boolean;
+  automaticSettlement?: boolean;
+  clientSettlementsOnly?: boolean;
 }) {
   const { can } = useAuth();
   const [page, setPage] = useState(0);
@@ -55,7 +59,7 @@ export function OperatingPayments({
         <h3>Payments & history</h3>
         {can('logistics:pay') && !locked && (
           <div className="finance-actions">
-            {(due > 0 || allowAdvance) && (
+            {!clientSettlementsOnly && !automaticSettlement && (due > 0 || allowAdvance) && (
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -64,7 +68,7 @@ export function OperatingPayments({
                 Pay expenses{allowAdvance ? ' / advance' : ''}
               </button>
             )}
-            {clientDue !== undefined && clientDue > 0 && clientReceipts && (
+            {(!automaticSettlement || clientSettlementsOnly) && clientDue !== undefined && clientDue > 0 && clientReceipts && (
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -134,7 +138,7 @@ export function OperatingPayments({
                 {p.kind === 'expense' && p.returned > 0 && (
                   <small>Returned {formatBDT(p.returned)}</small>
                 )}
-                {!locked &&
+                {!locked && !clientSettlementsOnly &&
                   can('logistics:pay') &&
                   p.kind === 'expense' &&
                   p.amount > p.returned && (

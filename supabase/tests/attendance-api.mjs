@@ -71,7 +71,7 @@ try {
  const eid = (await checked(c.rpc('save_employee', { p_payload: payload, p_request_id: randomUUID() }))).employee_id;
  assert.equal((await checked(c.rpc('get_attendance_history', { p_employee_id: eid }))).total, 0);
  // Fixture-only server timestamps avoid workstation/VPS clock skew.
- const phaseTimes = JSON.parse(sql(`insert into public.attendance_cutoff_rules(tenant_id,effective_from,cutoff,clock_out_cutoff) values(${uuid(owner.tenant)},(now() at time zone 'Asia/Dhaka')::date,'00:00',((clock_timestamp()+interval '4 seconds') at time zone 'Asia/Dhaka')::time(0)) on conflict(tenant_id,effective_from) do update set clock_out_cutoff=excluded.clock_out_cutoff; select json_build_object('first',to_char((clock_timestamp()+interval '1 second') at time zone 'Asia/Dhaka','YYYY-MM-DD HH24:MI:SS'),'last',to_char((clock_timestamp()+interval '7 seconds') at time zone 'Asia/Dhaka','YYYY-MM-DD HH24:MI:SS'));`));
+ const phaseTimes = JSON.parse(sql(`insert into public.attendance_cutoff_rules(tenant_id,effective_from,clock_out_cutoff) values(${uuid(owner.tenant)},(now() at time zone 'Asia/Dhaka')::date,((clock_timestamp()+interval '4 seconds') at time zone 'Asia/Dhaka')::time(0)) on conflict(tenant_id,effective_from) do update set clock_out_cutoff=excluded.clock_out_cutoff; select json_build_object('first',to_char((clock_timestamp()+interval '1 second') at time zone 'Asia/Dhaka','YYYY-MM-DD HH24:MI:SS'),'last',to_char((clock_timestamp()+interval '7 seconds') at time zone 'Asia/Dhaka','YYYY-MM-DD HH24:MI:SS'));`));
  const first = phaseTimes.first;
  assert.equal((await upload(`001\t${first}\t0\t1\t0\t0\t0\t0\t0\t0\t0`)).status, 200);
  const last = phaseTimes.last; const batch = `001\t${last}\t0\t1\t0`;
@@ -104,14 +104,19 @@ try {
   await dialog.getByRole('button', { name: 'Daily', exact: true }).click(); await dialog.getByRole('button', { name: 'Edit history', exact: true }).click();
   const editor = page.getByRole('dialog', { name: 'Edit attendance history', exact: true });
   const loadedCorrection = page.waitForResponse(response => response.url().endsWith('/rest/v1/rpc/get_attendance_edit') && response.request().postDataJSON()?.p_day === past);
-  await editor.getByLabel('Correction date', { exact: true }).fill(past); await loadedCorrection; await editor.getByText('Allowed attendance window', { exact: true }).waitFor();
+  await editor.getByLabel('Correction date', { exact: true }).fill(past); await loadedCorrection; await editor.getByText('Calendar-day time range', { exact: true }).waitFor();
   await editor.getByLabel('Corrected clock out hour', { exact: true }).selectOption('18'); await editor.getByLabel('Corrected clock out minute', { exact: true }).selectOption('00'); await editor.getByLabel('Reason for correction').fill('Published browser correction fixture');
   for (const width of [1440, 375, 320]) {
    await page.setViewportSize({ width, height: 950 });
+   assert(await editor.locator('form.attendance-form').evaluate(form => form.scrollHeight <= form.clientHeight + 1), `Correction form clips actions at ${width}`);
+   await editor.getByRole('button', { name: 'Review changes', exact: true }).scrollIntoViewIfNeeded();
    await page.screenshot({ path: `.temp/attendance-current/correction-clock-${width}.png` });
    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Correction clock overflow at ${width}`);
   }
   await page.setViewportSize({ width: 1440, height: 950 });
+  assert.equal(await editor.getByLabel('Corrected clock in calendar day', { exact: true }).count(), 0);
+  const departureHours = await editor.getByLabel('Corrected clock out hour', { exact: true }).locator('option').evaluateAll(nodes => nodes.map(node => node.value));
+  assert(!departureHours.includes('06'), 'Departure picker excludes hours before selected arrival');
   const arrivalHours = await editor.getByLabel('Corrected clock in hour', { exact: true }).locator('option').evaluateAll(nodes => nodes.map(node => node.value));
   assert(!arrivalHours.includes('19'), 'Arrival picker excludes hours beyond chosen departure');
   await editor.getByRole('button', { name: 'Review changes', exact: true }).click();
@@ -148,15 +153,14 @@ try {
   assert.equal(links.length, 2); assert.equal(links.find(link => !link.unlinked_at).pin, '003');
   await page.getByRole('dialog', { name: 'Employee profile', exact: true }).getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.goto(worker + '/?attendance-current=1#/settings');
-  await page.getByRole('heading', { name: 'Attendance', exact: true }).waitFor(); await page.getByLabel('End of attendance day', { exact: true }).waitFor(); await page.getByLabel('Clock-out cutoff', { exact: true }).waitFor(); await page.getByRole('button', { name: 'Register device', exact: true }).click(); await page.getByRole('dialog', { name: 'Register attendance device' }).getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.getByLabel('End of attendance day', { exact: true }).fill('04:00');
+  await page.getByRole('heading', { name: 'Attendance', exact: true }).waitFor(); assert.equal(await page.getByLabel('End of attendance day', { exact: true }).count(), 0); await page.getByLabel('Clock-out cutoff', { exact: true }).waitFor(); await page.getByRole('button', { name: 'Register device', exact: true }).click(); await page.getByRole('dialog', { name: 'Register attendance device' }).getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByLabel('Clock-out cutoff', { exact: true }).fill('16:00');
   const settingsSaved = page.waitForResponse(response => response.url().endsWith('/rest/v1/rpc/save_attendance_configuration') && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Save attendance rules', exact: true }).click();
-  assert((await settingsSaved).ok(), 'Both attendance time controls save through the published app');
+  assert((await settingsSaved).ok(), 'Departure cutoff saves through the published app');
   const savedRules = await checked(c.rpc('get_attendance_configuration'));
-  assert.equal(savedRules.next_cutoff, '04:00:00'); assert.equal(savedRules.next_clock_out_cutoff, '16:00:00');
-  assert.notEqual(savedRules.cutoff, savedRules.next_cutoff, 'Day boundary remains effective-dated');
+  assert.equal(savedRules.next_clock_out_cutoff, '16:00:00'); assert.equal('next_cutoff' in savedRules, false);
+  assert.notEqual(savedRules.clock_out_cutoff, savedRules.next_clock_out_cutoff, 'Departure changes start tomorrow');
   await page.getByRole('button', { name: 'Edit device', exact: true }).click(); const deviceForm = page.getByRole('dialog', { name: 'Edit attendance device' }); await deviceForm.getByLabel('Device name', { exact: true }).fill('Renamed fixture terminal'); await deviceForm.getByRole('button', { name: 'Save device', exact: true }).click(); await deviceForm.waitFor({ state: 'hidden' });
   for (const theme of ['light', 'dark']) {
    await checked(c.rpc('save_my_preferences', { p_theme: theme })); await page.reload();

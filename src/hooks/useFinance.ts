@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -37,7 +38,7 @@ export const useCustomerBalance = (id: string, enabled: boolean) => useQuery<num
 });
 export function useFinanceRefresh() {
   const qc = useQueryClient();
-  return () => Promise.all([financeKeys, ['inventory'], ['purchases'], ['logistics'], ['customers'], ['sales'], ['dashboard']].map(queryKey => qc.invalidateQueries({ queryKey })));
+  return () => Promise.all([financeKeys, ['inventory'], ['purchases'], ['logistics'], ['customers'], ['sales'], ['dashboard']].map(queryKey => invalidateFreshQueries(qc, { queryKey })));
 }
 export function useSaveFinanceWallet() {
   const refresh = useFinanceRefresh();
@@ -48,7 +49,7 @@ export function useSaveFinanceWallet() {
   });
 }
 export type FinanceOperation = { action: 'sale_cancel'; sale_id: string; reason: string; confirmation: string } | { action: 'sale_refund'; sale_id: string; payments: PaymentInput[] } | { action:'financial_entry'; type_id:string; expected_revision:number; wallet_id:string;amount:number;date:string;description:string;allocations?:import('../types/financial').BusinessAllocation;reversal_of?:string } | { action: 'collection'; sale_id: string; payments: PaymentInput[] } |
-  { action: 'transfer' | 'adjustment'; wallet_id: string; destination_id?: string; business?: string; destination_business?: string; amount: number; reason: string; classification?: 'correction' | 'opening' | 'capital'; date?: string };
+  { action: 'transfer' | 'adjustment'; wallet_id: string; destination_id?: string; business?: string; amount: number; reason: string; classification?: 'correction' | 'capital'; date?: string };
 /** One recoverable request per user/tab across Finance and customer dialogs. */
 export function useFinanceOperation() {
   const { profile, user } = useAuth(); const refresh = useFinanceRefresh();

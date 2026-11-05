@@ -22,14 +22,7 @@
 .stove-stock-row small { color: var(--text-muted); font-size: .75rem; }
 .stove-stock-row .stock-out { color: var(--text-main); }.stove-stock-row .stock-in { color: var(--success); }
 .stove-activity-pagination { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 16px; font-size: .8rem; }
-.commission-rates { display: grid; grid-template-columns: 1fr 1fr auto; gap: 16px; align-items: center; }
-.commission-rates > div { display: grid; gap: 6px; }.commission-rates span,.commission-rates small { color: var(--text-muted); font-size: .8rem; }
-.commission-rates strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
-.commission-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
-.commission-history article { padding: 12px 0; border-top: 1px solid var(--border-color); display: grid; gap: 8px; font-size: .8rem; }
-.commission-history article > header,.commission-history article > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
-.commission-history time,.commission-history small { color: var(--text-muted); font-size: .75rem; }
-.monthly-commissions .product-section-heading > input { width: auto; max-width: 190px; }
+
 @media(max-width:650px) {
  .stove-product-layout { grid-template-columns: minmax(0,1fr); gap: 20px; }
  .stove-product-identity { padding: 0 0 20px; border-right: 0; border-bottom: 1px solid var(--border-color); }
@@ -38,12 +31,8 @@
  .stove-product-identity .product-photo-upload { min-height: 86px; height: auto; }
  .stove-stock-row { grid-template-columns: minmax(0,1fr) auto; gap: 10px; }
  .stove-stock-row > button { grid-column: 1 / -1; justify-self: start; }
- .commission-rates { grid-template-columns: repeat(2,minmax(0,1fr)); }
- .commission-rates .commission-rate-action { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
- .commission-fields { grid-template-columns: minmax(0,1fr); }
+
 }
 
 .product-costing .operational-buying { border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 16px; }
 .product-costing .operational-buying h4 { margin: 0; font-size: .9rem; }
-.commission-history-panel { border-top: 1px solid var(--border-color); margin-top: 12px; padding-top: 8px; }
-.commission-history-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 12px 0; }

@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -40,6 +41,6 @@ export function useCollectBottles() {
   const { data, error } = await supabase.rpc('collect_sale_bottles', { p_sale_id: request.body.sale_id, p_payload: request.body.payload, p_request_id: request.id });
   if (!error || isDefiniteRejection(error.code)) finishRequest(key, request.id);
   if (error) throw new Error(error.message); return data;
- }, onSuccess: () => Promise.all([['sales'], ['inventory'], ['customers'], ['finance'], ['dashboard'], ['logistics']].map(queryKey => qc.invalidateQueries({ queryKey }))) });
+ }, onSuccess: () => Promise.all([['sales'], ['inventory'], ['customers'], ['finance'], ['dashboard'], ['logistics']].map(queryKey => invalidateFreshQueries(qc, { queryKey }))) });
  return { ...mutation, hasPending };
 }

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { History, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useOperationalPriceHistory, useSetBuyingPrice } from '../../hooks/useInventory';
-import type { BuyingPrice, PriceType, ProductInventory } from '../../types/inventory';
+import type { BuyingPrice, BuyingComponent, ProductInventory } from '../../types/inventory';
 import { formatBDT } from '../../lib/formatBDT';
 import { PurchaseDialog } from '../purchases/PurchaseControls';
 import { Pagination } from '../ui/Pagination';
@@ -11,25 +11,25 @@ const date = (value: string) => new Date(value).toLocaleString('en-BD', { timeZo
 const amount = (value: number | null | undefined) => value == null ? 'Not available' : formatBDT(value);
 
 export function OperationalPrices({ itemId, data, disabled }: { itemId: string; data: ProductInventory; disabled: boolean }) {
-  const [editing, setEditing] = useState<PriceType | null>(null);
+  const [editing, setEditing] = useState<BuyingComponent | null>(null);
   return <div className="operational-buying" aria-labelledby="operational-buying-title">
     <div className="product-section-heading"><h4 id="operational-buying-title">Approximate buying prices</h4><span className="product-approx">Operational reference · per unit</span></div>
-    <div className="product-buying-grid">{(['refill', 'package'] as const).map(kind => {
+    <div className="product-buying-grid">{(['gas', 'bottle'] as const).map(kind => {
       const price = data.buying_prices.find(p => p.price_type === kind);
-      return <article className="product-buying" key={kind}><div className="product-buying-heading"><span>{kind === 'refill' ? 'Refill' : 'Package'}</span><strong>{amount(price?.new_price)}</strong></div>
+      return <article className="product-buying" key={kind}><div className="product-buying-heading"><span>{kind === 'gas' ? 'Refill (Gas)' : 'Empty (Bottle)'}</span><strong>{amount(price?.new_price)}</strong></div>
         <p>{price?.is_manual ? 'Manual override' : 'Latest received purchase suggestion'}</p>
-        <dl><div><dt>Purchase / unit</dt><dd>{amount(price?.bottle_cost)}</dd></div><div><dt>Transport + labour / unit</dt><dd>{amount(price?.overhead_per_unit)}</dd></div></dl>
+        <dl><div><dt>Purchase / unit</dt><dd>{amount(price?.invoice_unit_price)}</dd></div><div><dt>Transport + labour / unit</dt><dd>{amount(price?.overhead_per_unit)}</dd></div></dl>
         {price?.is_manual && <small>Automatic suggestion: {amount(price.automatic_price)}</small>}
-        {data.can_manage_prices && <button className="btn btn-secondary" disabled={disabled} onClick={() => setEditing(kind)}><Pencil size={13} />Edit approximate price</button>}
+        {data.can_manage_prices && <button className="btn btn-secondary" disabled={disabled} onClick={() => setEditing(kind)}><Pencil size={13} />Edit component price</button>}
       </article>;
-    })}</div>
-    <p className="product-help">Latest purchase + transport and labour − the commission shown above. Approximate references only.</p>
+    })}<article className="product-buying"><div className="product-buying-heading"><span>Package (Gas + Bottle)</span><strong>{amount(data.buying_prices.every(p => p.new_price != null) && data.buying_prices.length === 2 ? data.buying_prices.reduce((total, p) => total + Number(p.new_price), 0) : null)}</strong></div></article></div>
+    <p className="product-help">Gas and Bottle acquisition prices include allocated transport and labour. A newer receipt updates its purchased components. Historical FIFO costs stay fixed.</p>
     <PriceHistory itemId={itemId} />
     {editing && <BuyingEditor itemId={itemId} kind={editing} current={data.buying_prices.find(p => p.price_type === editing)} onClose={() => setEditing(null)} />}
   </div>;
 }
 
-function BuyingEditor({ itemId, kind, current, onClose }: { itemId: string; kind: PriceType; current?: BuyingPrice; onClose: () => void }) {
+function BuyingEditor({ itemId, kind, current, onClose }: { itemId: string; kind: BuyingComponent; current?: BuyingPrice; onClose: () => void }) {
   const save = useSetBuyingPrice(); const [mode, setMode] = useState('manual');
   const [expected, setExpected] = useState(current?.history_id ?? null);
   const [price, setPrice] = useState(current?.new_price == null ? '' : String(current.new_price)); const [reason, setReason] = useState('');
@@ -55,7 +55,7 @@ function PriceHistory({ itemId }: { itemId: string }) {
     {q.isPending && open && <p role="status">Loading history…</p>}{q.error && <p role="alert" className="payment-error">{q.error.message}</p>}
     {q.data && <><div className="buying-history-list">{q.data.entries.map(e => <article className="price-history-entry" key={e.history_id}>
       <strong>{`${e.price_type}: ${amount(e.previous_price)} → ${amount(e.new_price)}`}</strong>
-      <small>{date(e.effective_at)} · {e.actor}{e.reconstructed ? ' · Reconstructed from records' : ''}</small>
+      <small>{date(e.effective_at)} · {e.actor}</small>
       <p>{e.reason}{e.purchase_id && ` · Purchase #${e.purchase_id.slice(0, 8).toUpperCase()}`}</p>
     </article>)}</div>{!q.data.total && <p>No saved changes yet.</p>}<Pagination page={page} pageSize={10} total={q.data.total} onChange={setPage} busy={q.isFetching} label="buying price changes" /></>}
   </details>;

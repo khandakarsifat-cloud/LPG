@@ -13,11 +13,11 @@ Withdrawal, Expense, Capital, Revenue and Equipment are the five public choices.
 | Accounting component | Fixed accounts | Normal effect |
 | --- | --- | --- |
 | Assets | cash; customer_receivable; transport_receivable; supplier_receivable; bottle_receivable; inventory_lpg; inventory_stove; inventory_transit; vehicles; equipment; other_assets | Debit increases |
-| Liabilities | supplier_payable; employee_payable; operating_payable; loan_payable; other_liability; commission_pending | Credit increases; an overpayment is reported as an asset |
+| Liabilities | supplier_payable; employee_payable; operating_payable; loan_payable; other_liability | Credit increases; an overpayment is reported as an asset |
 | Capital / opening equity | capital; opening_equity; retained_earnings | Credit increases; opening equity includes supported prior net assets |
 | Other equity | equity_adjustment; business_allocation_equity | Explicit corrections and business reallocations, never trading profit |
 | Revenue | sales_revenue; logistics_revenue; internal_logistics_revenue; other_income; disposal_gain | Credit increases; disposal losses may debit the gain/loss account |
-| Expense | cogs; inventory_loss; employee_expense; logistics_expense; vehicle_expense; operating_expense; interest_expense; depreciation_expense | Debit increases |
+| Expense | cogs; bottle_exchange; inventory_loss; employee_expense; logistics_expense; vehicle_expense; operating_expense; interest_expense; depreciation_expense | Debit increases |
 | Withdrawal | withdrawals | Debit reduces equity, never expense |
 
 Assets = Liabilities + Capital + Revenue − Expense − Withdrawal + other equity.
@@ -34,7 +34,11 @@ explicit supported opening component, rather than invented revenue.
 | Later customer collection | Cash | Customer receivable | Sale; collection payment; no new revenue |
 | Customer refund | Customer receivable | Cash | Original sale; staged refund |
 | Additional bottle settlement charge | Customer receivable | Sales revenue | LPG; original sale and collection |
-| Purchase invoice / correction / cancellation | Inventory in transit | Supplier payable; earned commission receivable settlement / pending deduction | Purchase's LPG/Stove; purchase |
+| Purchase invoice / correction / cancellation | Inventory in transit | Supplier payable | Purchase LPG/Stove; separate Gas/Bottle source components |
+| New company rebate applied | Supplier payable | Other income | Purchasing business; immutable purchase rebate event; no wallet movement |
+| Cancelled rebate application | Supplier receivable / company credit | Supplier payable | Same company/business; retains confirmed award; no cash refund |
+| Existing company credit applied | Supplier payable | Supplier receivable / company credit | Later purchase; no second income recognition |
+| Rebate correction | Original debit/credit adjustment | Original credit/debit adjustment | Dated event; gross acquisition and FIFO remain unchanged |
 | Purchase company payment | Supplier payable | Cash | Purchase; payment |
 | Purchase labour payment | Supplier payable | Cash | Purchase; payment; acquisition labour capitalized once at recognition |
 | Purchase refund | Cash | Supplier payable | Original purchase and refund obligation |
@@ -43,18 +47,16 @@ explicit supported opening component, rather than invented revenue.
 | Dispatch cancellation | Empty inventory | Inventory in transit | Original dispatched shell layers |
 | FIFO sale issue | COGS | Inventory | Sale product's business; original consumed layers |
 | Refill shell retained by customer | Bottle receivable | COGS | LPG; actual issued shell basis |
-| Bottle physically returned | Empty inventory | Bottle receivable | LPG; collection and original shell asset |
+| Bottle physically returned | Received-brand empty at captured current Bottle reference | Historical bottle replacement claim; signed exchange variance | LPG; actual receipt, original outgoing shell basis and immutable incoming snapshot |
 | Verified excess bottles / stock gain | Inventory | Other income | Product's business; valued movement |
 | Sale stock return | Inventory / reversal of original bottle asset | Original COGS | Original consumed FIFO layers and age |
-| Opening inventory | Inventory | Opening equity | Product's business; explicit valuation |
+| Opening inventory contribution | Inventory | Capital | Product business; explicit Gas/Bottle valuation |
 | Inventory capital contribution | Inventory | Capital | Product's business; explicit valuation |
 | Stock loss / stolen / damaged | Inventory loss | Inventory | Product's business; actual FIFO consumption |
-| Monthly commission entitlement / correction | Supplier receivable | FIFO inventory / COGS through earned acquisition batches | LPG; received product/month and retained manual rate |
-| Later commission deduction | Supplier payable | Earned supplier receivable | LPG; later invoice; no discount to its new FIFO layer |
 | External transport invoice / correction | Transport receivable | Logistics revenue | Logistics; transit |
 | External transit collection / refund | Cash / transport receivable | Transport receivable / cash | Logistics; original transit |
-| Internal purchase transport | LPG/Stove inventory in transit; Logistics cash | LPG/Stove cash; internal Logistics revenue | Purchase and transit; default receiving Cash Register |
-| Internal transport receipt / FIFO issue / return | Inventory / COGS / original reversal | Transit inventory / inventory / original reversal | Same FIFO layers; internal amount eliminated on consolidation |
+| Internal purchase transport | Buyer inventory in transit; Logistics business allocation equity | Buyer business allocation equity; internal Logistics revenue | Noncash purchase/transit allocation; retained in additive Combined |
+| Internal transport receipt / FIFO issue / return | Inventory / COGS / original reversal | Transit inventory / inventory / original reversal | Same FIFO layers; buyer Supplies/COGS includes historical transport |
 | Diesel / toll / other transit operating cost | Logistics expense | Operating payable | Logistics; incurred cost event |
 | Driver/helper earnings | Employee expense or Logistics expense | Employee payable | Logistics; transit and crew snapshots |
 | Transit cost payment / returned funds | Operating payable / cash | Cash / operating payable | Logistics; original incurred event; completion posts nothing |
@@ -67,7 +69,7 @@ explicit supported opening component, rather than invented revenue.
 | Opening cash | Cash | Opening equity | Explicit business allocation; wallet movement |
 | Owner investment | Cash or contributed asset | Capital | Explicit business allocation; source operation |
 | Wallet correction | Cash or equity adjustment | Equity adjustment or cash | Explicit business; mandatory reason |
-| Wallet/business transfer | Destination cash; source reallocation equity | Source cash; destination reallocation equity | Source/destination business; paired operation; consolidated equity zero |
+| Real wallet transfer | Destination real-wallet ledger | Source real-wallet ledger | Two principal legs; no business allocation or profit journals |
 | Loan receipt / opening principal | Cash / opening equity | Loan payable | Loan allocation snapshot; loan register |
 | Principal repayment | Loan payable | Cash | Original loan; bounded outstanding; no expense |
 | Interest paid | Interest expense | Cash | Configured type allocation; never principal |
@@ -82,20 +84,27 @@ explicit supported opening component, rather than invented revenue.
 ## Architecture and audit decisions
 
 The canonical journals, immutable source deltas, source locks, FIFO layers,
-receipt-month commissions, trusted tenant authorization and resumable savepoints
+trusted tenant authorization and resumable savepoints
 remain the foundation. Explicit LPG/Stove/Logistics allocations replace stored
-`shared` amounts. Every line retains a valid type; wallet business portions
-reconcile exactly with totals, including negative values.
+`shared` amounts. Every line retains a valid type; one real balance per wallet reconciles with its ledger and pooled canonical Cash.
 
 Catalog-driven filters replace the mixture of obsolete and current hardcoded
 ledger names. Components aggregate fixed account, type and business; individual
 source records belong in paged Historical Activity with permission-checked links.
 
 Internal delivery for LPG or Stove records buyer FIFO cost and Logistics revenue
-once at dispatch. Consolidation eliminates internal revenue and the corresponding
-internal value retained in stock or consumed through COGS. Eliminating only
-revenue would understate consolidated profit. Transfers reallocate equity
-without inter-business receivables, loans or payables.
+once at dispatch. Combined is the exact additive total of the independent
+businesses, including that revenue and the matching buyer inventory/subsequent
+COGS. Private external-cost evidence supports reconciliation; it does not introduce
+a consolidation adjustment in reports. Physical wallet transfers change no business
+equity; noncash internal allocations create no inter-business debt.
+
+The rows above describe economic effects, not separate journal headers. A financial
+action collects its effects and posts once, netting equivalent account/business/type
+and necessary counterparty lines. Product/FIFO detail stays at its owning source.
+Immediate settlement removes zero-net clearing lines; later settlement is its own
+action. Original historical journals and meaningful custom type snapshots remain
+unchanged.
 
 Supported custom recognition is Expense, Withdrawal, Revenue, Capital and Equipment. Loans, stock and counterparty settlements retain their source
 workflows. Settings owns default allocations; ordinary entry keeps revision,
@@ -111,7 +120,7 @@ performance measurements and unverified physical/provider boundaries.
 
 ## Deployed system-type catalog
 
-The 67 system types below are read-only. Their account effects and automatic
+The system types below are read-only. Their account effects and automatic
 source attribution follow the operation matrix above; LPG/Stove product types
 inherit their product business rather than a hardcoded catalog default.
 
@@ -146,7 +155,6 @@ inherit their product business rather than a hardcoded catalog default.
 | `loan_create` | Loan recognition |
 | `loan_receipt` | Loan receipt |
 | `loan_repayment` | Loan principal repayment |
-| `monthly_commission` | Monthly earned LPG commission |
 | `obligation_settlement` | Recorded balance settlement |
 | `opening` | Opening balances |
 | `opening_cash` | Opening cash |
@@ -163,7 +171,11 @@ inherit their product business rather than a hardcoded catalog default.
 | `purchase_cancellation` | Purchase dispatch return |
 | `purchase_dispatch` | Empty-shell dispatch |
 | `purchase_payment` | Purchase payment |
-| `purchase_payment_company` | Purchase company payment |
+| `purchase_payment_company` | New company rebate applied | Supplier payable | Other income | Purchasing business; immutable purchase rebate event; no wallet movement |
+| Cancelled rebate application | Supplier receivable / company credit | Supplier payable | Same company/business; retains confirmed award; no cash refund |
+| Existing company credit applied | Supplier payable | Supplier receivable / company credit | Later purchase; no second income recognition |
+| Rebate correction | Original debit/credit adjustment | Original credit/debit adjustment | Dated event; gross acquisition and FIFO remain unchanged |
+| Purchase company payment |
 | `purchase_payment_labour` | Purchase labour payment |
 | `purchase_receipt` | FIFO purchase receipt |
 | `purchase_refund` | Purchase refund |
@@ -183,7 +195,7 @@ inherit their product business rather than a hardcoded catalog default.
 | `vehicle_service` | Vehicle service incurred |
 | `vehicle_service_expense` | Vehicle service payment |
 | `vehicle_service_expense_return` | Vehicle service funds returned |
-| `wallet_transfer` | Wallet / business transfer |
+| `wallet_transfer` | Real wallet transfer |
 
 ## Complete internal journal account catalog
 
@@ -211,6 +223,7 @@ inherit their product business rather than a hardcoded catalog default.
 | `employee_expense` | expense | Employee costs |
 | `interest_expense` | expense | Interest paid |
 | `inventory_loss` | expense | Inventory losses |
+| `bottle_exchange` | expense | Signed incoming/outgoing Bottle valuation difference |
 | `logistics_expense` | expense | Logistics costs |
 | `operating_expense` | expense | Operating expenses |
 | `vehicle_expense` | expense | Vehicle maintenance |
@@ -219,10 +232,12 @@ inherit their product business rather than a hardcoded catalog default.
 | `logistics_revenue` | income | External logistics revenue |
 | `other_income` | income | Other income |
 | `sales_revenue` | income | Product revenue |
-| `commission_pending` | liability | Supplier commission deductions pending receipt |
 | `employee_payable` | liability | Employee salaries and earnings |
 | `loan_payable` | liability | Loans |
 | `operating_payable` | liability | Operating obligations / advances |
 | `other_liability` | liability | Other liabilities |
 | `supplier_payable` | liability | Supplier payables |
 
+
+
+New wallet/stock contributions use Capital for initial and later owner investment. Real wallet transfers have two legs and no business equity or profit effect. Source allocations retain exact cents; internal Logistics allocation is noncash.

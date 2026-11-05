@@ -13,7 +13,8 @@ const migrations = process.argv.includes('--with-migrations') ? readdirSync('sup
 const adapt = source => source.replaceAll('public.setup_business(', 'pg_temp.fixture_business(').replace(/set_config\('request\.jwt\.claim\.sub',([^;]*?),true\)/g,'pg_temp.fixture_identity($1)');
 const helpers = readFileSync('supabase/tests/account-access-fixtures.sql', 'utf8') + '\n' + adapt(readFileSync('supabase/tests/fixture-helpers.sql', 'utf8'));
 const tests = helpers + '\n' + adapt(readFileSync('supabase/tests/attendance-phases.sql', 'utf8'));
-const regressions = ['authorization-current.sql', 'employees.sql', 'attendance-device-registration.sql'].map(name => ({ name, source: helpers + '\n' + adapt(readFileSync('supabase/tests/' + name, 'utf8')) }));
+const regressions = ['authorization-current.sql', 'employees-current.sql', 'attendance-device-registration.sql'].map(name => ({ name, source: helpers + '\n' + adapt(readFileSync('supabase/tests/' + name, 'utf8')) }));
+const calendarReplay = readFileSync('supabase/tests/attendance-calendar-migration.sql','utf8').split('-- AFTER CALENDAR MIGRATION');
 const python = `import concurrent.futures,json,os,re,subprocess,sys,tempfile,uuid
 os.umask(0o077)
 payload=json.load(sys.stdin)
@@ -38,6 +39,9 @@ try:
  applied=set(sql(db,'select version from supabase_migrations.schema_migrations;').splitlines())
  for definition in payload['migrations']:
   if definition['version'] not in applied:
+   if definition['version']=='20261103041709':
+    sql(db,'begin; '+payload['helpers']+payload['calendarReplay'][0]+definition['sql']+payload['calendarReplay'][1]+' rollback;')
+    print('PASS: calendar migration preserves reduced-only evidence, manual overrides and audit history',flush=True)
    sql(db,'begin; set check_function_bodies=on; '+definition['sql']+' commit;')
  if before!=sql(db,preservation): raise RuntimeError('Migration altered raw attendance or wallet evidence')
  print('PASS: original raw attendance and wallet evidence preserved',flush=True)
@@ -78,7 +82,7 @@ finally:
 `;
 const quote = value => "'" + value.replaceAll("'", "'\"'\"'") + "'";
 try {
- const output = execFileSync('ssh', [...ssh, 'sudo -n python3 -c ' + quote(python)], { input: JSON.stringify({ migrations, tests, regressions }), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+ const output = execFileSync('ssh', [...ssh, 'sudo -n python3 -c ' + quote(python)], { input: JSON.stringify({ migrations, tests, regressions, helpers, calendarReplay }), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
  assert.match(output, /PASS:/); process.stdout.write(output);
 } catch (error) {
  console.error(error.stderr?.toString() ?? error.message); process.exitCode = 1;

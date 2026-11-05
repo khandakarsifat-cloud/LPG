@@ -1,4 +1,3 @@
-import { usePaymentWallets } from '../../hooks/useFinance';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
@@ -6,6 +5,8 @@ import { formatBDQty, formatBDT } from '../../lib/formatBDT';
 import type { Purchase, PurchaseDraft } from '../../types/purchase';
 import { PURCHASE_STATUS_BG, PURCHASE_STATUS_COLORS, PURCHASE_STATUS_LABELS } from '../../types/purchase';
 import './purchases.css';
+import './purchase-editor.css';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function PurchaseDialog({ title, subtitle, children, onClose, busy = false, compact = false, className = '' }: {
   title: string; subtitle?: string; children: ReactNode; onClose: () => void; busy?: boolean; compact?: boolean;
@@ -89,27 +90,27 @@ export function PurchaseStatuses({ purchase }: { purchase: Pick<Purchase, 'statu
   </div>;
 }
 
-export function PurchaseFinancials({ draft, totals, onChange, businessCategory = 'lpg' }: {
+export function PurchaseFinancials({ draft, totals, onChange }: {
   draft: PurchaseDraft; totals: { subtotal: number; company_payable: number; total_cost: number };
   onChange?: (draft: PurchaseDraft) => void;
   businessCategory?: 'lpg' | 'stove';
 }) {
-  const wallets = usePaymentWallets(Boolean(onChange));
+  const { access } = useAuth();
+  const isOwner = access?.role === 'OWNER' || access?.is_superadmin === true;
   return <section className="purchase-section"><h3>Financial breakdown</h3>
     <div className="purchase-financial-grid">
       {onChange && <div className="purchase-cost-fields">
-        {businessCategory === 'lpg' && <PurchaseNumber label="Commission (Tk)" value={draft.commission} money onChange={n => onChange({ ...draft, commission: n ?? 0 })} hint="Settles commission earned in an earlier receipt month" />}
         <PurchaseNumber label="Internal Logistics transport (Tk)" value={draft.transport_cost} money onChange={n => onChange({ ...draft, transport_cost: n ?? 0 })} />
-        {draft.transport_cost > 0 && <PurchaseSelect label="Transport paid from wallet at dispatch" value={draft.transport_wallet_id ?? ''} onChange={v => onChange({ ...draft, transport_wallet_id: v || null })} options={[{ value: '', label: 'Cash Register (default)' }, ...(wallets.data ?? []).filter(w => w.type !== 'cash').map(w => ({ value: w.wallet_id, label: w.name }))]} />}
+        {isOwner && <PurchaseNumber label="Commission rebate used (Tk)" value={draft.rebate_amount} money invalid={draft.rebate_amount > totals.subtotal} onChange={n => onChange({ ...draft, rebate_amount: n ?? 0 })} hint="Company credit applied to this bill. Product prices and acquisition costs stay unchanged." />}
         <PurchaseNumber label="Labour cost (Tk)" value={draft.labour_cost} money onChange={n => onChange({ ...draft, labour_cost: n ?? 0 })} />
       </div>}
       <dl className="purchase-totals">
         <div><dt>Product subtotal</dt><dd>{formatBDT(totals.subtotal)}</dd></div>
-        {businessCategory === 'lpg' && <div><dt>Commission</dt><dd>− {formatBDT(draft.commission)}</dd></div>}
-        <div className="purchase-payable"><dt>Company payable</dt><dd>{formatBDT(totals.company_payable)}</dd></div>
+        <div className="purchase-payable"><dt>Gross company invoice</dt><dd>{formatBDT(totals.company_payable)}</dd></div>
+        <div><dt>Commission rebate used</dt><dd>{formatBDT(draft.rebate_amount)}</dd></div>
         <div><dt>Transport allocation (internal)</dt><dd>{formatBDT(draft.transport_cost)}</dd></div>
         <div><dt>Labour cost</dt><dd>{formatBDT(draft.labour_cost)}</dd></div>
-        <div className="purchase-payable"><dt>External payable (company + labour)</dt><dd>{formatBDT((Math.round(totals.company_payable*100)+Math.round(draft.labour_cost*100))/100)}</dd></div><div className="purchase-total"><dt>Total allocated purchase cost</dt><dd>{formatBDT(totals.total_cost)}</dd></div>
+        <div className="purchase-payable"><dt>External payable after rebate</dt><dd>{formatBDT((Math.round(totals.company_payable*100)+Math.round(draft.labour_cost*100)-Math.round(draft.rebate_amount*100))/100)}</dd></div><div className="purchase-total"><dt>Total allocated purchase cost</dt><dd>{formatBDT(totals.total_cost)}</dd></div>
       </dl>
     </div>
   </section>;

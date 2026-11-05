@@ -107,7 +107,7 @@ export function backendFiles(bootstrap = false) {
     if (!match || versions.has(match[1])) throw new Error(`Invalid or duplicate migration version: ${name}`);
     versions.add(match[1]);
   }
-  const files = ['compose.yml', 'compose.vps.yml', 'deploy/Caddyfile', 'deploy/backend.py', 'deploy/backup.py', 'deploy/restore-check.py', 'attendance-receiver/server.mjs', 'account-service/server.mjs', 'account-service/initialize-platform.mjs',
+  const files = ['compose.yml', 'compose.vps.yml', 'deploy/Caddyfile', 'deploy/backend.py', 'deploy/backup.py', 'deploy/restore-check.py', 'deploy/compact-storage.py', 'attendance-receiver/server.mjs', 'account-service/server.mjs', 'account-service/initialize-platform.mjs',
     ...readdirSync(resolve(root, 'deploy/backup')).filter(name => /^(Dockerfile|pgbackrest\.conf|[a-z]+\.py|recovery\.md)$/.test(name)).map(name => `deploy/backup/${name}`),
     ...readdirSync(resolve(root, 'supabase/docker/volumes/api/envoy')).filter(name => /\.(yaml|sh)$/.test(name)).map(name => `supabase/docker/volumes/api/envoy/${name}`),
     ...migrations.map(name => `supabase/migrations/${name}`),

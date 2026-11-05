@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const profile = access?.tenant_id && !access.must_change_password && access.access_status==='active'
     ? {tenant_id:access.tenant_id,business_name:access.business_name??'',full_name:access.full_name,email:access.email} : null;
   useEffect(()=>{
-    const fingerprint=access?JSON.stringify([user?.id,access.tenant_id,access.access_status,access.permissions]):'';
+    const fingerprint=access?JSON.stringify([user?.id,access.tenant_id,access.access_status,access.permissions,access.access_revision]):'';
     if(scope.current && scope.current!==fingerprint) {
       // Reset active observers as well as their data. Removing a query while its
       // page is mounted can strand the observer in its initial loading state.

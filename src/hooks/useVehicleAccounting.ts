@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -42,7 +43,7 @@ export function useSaveVehicleExpenseCategory() {
       return data;
     },
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ['logistics', 'expense-categories'] }),
+      invalidateFreshQueries(qc, { queryKey: ['logistics', 'expense-categories'] }),
   });
 }
 export function useServiceTrips(
@@ -164,7 +165,7 @@ export function useVehicleAccountingOperation() {
     onSuccess: () =>
       Promise.all(
         [['logistics'], ['finance'], ['employees'], ['purchases']].map(
-          (queryKey) => qc.invalidateQueries({ queryKey }),
+          (queryKey) => invalidateFreshQueries(qc, { queryKey }),
         ),
       ),
   });

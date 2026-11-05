@@ -4,8 +4,8 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useProductInventory, useSaveProductPrices } from '../../hooks/useInventory';
 import { formatBDNumber } from '../../lib/formatBDT';
+import { OperationalPrices } from './OperationalPrices';
 import type { CustomerTier, ItemWithBrand, PriceType, ProductPrice } from '../../types/inventory';
-import { MonthlyCommissions } from './MonthlyCommissions';
 import '../purchases/purchases.css';
 import './inventory.css';
 
@@ -22,8 +22,8 @@ const historyFields = [
   { key: 'sold_refill', label: 'Sold refill', shortLabel: 'Refill', icon: RefreshCw, direction: 'out' },
   { key: 'sold_package', label: 'Sold package', shortLabel: 'Package', icon: Box, direction: 'out' },
   { key: 'empty_return', label: 'Empty return', shortLabel: 'Empty', icon: RotateCcw, direction: 'in' },
-  { key: 'bought_package', label: 'Bought package', shortLabel: 'Package', icon: Box, direction: 'in' },
-  { key: 'bought_refill', label: 'Bought refill', shortLabel: 'Refill', icon: RefreshCw, direction: 'in' },
+  { key: 'bought_bottles', label: 'Purchased bottles included in filled receipts', shortLabel: 'Bottles', icon: Box, direction: 'in' },
+  { key: 'bought_gas', label: 'Filled cylinders received', shortLabel: 'Filled', icon: Droplets, direction: 'in' },
 ] as const;
 
 function PricingEditor({ itemId, tier, prices, disabled, onCancel, onSaved, onPending }: {
@@ -160,14 +160,13 @@ export const ProductHistoryModal = ({ item, onClose }: { item: ItemWithBrand; on
                 : <button className="btn btn-secondary" disabled={false} onClick={() => setEditing(true)}><Pencil size={13} />Edit prices</button>)}
             </div>
           </section>
-
-          <MonthlyCommissions itemId={item.item_id} data={product.data} disabled={editing || saving} />
+          <section className="product-section"><OperationalPrices itemId={item.item_id} data={product.data} disabled={saving || reloading} /></section>
           <section className="product-section product-history" aria-labelledby="product-history-title">
             <div className="product-section-heading product-history-heading">
               <div><h3 id="product-history-title"><CalendarDays size={16} />Weekly history</h3><p>Sat–Fri · Bangladesh time</p></div>
               <details className="product-history-info">
                 <summary aria-label="About weekly history"><Info size={16} aria-hidden="true" /></summary>
-                <p>Quantities in units. Sales leave stock (−); empty returns and received purchases add stock (+). Only completed sales and received purchases are included. Cancelled purchases are excluded.</p>
+                <p>Quantities are in cylinders. Filled receipts include the newly purchased bottles; their bottle quantity is also shown. Cancelled sales and purchases are excluded.</p>
               </details>
             </div>
             <div className="product-history-head" aria-hidden="true">

@@ -7,6 +7,9 @@ import sys
 import runpy
 import tempfile
 import unittest
+from contextlib import nullcontext
+import os
+import uuid
 from unittest.mock import patch
 
 FOLDER = Path(__file__).parent / 'backup'
@@ -14,9 +17,39 @@ sys.path.insert(0, str(FOLDER))
 import core
 import control
 import worker
+import restore
 
 
 class BackupPolicyTests(unittest.TestCase):
+    def test_engine_stream_keeps_transfer_stats_distinct_from_processed_bytes(self):
+        self.assertEqual(worker.engine_message('rclone: {"stats":{"bytes":512},"msg":"Transfer statistics"}')['stats']['bytes'], 512)
+        self.assertEqual(worker.engine_message('{"message_type":"status","bytes_done":4096}')['bytes_done'], 4096)
+        self.assertEqual(worker.engine_message('rclone: transient diagnostic'), {})
+        self.assertEqual(worker.engine_message('not-json {broken'), {})
+
+    def test_transfer_engine_stderr_drives_progress_without_reflecting_tool_errors(self):
+        lines = []
+        core.command([sys.executable, '-c', 'import sys;print(\'{"message_type":"status","bytes_done":4096}\',flush=True);print(\'rclone: {"stats":{"bytes":512}}\',file=sys.stderr,flush=True)'], on_output=lines.append)
+        self.assertTrue(any(worker.engine_message(line).get('stats', {}).get('bytes') == 512 for line in lines))
+        with self.assertRaises(RuntimeError) as caught:
+            core.command([sys.executable, '-c', 'import sys;print("private-test-secret",file=sys.stderr);sys.exit(1)'], on_output=lambda line: None)
+        self.assertNotIn('private-test-secret', str(caught.exception))
+
+    def test_reset_generations_cannot_shadow_current_points_or_expire_protected_copy(self):
+        today = core.now().isoformat()
+        snapshots = [
+            {'id': 'old', 'time': today, 'tags': ['lpg-system', 'generation:original']},
+            {'id': 'clean', 'time': today, 'tags': ['lpg-system', 'generation:clean']},
+            {'id': 'protected', 'time': '2020-01-01T00:00:00Z', 'tags': ['lpg-system', 'protected-pre-reset']},
+        ]
+        self.assertEqual(core.retain_ids(snapshots, protected_ids=['old']), {'old', 'clean', 'protected'})
+        self.assertEqual(core.retain_ids(snapshots), {'clean', 'protected'})
+        with patch('restore.generation_id', return_value='clean'):
+            with self.assertRaisesRegex(RuntimeError, 'previous business-data generation'):
+                restore.verify_generation({'generation': 'original'})
+            restore.verify_generation({'generation': 'clean'})
+            restore.verify_generation({'generation': 'original'}, allow_previous_generation=True)
+
     def test_dhaka_window_and_no_daytime_catchup(self):
         self.assertTrue(core.window(dt.datetime(2026, 11, 2, 20, 0, tzinfo=dt.timezone.utc)))
         self.assertFalse(core.window(dt.datetime(2026, 11, 2, 20, 15, tzinfo=dt.timezone.utc)))
@@ -114,6 +147,60 @@ class BackupPolicyTests(unittest.TestCase):
 
 
 class BackupAuthorizationTests(unittest.TestCase):
+    def test_reused_pid_is_recorded_as_interrupted_and_safe_retry_uses_a_new_job(self):
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder)
+            (state / 'rclone.conf').write_text('fixture only')
+            core.write(state / 'job.json', {'status': 'running', 'pid': 123, 'process_started': 'old-process', 'job_id': 'interrupted', 'started_at': core.now().isoformat()})
+            with patch('control.STATE', state), patch('control.SECRETS', state), patch('control.Lock', side_effect=lambda *_: nullcontext()), patch('control.process_identity', return_value='different-process'), patch('control.command') as start, patch('control.event'):
+                self.assertEqual(control.status()['job']['status'], 'interrupted')
+                self.assertEqual(control.status()['job']['status'], 'interrupted')
+                self.assertEqual(len(core.read(state / 'jobs.json')), 1)
+                new_id = str(uuid.uuid4())
+                control.start_full({'request_id': new_id}, 'fixture-admin')
+                self.assertEqual(core.read(state / 'job.json')['job_id'], new_id)
+                start.assert_called_once()
+                self.assertEqual(core.read(state / 'jobs.json')[0]['status'], 'interrupted')
+
+    def test_full_backup_request_is_durable_idempotent_and_does_not_change_schedule(self):
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder)
+            (state / 'rclone.conf').write_text('fixture only')
+            request_id = str(uuid.uuid4())
+            with patch('control.STATE', state), patch('control.SECRETS', state), patch('control.Lock', side_effect=lambda *_: nullcontext()), patch('control.command') as start, patch('control.event'):
+                result = control.start_full({'request_id': request_id}, 'fixture-admin')
+                self.assertEqual(result['job_id'], request_id)
+                self.assertEqual(core.read(state / 'manual-request.json')['actor'], 'fixture-admin')
+                self.assertEqual(core.read(state / 'job.json')['status'], 'queued')
+                start.assert_called_once_with(['systemctl', 'start', '--no-block', 'lpg-backup-manual.service'])
+                self.assertTrue(control.start_full({'request_id': request_id}, 'fixture-admin')['already_requested'])
+                start.assert_called_once()
+                with self.assertRaises(control.Fault) as error:
+                    control.start_full({'request_id': str(uuid.uuid4())}, 'fixture-admin')
+                self.assertEqual(error.exception.status, 409)
+                self.assertFalse((state / 'settings.json').exists())
+
+    def test_full_request_requires_connection_and_valid_request_identity(self):
+        with tempfile.TemporaryDirectory() as folder, patch('control.STATE', Path(folder)), patch('control.SECRETS', Path(folder)), patch('control.command') as start:
+            with self.assertRaises(control.Fault):
+                control.start_full({'request_id': 'not-an-id'}, 'fixture')
+            with self.assertRaisesRegex(control.Fault, 'Connect'):
+                control.start_full({'request_id': str(uuid.uuid4())}, 'fixture')
+            start.assert_not_called()
+
+    def test_progress_preserves_unknown_totals_and_actual_engine_measurements(self):
+        with tempfile.TemporaryDirectory() as folder, patch('core.STATE', Path(folder)):
+            state = Path(folder)
+            core.write(state / 'job.json', {'status': 'running', 'pid': os.getpid(), 'job_id': 'fixture', 'started_at': core.now().isoformat()})
+            core.job_update('Database Backup', detail='Capturing')
+            self.assertIsNone(core.read(state / 'job.json')['percent'])
+            core.job_update('Uploading to Google Drive', percent=37.5, processed_bytes=300, total_bytes=800)
+            job = core.read(state / 'job.json')
+            self.assertEqual((job['percent'], job['processed_bytes'], job['total_bytes']), (37.5, 300, 800))
+            core.job_update('Verification')
+            self.assertIsNone(core.read(state / 'job.json')['percent'])
+            self.assertEqual(len(core.read(state / 'job.json')['stages']), 3)
+
     def test_server_revalidates_auth_and_superadmin_and_rejects_first_login(self):
         active = {'is_superadmin': True, 'access_status': 'active', 'must_change_password': False}
         with patch('control.read', return_value={'publicKey': 'public-test-key'}):

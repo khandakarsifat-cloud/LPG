@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -56,7 +57,7 @@ export function useEmployeeOperation() {
    if (!error || isDefiniteRejection(error.code)) finishRequest(key, request.id);
    if (error) throw new Error(error.message); return data;
   },
-  onSuccess: () => Promise.all([employeeKeys, ['attendance'], ['finance'], ['logistics'], ['purchases']].map(queryKey => qc.invalidateQueries({ queryKey }))),
+  onSuccess: () => Promise.all([employeeKeys, ['attendance'], ['finance'], ['logistics'], ['purchases']].map(queryKey => invalidateFreshQueries(qc, { queryKey }))),
  });
  return { ...mutation, hasPending: hasPendingRequest(key) };
 }

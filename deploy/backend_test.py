@@ -8,7 +8,56 @@ import urllib.error
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health, configure_attendance_token, configure_account_service
+from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health, configure_attendance_token, configure_account_service, apply_migration_batch, ACCOUNTING_CUTOVER
+
+
+class AccountingCutoverTests(unittest.TestCase):
+    def exercise(self, failure=None):
+        calls = []
+        def command(args, label, **kwargs):
+            calls.append((args, label))
+            if label == 'Capture scheduler intent':
+                return '[{"id":1,"active":true},{"id":2,"active":false}]'
+            if label == 'Drain scheduled database writers':
+                return '1' if failure == 'drain' else '0'
+            if label.startswith('Approved migrations') and failure == 'sql':
+                raise RuntimeError('transaction rolled back')
+            if label == 'Resume transaction writers' and failure == 'resume':
+                raise RuntimeError('service failure')
+            return ''
+        with tempfile.TemporaryDirectory() as directory, patch('backend.run', side_effect=command), patch('backend.time.sleep'):
+            folder = Path(directory)
+            try:
+                apply_migration_batch(['psql', '-d', 'postgres'], 'select 1;', [(ACCOUNTING_CUTOVER, Path('test.sql'))], ['compose'], {'rest': {}, 'account-service': {}}, folder)
+            except RuntimeError:
+                if failure is None:
+                    raise
+            state = json.loads((folder / 'accounting-cutover.json').read_text())
+        return calls, state
+
+    def test_posting_cutover_drains_backs_up_and_restores_original_intent(self):
+        calls, state = self.exercise()
+        labels = [label for _, label in calls]
+        self.assertLess(labels.index('Drain application transaction writers'), labels.index('Quiesced accounting recovery point'))
+        self.assertLess(labels.index('Validate quiesced recovery archive'), labels.index('Approved migrations (entire batch is transactional)'))
+        self.assertEqual(state['phase'], 'resumed')
+        self.assertEqual(sum(label == 'Restore scheduler intent' for _, label in calls), 2)
+
+    def test_sql_failure_restores_services_and_enabled_and_disabled_jobs(self):
+        calls, state = self.exercise('sql')
+        self.assertEqual(state['phase'], 'resumed')
+        self.assertTrue(any(label == 'Resume transaction writers' for _, label in calls))
+        self.assertTrue(any('active=>false' in ' '.join(args) and label == 'Restore scheduler intent' for args, label in calls))
+
+    def test_jobs_that_do_not_drain_prevent_sql_and_restore_runtime(self):
+        calls, state = self.exercise('drain')
+        self.assertFalse(any(label.startswith('Approved migrations') for _, label in calls))
+        self.assertEqual(state['phase'], 'resumed')
+
+    def test_service_restore_failure_still_restores_every_scheduler_flag(self):
+        calls, state = self.exercise('resume')
+        self.assertEqual(sum(label == 'Restore scheduler intent' for _, label in calls), 2)
+        self.assertEqual(state['phase'], 'recovery_required')
 
 
 class AccountServiceConfigTests(unittest.TestCase):

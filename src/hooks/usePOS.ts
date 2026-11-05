@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { assertBDMobilePhone } from '../lib/bdPhone';
@@ -100,13 +101,13 @@ export const useCreatePOSSale = () => {
       return data as POSSaleResult;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['inventory'] });
-      qc.invalidateQueries({ queryKey: ['customers'] });
-      qc.invalidateQueries({ queryKey: ['logistics'] });
-      qc.invalidateQueries({ queryKey: ['movements'] });
-      qc.invalidateQueries({ queryKey: ['sales'] });
-      qc.invalidateQueries({ queryKey: ['dashboard'] });
-      qc.invalidateQueries({ queryKey: ['finance'] });
+      invalidateFreshQueries(qc, { queryKey: ['inventory'] });
+      invalidateFreshQueries(qc, { queryKey: ['customers'] });
+      invalidateFreshQueries(qc, { queryKey: ['logistics'] });
+      invalidateFreshQueries(qc, { queryKey: ['movements'] });
+      invalidateFreshQueries(qc, { queryKey: ['sales'] });
+      invalidateFreshQueries(qc, { queryKey: ['dashboard'] });
+      invalidateFreshQueries(qc, { queryKey: ['finance'] });
     },
   });
   return { ...mutation, hasPending };

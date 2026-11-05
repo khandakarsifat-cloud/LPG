@@ -20,6 +20,8 @@ with tarfile.open(fileobj=sys.stdout.buffer,mode='w|') as archive:
  for name in ['restic-password','google-client.json','rclone.conf']:
   path=root/'backup-secrets'/name
   if path.exists():archive.add(path,arcname=name)
+ generation=Path('/opt/lpg/backups/cloud/generation.json')
+ if generation.exists():archive.add(generation,arcname='generation.json')
  archive.add(root/'backup',arcname='backup',filter=lambda i:None if '__pycache__' in i.name else i)
  archive.add(root/'backup/recovery.md',arcname='recovery.md')
 `;

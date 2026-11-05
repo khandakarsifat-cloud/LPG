@@ -31,9 +31,27 @@ leaves backups intact; Google account settings can revoke the grant completely.
 ## Schedule, consistency and retention
 
 `lpg-backup.timer` starts at **02:00 Asia/Dhaka daily**, without daytime catch-up.
-Only jobs starting from 02:00–02:14 may use Drive; the same job can finish later.
-No hourly synchronization. Manual requests queue for the next scheduled window.
-Explicit account authorization is the only daytime Google access exception.
+Automatic jobs start from 02:00–02:14 and may finish later. No hourly synchronization.
+An authorized superadmin may choose **Create Full Backup** for an immediate full
+capture, cloud upload and isolated restore verification. It uses the same worker,
+deployment lock, encryption and retention, without changing the timer. The server
+job continues after browser closure; reopening Backups reconnects to its measured
+stage progress. Percentages describe the current stage. Unknown totals remain
+indeterminate. Processed bytes, measured upload network traffic and final compressed new-data bytes are distinct counters. Compression runs inside pgBackRest and Restic. **Request backup**
+continues to queue a capture for the next scheduled window.
+
+Recovery points carry a data-generation identifier. After an authorized business
+reset, old points are labelled as previous-generation recovery and excluded from
+current backup health. The pre-reset snapshot stays protected until the new full
+baseline is restored and verified against the current migration and backend-source fingerprints. The isolated restore tool rejects a different
+generation unless `--allow-previous-generation` is explicitly provided.
+Never use an old generation to replace the current populated system.
+
+Export the private recovery kit again after a baseline reset. It contains the
+current `generation.json`; install that file at
+`/opt/lpg/backups/cloud/generation.json` on a replacement host before verification.
+Keep the previous kit with its protected recovery copy for deliberate isolated
+historical recovery.
 
 On the 1st, or the first successful capture after a missed month boundary,
 pgBackRest creates a full backup. All other nights use block incremental backup.
@@ -141,8 +159,7 @@ key and host verification. Commands below run in a root shell on the new host.
 5. Verify all databases (including `_supabase`), roles, schema/RLS/grants,
    migrations, business records, balanced journals and FIFO. Restore preserves
    the entire cluster including Auth identities, hashes, roles and privileges;
-   do not replay migrations already recorded. Check original retained FIFO and
-   dimensional accounting lab manifests. Test the burner login, private Storage
+   do not replay migrations already recorded. Check the current retained component-lab original-operation manifest. Test the burner login, private Storage
    object downloads and cross-tenant denial using real restored Auth/PostgREST.
    Compare independent source operations and savepoints/full journal positions.
    The scheduled drill performs physical recovery, journal balance checks,

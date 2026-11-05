@@ -3,7 +3,7 @@ export interface AttendanceDevice {
  last_seen_at: string | null; last_upload_at: string | null; last_event_at: string | null;
  last_batch_count: number; last_ignored_count: number; registered_at: string; unmapped: number;
 }
-export interface AttendanceConfiguration { timezone: string; cutoff: string; next_cutoff: string; clock_out_cutoff: string; next_clock_out_cutoff: string; today: string; can_correct: boolean; devices: AttendanceDevice[] }
+export interface AttendanceConfiguration { timezone: string; clock_out_cutoff: string; next_clock_out_cutoff: string; today: string; can_correct: boolean; devices: AttendanceDevice[] }
 export interface AttendanceDay {
  employee_id: string; work_date: string; clock_in: string | null; clock_out: string | null; worked_seconds: number;
  scan_count: number; warning_count: number; timezone: string; automatic_close: boolean; manual: boolean;
@@ -17,5 +17,5 @@ export interface AttendanceAdjustment { adjustment_id: string; clock_in: string 
 export interface AttendanceEdit { window: { starts_at: string; ends_at: string; latest_at: string }; day: AttendanceDay | null; adjustments: AttendanceAdjustment[] }
 export interface AttendanceCorrection { employee_id: string; day: string; clock_in: string; clock_out: string; reason: string; revision: number; request_id: string }
 export type DeviceAction = 'register' | 'edit' | 'approve' | 'disable' | 'enable' | 'remove';
-export type AttendanceOperation = { action: 'settings'; timezone: string; day_end: string; clock_out_cutoff: string }
+export type AttendanceOperation = { action: 'settings'; timezone: string; clock_out_cutoff: string }
  | { action: 'device'; device_id: string | null; serial: string; name: string; operation: DeviceAction };

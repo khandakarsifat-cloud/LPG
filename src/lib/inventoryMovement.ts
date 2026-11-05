@@ -1,7 +1,7 @@
 import { MOVEMENT_TYPE_LABELS, type InventoryMovement } from '../types/inventory.ts';
 
 export type InventoryHistorySource = 'all' | 'purchase' | 'sale';
-export const PURCHASE_MOVEMENT_FILTER = 'reference_type.in.(purchase_dispatch,purchase_receipt_refill,purchase_receipt_new,purchase_cancellation,stove_purchase_receipt,stove_purchase_cancellation),movement_type.in.(purchase,refill,purchase_adjustment)';
+export const PURCHASE_MOVEMENT_FILTER = 'reference_type.in.(purchase_dispatch,purchase_receipt,purchase_cancellation,stove_purchase_receipt,stove_purchase_cancellation),movement_type.in.(purchase,refill,purchase_adjustment)';
 export const SALE_MOVEMENT_FILTER = 'reference_type.in.(sale,sale_reversal),movement_type.eq.sale';
 
 /** Inclusive calendar days in Bangladesh, expressed as a half-open timestamp range. */
@@ -44,10 +44,6 @@ export function inventoryMovementActions(movement: Pick<InventoryMovement, 'refe
     if (movement.reference_type === 'purchase_cancellation') {
       if (filled < 0) actions.push(`Reversed received stock from ${name} on cancelled purchase`);
       if (empty > 0) actions.push(`Restored empty from ${name} on cancelled purchase`);
-    } else if (movement.reference_type === 'purchase_receipt_new') {
-      actions.push(`Received package from ${name} on purchase`);
-    } else if (movement.reference_type === 'purchase_receipt_refill') {
-      actions.push(`Received refill from ${name} on purchase`);
     } else {
       if (filled > 0) actions.push(`Received filled from ${name} on purchase`);
       if (filled < 0) actions.push(`Adjusted filled stock for ${name} on purchase`);
@@ -61,8 +57,7 @@ export function inventoryMovementActions(movement: Pick<InventoryMovement, 'refe
 export function inventoryMovementLabel(movement: Pick<InventoryMovement, 'reference_type' | 'movement_type'>): string {
   switch (movement.reference_type) {
     case 'purchase_dispatch': return 'Purchase dispatch';
-    case 'purchase_receipt_refill': return 'Refills received';
-    case 'purchase_receipt_new': return 'New cylinders received';
+    case 'purchase_receipt': return 'Filled cylinders received';
     case 'purchase_cancellation': return 'Purchase cancelled';
     default: return MOVEMENT_TYPE_LABELS[movement.movement_type] ?? movement.movement_type;
   }

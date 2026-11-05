@@ -1,7 +1,7 @@
 import type { AnalysisGroup, FinancialPosition } from '../types/accounting';
 
 export function positionGroup(account: string, kind: string): AnalysisGroup {
- if (kind === 'asset') return account === 'cash' ? 'cash' : ['inventory_lpg', 'inventory_stove', 'inventory_transit', 'bottle_receivable'].includes(account) ? 'inventory' : ['vehicles', 'equipment', 'other_assets'].includes(account) ? 'fixed_assets' : ['customer_receivable', 'supplier_receivable', 'transport_receivable'].includes(account) ? 'receivables' : 'other_assets';
+ if (kind === 'asset') return account === 'cash' ? 'cash' : ['inventory_lpg', 'inventory_stove', 'inventory_transit', 'bottle_receivable'].includes(account) ? 'inventory' : ['vehicles', 'equipment', 'other_assets'].includes(account) ? 'fixed_assets' : ['customer_receivable', 'supplier_receivable', 'transport_receivable', 'loan_receivable'].includes(account) ? 'receivables' : 'other_assets';
  return ['loan_payable', 'supplier_payable'].includes(account) ? 'dues' : account === 'employee_payable' ? 'employees' : 'other_liabilities';
 }
 export function positionGroupValue(p: FinancialPosition, group: AnalysisGroup): number {

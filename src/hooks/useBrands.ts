@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { LPGBrand, CreateBrandPayload } from '../types/inventory';
@@ -64,8 +65,8 @@ export const useSetBrandOrder = () => {
     },
     onSuccess: async () => {
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ['lpg_brands'] }),
-        qc.invalidateQueries({ queryKey: ['inventory'] }),
+        invalidateFreshQueries(qc, { queryKey: ['lpg_brands'] }),
+        invalidateFreshQueries(qc, { queryKey: ['inventory'] }),
       ]);
     },
   });

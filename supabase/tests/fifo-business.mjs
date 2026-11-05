@@ -51,7 +51,7 @@ async function seed(){
  const bankResult=await rpc('bank','save_finance_wallet',{p_payload:{name:'DBBL Lab operating account',kind:'bank',details:'Retained isolated development fixture',is_active:true}});
  const bank=typeof bankResult==='string'?bankResult:bankResult.wallet_id;assert(bank);manifest.cash=cash;manifest.bank=bank;persist();
  for(const [wallet,amount,label] of [[cash,1000000,'cash'],[bank,750000,'bank']]){
-  await operation('opening-'+label,{action:'opening_cash',wallet_id:wallet,amount,date:start,description:'Verified initial test-business funds'});event('opening-'+label,{kind:'funding',wallet,amount,date:start});
+  await operation('opening-'+label,{action:'capital',wallet_id:wallet,amount,date:start,description:'Verified initial test-business funds'});event('opening-'+label,{kind:'funding',wallet,amount,date:start});
  }
  const opening=await operation('opening-liability',{action:'opening_entry',account:'operating_payable',amount:50000,date:start,description:'Opening unpaid shop rent and utilities'});manifest.openingObligation=opening.id;
  event('opening-liability',{kind:'openingLiability',amount:50000,date:start});
@@ -81,7 +81,7 @@ async function seed(){
    const key=`lpg-${bi}-${kg}-${mouth}`;let row=manifest.steps[key]?.result;
    if(!row){row=await checked(c.from('items').insert({tenant_id:tenant,brand_id:brand,size_kg:kg,mouth_size:mouth}).select('item_id').single());manifest.steps[key]={done:true,result:row};persist();}
    const product={id:row.item_id,brand,kg,mouth,category:'lpg',shell:kg===12?1500:3500};products.push(product);
-   await rpc('initial-'+key,'adjust_inventory',{p_payload:{item_id:product.id,kind:'opening',filled_quantity:30,empty_quantity:50,filled_unit_cost:product.shell+(kg===12?1100:3000),empty_unit_cost:product.shell,date:start,reason:'Verified opening filled cylinders and spare shells'},p_request_id:true});
+   await rpc('initial-'+key,'adjust_inventory',{p_payload:{item_id:product.id,kind:'capital',filled_quantity:30,empty_quantity:50,filled_unit_cost:product.shell+(kg===12?1100:3000),empty_unit_cost:product.shell,date:start,reason:'Verified opening filled cylinders and spare shells'},p_request_id:true});
    event('initial-filled-'+key,{kind:'openingStock',item:product.id,part:'filled',quantity:30,unit:product.shell+(kg===12?1100:3000),shell:product.shell,date:start});event('initial-empty-'+key,{kind:'openingStock',item:product.id,part:'empty',quantity:50,unit:product.shell,date:start});
   }
  }
@@ -90,7 +90,7 @@ async function seed(){
   const type=types.find(t=>t.name===['Single Stove','Double Stove','Regulator','Pipe'][index])??types[index];
   const row=await rpc('stove-'+index,'save_stove_product',{p_payload:{name:['Lab single-burner stove','Lab double-burner stove','Lab pressure regulator','Lab safety hose'][index],type_id:type.type_id},p_request_id:true});
   const product={id:row.item_id,category:'stove',index,shell:0};products.push(product);
-  await rpc('initial-stove-'+index,'adjust_inventory',{p_payload:{item_id:product.id,kind:'opening',filled_quantity:15,empty_quantity:0,filled_unit_cost:[1200,2200,300,150][index],date:start,reason:'Verified initial stove-business supplies'},p_request_id:true});event('initial-stove-'+index,{kind:'openingStock',item:product.id,part:'filled',quantity:15,unit:[1200,2200,300,150][index],date:start});
+  await rpc('initial-stove-'+index,'adjust_inventory',{p_payload:{item_id:product.id,kind:'capital',filled_quantity:15,empty_quantity:0,filled_unit_cost:[1200,2200,300,150][index],date:start,reason:'Verified initial stove-business supplies'},p_request_id:true});event('initial-stove-'+index,{kind:'openingStock',item:product.id,part:'filled',quantity:15,unit:[1200,2200,300,150][index],date:start});
  }
  manifest.products=products;manifest.brands=brands;persist();
  const customers=[];

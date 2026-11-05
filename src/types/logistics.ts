@@ -12,6 +12,7 @@ export interface LogisticsFilters { search?: string; status?: string; type?: str
 export interface LogisticsSummary { assignments: number; current_vehicle: string | null; vehicles: number; home: number; transits: number; active: number; awaiting_completion: number; earnings: number; paid: number; outstanding: number; transport_fees: number; operating_costs: number; expense_outstanding:number;service_expenses:number;profit:number }
 export type TransitStatus = 'active' | 'returned' | 'completed' | 'cancelled';
 export interface AdditionalCost { name: string; amount: number; category_id?:string }
+export type TransitDirectoryEntry = (Transit & { entry_kind: 'transit' }) | (import('./vehicleAccounting').ServiceTrip & { entry_kind: 'service' });
 export interface Transit {
  tenant_id: string; transit_id: string; vehicle_id: string; vehicle_name: string; purchase_id: string | null;
  status: TransitStatus; transport_fee: number; driver_cost: number; helper_cost: number; oil_cost: number; others_cost: number;

@@ -63,11 +63,11 @@ export function PurchasesList({ totalPurchases, category = 'all', onCategoryChan
         <div className="purchase-info-row"><Truck size={14} /><span>{purchase.vehicle_name ?? (purchase.business_category === 'stove' ? 'Direct receipt' : 'Vehicle not assigned')}</span></div></div>
       <CardProductPreview label="Purchased products">
         {purchase.items.map(item => <div key={item.purchase_item_id} className="purchase-item-pill">
-          <span className="pill-qty">{purchase.status === 'received' ? item.received_quantity ?? item.quantity : item.quantity}×</span>
-          <span className="pill-name">{item.product_name || `${item.size_kg} kg ${item.mouth_size ?? ''} ${item.type === 'refill' ? 'refills' : 'new cylinders'}`}</span>
+          <span className="pill-qty">{item.quantity}×</span>
+          <span className="pill-name">{item.product_name || `${item.size_kg} kg ${item.mouth_size ?? ''} Gas + ${item.bottle_quantity} Bottle`}</span>
         </div>)}
       </CardProductPreview>
-      <div className="sale-money"><span>{purchase.status === 'cancelled' ? 'Refunded' : 'Paid'} <strong>{formatBDT(Number(purchase.status === 'cancelled' ? purchase.refunded_amount ?? 0 : purchase.paid_amount ?? 0))}</strong></span><span>{purchase.status === 'cancelled' ? 'Refund due' : 'Due'} <strong>{formatBDT(purchase.status === 'cancelled' ? Number(purchase.refund_due ?? 0) : Math.max(0, Number(purchase.payable_amount) - Number(purchase.paid_amount ?? 0)))}</strong></span></div>
+      <div className="sale-money"><span>{purchase.status === 'cancelled' ? 'Refunded' : 'Paid'} <strong>{formatBDT(Number(purchase.status === 'cancelled' ? purchase.refunded_amount ?? 0 : purchase.paid_amount ?? 0))}</strong></span><span>{purchase.status === 'cancelled' ? 'Refund due' : 'Due'} <strong>{formatBDT(purchase.status === 'cancelled' ? Number(purchase.refund_due ?? 0) : Math.max(0, Number(purchase.payable_amount) - Number(purchase.rebate_amount) - Number(purchase.paid_amount ?? 0)))}</strong></span></div>
       <div className="purchase-card-footer"><span className="purchase-total-label">Total purchase cost</span>
         <strong className="purchase-total-value">{formatBDT(Number(purchase.total_cost))}</strong></div>
     </button>)}</div>

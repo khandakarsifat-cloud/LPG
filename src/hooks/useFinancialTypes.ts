@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { BusinessAllocation, FinancialCatalog } from '../types/financial';
@@ -11,7 +12,7 @@ export function useSaveFinancialType() {
  const qc = useQueryClient();
  return useMutation({ mutationFn: async (payload: { type_id?: string; revision?: number; name: string; account: string; allocations: BusinessAllocation; is_active: boolean }) => {
   const { data, error } = await supabase.rpc('save_financial_type', { p_payload: payload }); if (error) throw error; return data;
- }, onSuccess: () => qc.invalidateQueries({ queryKey: ['finance'] }) });
+ }, onSuccess: () => invalidateFreshQueries(qc, { queryKey: ['finance'] }) });
 }
 
 export interface FinancialEntry {

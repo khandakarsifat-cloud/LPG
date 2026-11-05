@@ -1,3 +1,4 @@
+import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -129,7 +130,7 @@ export const useAddCustomer = () => {
       return data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: customerKeys.all });
+      invalidateFreshQueries(qc, { queryKey: customerKeys.all });
     },
   });
 };

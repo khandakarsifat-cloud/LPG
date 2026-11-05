@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import type { AccountOperation, BusinessUser, BusinessUserDirectory, PermissionDefinition, PlatformBusiness, PlatformDashboard, StorageUsage, AccessActivity } from '../types/access';
+import type { AccountOperation, BusinessUser, BusinessUserDirectory, PermissionDefinition, PlatformBusiness, PlatformDashboard, StorageUsage, AccessActivity, UserWalletAccess } from '../types/access';
 
 async function readRPC<T>(name:string,params:Record<string,unknown>={}):Promise<T> {
   const {data,error}=await supabase.rpc(name,params);if(error)throw new Error(error.message);return data;
@@ -21,10 +21,11 @@ export function usePlatformDashboard() {return useQuery({queryKey:['access','das
 export function usePlatformStorage() {return useQuery({queryKey:['access','storage'],queryFn:()=>readRPC<StorageUsage>('get_platform_storage'),staleTime:60_000,refetchOnWindowFocus:false});}
 export function useAccessActivity(tenantId:string|undefined,page:number) {return useQuery({queryKey:['access','activity',tenantId,page],queryFn:()=>readRPC<{entries:AccessActivity[]}>('get_access_audit',{p_tenant_id:tenantId??null,p_offset:page*25})});}
 export function useSaveBusinessUser(tenantId?:string) {
-  const cache=useQueryClient();return useMutation({mutationFn:(params:{user:BusinessUser;name:string;role:string;active:boolean;permissions:string[]|null})=>readRPC<void>('manage_business_user',{
-    p_user_id:params.user.user_id,p_name:params.name,p_role:params.role,p_active:params.active,p_expected_revision:params.user.revision,p_permissions:params.permissions,p_tenant_id:tenantId??null}),
+  const cache=useQueryClient();return useMutation({mutationFn:(params:{user:BusinessUser;name:string;role:string;active:boolean;permissions:string[]|null;walletAccess?:UserWalletAccess[]})=>readRPC<void>('manage_business_user',{
+    p_user_id:params.user.user_id,p_name:params.name,p_role:params.role,p_active:params.active,p_expected_revision:params.user.revision,p_permissions:params.permissions,p_tenant_id:tenantId??null,p_wallet_access:params.walletAccess?.map(({wallet_id,can_use,can_balance,can_history})=>({wallet_id,can_use,can_balance,can_history}))??null}),
     onSuccess:()=>cache.invalidateQueries({queryKey:['access']})});
 }
+export function useBusinessWalletAccess(userId:string,tenantId?:string) {return useQuery({queryKey:['access','wallets',tenantId,userId],queryFn:()=>readRPC<UserWalletAccess[]>('get_business_wallet_access',{p_user_id:userId,p_tenant_id:tenantId??null})});}
 export function useProvisionAccount() {
   const cache=useQueryClient();return useMutation({mutationFn:(params:{requestId:string;operation:AccountOperation;password:string})=>accountRequest<{user_id:string;tenant_id:string}>('provision',{request_id:params.requestId,operation:params.operation,password:params.password}),
     onSuccess:()=>cache.invalidateQueries({queryKey:['access']})});

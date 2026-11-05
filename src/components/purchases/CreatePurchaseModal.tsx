@@ -2,7 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useCreatePurchase } from '../../hooks/usePurchases';
 import { useGasPlants } from '../../hooks/useGasPlants';
-import { emptyPurchaseDraft, purchaseTotals, validatePurchaseDraft } from '../../lib/purchase';
+import { emptyPurchaseDraft, validatePurchaseDraft } from '../../lib/purchase';
 import { PurchaseConfirmation, PurchaseDialog, PurchaseSelect } from './PurchaseControls';
 import { PurchaseForm, PurchaseShipment } from './PurchaseForm';
 import './purchases.css';
@@ -20,7 +20,6 @@ function CreatePurchase({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const plants = (plantsQuery.data ?? []).filter(plant => plant.brand_id);
   const plant = plants.find(plant => plant.plant_id === plantId);
-  const totals = purchaseTotals(draft.items, draft.commission, draft.transport_cost, draft.labour_cost);
   async function submit(recover = false) {
     try {
       await create.mutateAsync(recover ? undefined : { ...draft, plant_id: plantId });
@@ -33,7 +32,7 @@ function CreatePurchase({ onClose }: { onClose: () => void }) {
     <PurchaseDialog title="New purchase" subtitle="Start with a plant. Complete the shipment details when ready." onClose={onClose} busy={create.isPending}>
       <form onSubmit={event => {
         event.preventDefault();
-        const message = !plant ? 'Select a destination plant with a company.' : validatePurchaseDraft(draft, totals.subtotal);
+        const message = !plant ? 'Select a destination plant with a company.' : validatePurchaseDraft(draft);
         setError(message); if (!message) setConfirm(true);
       }}>
         <div className="modal-body">
@@ -46,7 +45,7 @@ function CreatePurchase({ onClose }: { onClose: () => void }) {
             <div className="purchase-destination-grid">
               <PurchaseSelect label="Destination plant" value={plantId} placeholder={plantsQuery.isLoading ? 'Loading plants…' : 'Select a plant'}
                 options={plants.map(plant => ({ value: plant.plant_id, label: plant.plant_name, description: [plant.brand_name, plant.location].filter(Boolean).join(' · ') }))}
-                onChange={id => { setPlantId(id); setDraft(previous => ({ ...previous, items: [], commission: 0 })); setError(null); }} />
+                onChange={id => { setPlantId(id); setDraft(previous => ({ ...previous, items: [] })); setError(null); }} />
               {plant && <PurchaseShipment draft={draft} onChange={setDraft} />}
             </div>
             {plant && <p className="purchase-hint">Company: <strong>{plant.brand_name}</strong>{plant.location ? ` · ${plant.location}` : ''}. Plant and company are fixed after creation.</p>}

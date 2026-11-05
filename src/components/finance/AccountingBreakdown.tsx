@@ -1,10 +1,9 @@
-import { businessLines, businessNames } from '../../types/financial';
+import { AccountingEntryCard } from './AccountingEntryCard';
 import './finance-modals.css';
 import { lazy, Suspense, useDeferredValue, useState } from 'react';
 import { useTransit } from '../../hooks/useLogistics';
 import { FinancialEntryDetails } from './FinancialEntryDetails';
-import { useAuth } from '../../contexts/AuthContext';
-import { useAccountingBreakdown, useAccountingHealth, useAccountingProduct } from '../../hooks/useAccounting';
+import { useAccountingBreakdown, useAccountingHealth, useAccountingProduct, useCanOpenAccountingRecord } from '../../hooks/useAccounting';
 import { usePurchaseDetails } from '../../hooks/usePurchases';
 import { useEmployeeOperation, useEmployeeOverview } from '../../hooks/useEmployees';
 import type { AccountingBreakdownEntry, AnalysisGroup, AnalysisSide, JournalFilters } from '../../types/accounting';
@@ -12,10 +11,10 @@ import { formatBDT } from '../../lib/formatBDT';
 import { PurchaseDialog } from '../purchases/PurchaseControls';
 import { Pagination } from '../ui/Pagination';
 import { DatePicker } from '../ui/DatePicker';
-import { JournalLines } from './JournalAudit';
 import { AccountingHistory } from './AccountingManagement';
 
 const TransitDetails = lazy(() => import('../logistics/TransitCostsModal').then(m => ({ default: m.TransitCostsModal })));
+const ServiceDetails = lazy(() => import('../logistics/ServiceTrips').then(m => ({ default: m.ServiceTripDetails })));
 const CustomerDetails = lazy(() => import('../customers/CustomerDetailsModal').then(m => ({ default: m.CustomerDetailsModal })));
 const SaleDetails = lazy(() => import('../transactions/TransactionDetailsModal').then(m => ({ default: m.TransactionDetailsModal })));
 const PurchaseDetails = lazy(() => import('../purchases/UpdatePurchaseModal').then(m => ({ default: m.UpdatePurchaseModal })));
@@ -28,35 +27,25 @@ export function AccountingBreakdownModal({ title, filters, group, side, expected
  const [component, setComponent] = useState<{ type_id: string; business: string } | null>(null);
  const [record, setRecord] = useState<AccountingBreakdownEntry | null>(null); const deferredSearch = useDeferredValue(search);
  const q = useAccountingBreakdown({ ...filters, search: deferredSearch, account, entity_id: entity ?? '', history_from: historyFrom, type_id: component?.type_id, component_business: component?.business }, group, side, mode, page);
- const { profile, can } = useAuth();
  const changeMode = (m: 'components' | 'history') => { setMode(m); setPage(0); };
- function canOpen(row: AccountingBreakdownEntry) {
-  if (profile?.tenant_id !== row.tenant_id || !row.record_id) return false;
-  return row.record_kind === 'financial_entry' ? can('finance:view') || can('finance:manage') : row.record_kind === 'transit' ? can('logistics:view') || can('logistics:manage') : row.record_kind === 'customer' ? can('customers:view') || can('customers:manage') : row.record_kind === 'sale' ? can('sales:view') || can('dashboard:view') : row.record_kind === 'purchase' ? can('purchases:view') || can('purchases:manage') : row.record_kind === 'product' ? can('inventory:view') || can('inventory:manage') : row.record_kind === 'employee' ? can('employees:view') || can('employees:manage') : row.record_kind === 'loan' || row.record_kind === 'asset';
- }
+ const canOpen = useCanOpenAccountingRecord();
  return <><PurchaseDialog className="financial-breakdown-dialog" title={title} subtitle={side === 'period' ? `${filters.from} — ${filters.to}` : q.data ? `${q.data.original_opening ? 'Original opening' : 'Financial position through'} ${q.data.cutoff} · Asia/Dhaka` : 'Loading historical cutoff…'} onClose={onClose}>
   <div className="modal-body accounting-drilldown"><div className="breakdown-balance"><span>{side === 'period' ? 'Period total' : entity ? 'Component balance' : 'Balance at cutoff'}</span><strong>{formatBDT(q.data?.balance ?? expected)}</strong></div>
    <nav className="accounting-tabs" aria-label="Breakdown view"><button aria-current={mode === 'components' ? 'page' : undefined} onClick={() => changeMode('components')}>Components</button><button aria-current={mode === 'history' ? 'page' : undefined} onClick={() => changeMode('history')}>Historical activity</button></nav>
    <div className="breakdown-filters"><label className="input-group"><span className="input-label">Search {mode === 'components' ? 'components' : 'activity'}</span><input className="input-field" value={search} placeholder="Name, description or reference" onChange={e => { setSearch(e.target.value); setPage(0); }} /></label>{mode === 'history' && <div className="input-group"><span className="input-label">Activity from (optional)</span><DatePicker label="Activity from" value={historyFrom} max={q.data?.cutoff} onChange={v => { setHistoryFrom(v); setPage(0); }} /></div>}</div>
    {entity && <button className="btn btn-secondary" onClick={() => { setEntity(null); setAccount(''); setComponent(null); setPage(0); }}>Show all components</button>}
    {q.isPending && <p role="status">Loading breakdown…</p>}{q.error && <p role="alert" className="payment-error">{q.error.message}<button className="btn btn-secondary" onClick={() => void q.refetch()}>Retry</button></p>}
-   {q.data && <><p className="finance-note">{mode === 'components' ? '' : `Matching movement total: ${formatBDT(q.data.filtered_movement ?? 0)}. Without activity filters, these movements explain the displayed balance.`}</p>
-    {q.data.entries.map((row, index) => <article className="breakdown-entry" key={row.journal_id ? `${row.tenant_id}:${row.journal_id}:${row.line_no}` : `${row.tenant_id}:${row.account}:${row.type_id}:${row.business_category}:${row.entity_id ?? index}`}><header><div><strong>{mode === 'history' ? row.description : `${row.type_name ?? row.entity_name} · ${businessLines.filter(b => b === row.business_category).map(b => businessNames[b]).join('')}`}</strong><small>{row.name}{row.entity_id ? ` · ${row.entity_name}` : ''}{mode === 'history' ? ` · ${row.occurred_on} · ${row.source?.replaceAll('_', ' ')}` : ''}{row.estimated ? ' · Development estimate' : ''}</small></div><b>{formatBDT(row.amount)}</b></header>
-     <div className="breakdown-actions">{mode === 'components' && <button className="btn btn-secondary" onClick={() => { setEntity(row.entity_id ?? 'none'); setAccount(row.account); setComponent({ type_id: row.type_id, business: row.business_category }); setSearch(''); changeMode('history'); }}>Activity</button>}{canOpen(row) && <button className="btn btn-secondary" onClick={() => setRecord(row)}>Open current record</button>}{mode === 'history' && row.source === 'sale' && row.source_id && profile?.tenant_id === row.tenant_id && (can('sales:view') || can('dashboard:view')) && <button className="btn btn-secondary" onClick={() => setRecord({ ...row, record_kind: 'sale', record_id: row.source_id ?? null })}>Open sale</button>}</div>
-     {row.journal_id && <BreakdownJournal filters={filters} id={row.journal_id} reference={row.transaction_reference ?? row.source_id ?? ''} />}
-    </article>)}{!q.data.total && <p className="finance-empty">No matching {mode === 'components' ? 'outstanding components' : 'activity'} at this cutoff.</p>}
-    <Pagination page={page} pageSize={20} total={q.data.total} onChange={setPage} busy={q.isFetching || deferredSearch !== search} label={mode === 'components' ? 'components' : 'movements'} alwaysVisible />
+   {q.data && <><p className="finance-note">{mode === 'components' ? '' : `Matching change: ${formatBDT(q.data.filtered_movement ?? 0)}. Increases add to this balance; decreases reduce it. These are accounting changes, not necessarily cash payments.`}</p>
+    {q.data.entries.map((row, index) => <AccountingEntryCard key={row.journal_id ? `${row.journal_id}:${row.line_no}` : `${row.account}:${row.type_id}:${row.business_category}:${row.entity_id ?? index}`} row={row} mode={mode} filters={filters} onOpen={canOpen(row)?()=>setRecord(row):undefined} onActivity={mode==='components'?()=>{setEntity(row.entity_id ?? 'none');setAccount(row.account);setComponent({type_id:row.type_id,business:row.business_category});setSearch('');changeMode('history');}:undefined}/>)}{!q.data.total && <p className="finance-empty">No matching {mode === 'components' ? 'outstanding components' : 'activity'} at this cutoff.</p>}
+    <Pagination page={page} pageSize={20} total={q.data.total} onChange={setPage} busy={q.isFetching || deferredSearch !== search} label={mode === 'components' ? 'components' : 'actions'} alwaysVisible />
    </>}
   </div><div className="modal-footer"><button className="btn btn-secondary" onClick={onClose}>Close</button></div>
  </PurchaseDialog>{record && <Suspense fallback={<PurchaseDialog title="Loading record" onClose={() => setRecord(null)}><div className="modal-body" role="status">Loading…</div></PurchaseDialog>}><RelatedRecord record={record} onClose={() => setRecord(null)} /></Suspense>}</>;
 }
-function BreakdownJournal({ filters, id, reference }: { filters: JournalFilters; id: string; reference: string }) {
- const [open, setOpen] = useState(false);
- return <details className="breakdown-journal" onToggle={e => setOpen(e.currentTarget.open)}><summary>Journal evidence</summary>{open && <><p className="finance-note journal-reference">Source reference: {reference}</p><JournalLines filters={filters} id={id} /></>}</details>;
-}
 export function RelatedRecord({ record, onClose }: { record: AccountingBreakdownEntry; onClose: () => void }) {
  const id = record.record_id ?? '';
  if (record.record_kind === 'financial_entry') return <FinancialEntryDetails id={id} onClose={onClose} />;
+ if (record.record_kind === 'service_trip') return <ServiceDetails id={id} onClose={onClose} />;
  if (record.record_kind === 'transit') return <RelatedTransit id={id} onClose={onClose} />;
  if (record.record_kind === 'customer') return <CustomerDetails customerId={id} onClose={onClose} />;
  if (record.record_kind === 'sale') return <SaleDetails saleId={id} onClose={onClose} />;

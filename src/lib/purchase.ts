@@ -5,30 +5,24 @@ export const purchaseDate = (date: string | null) => date ? new Date(date).toLoc
 }) : 'Pending';
 
 export const emptyPurchaseDraft = (): PurchaseDraft => ({
-  vehicle_id: null, transport_cost: 0, labour_cost: 0, commission: 0, notes: '', items: [],
+  vehicle_id: null, transport_cost: 0, labour_cost: 0, rebate_amount: 0, notes: '', items: [],
 });
 
 export function purchaseDraft(purchase: Purchase): PurchaseDraft {
   return {
-    vehicle_id: purchase.vehicle_id, transport_wallet_id: purchase.transport_wallet_id, transport_cost: Number(purchase.transport_cost),
-    labour_cost: Number(purchase.labour_cost), commission: Number(purchase.commission), notes: purchase.notes ?? '',
+    vehicle_id: purchase.vehicle_id, transport_cost: Number(purchase.transport_cost),
+    labour_cost: Number(purchase.labour_cost), rebate_amount: Number(purchase.rebate_amount), notes: purchase.notes ?? '',
     items: purchase.items.map(item => ({
-      purchase_item_id: item.purchase_item_id, item_id: item.item_id, type: item.type,
+      purchase_item_id: item.purchase_item_id, item_id: item.item_id,
       quantity: item.quantity,
-      empty_dispatched: purchase.status === 'created' ? (item.type === 'refill' ? item.quantity : 0) : item.empty_dispatched,
-      unit_price: Number(item.unit_price), shell_unit_cost: item.shell_unit_cost,
+      unit_price: Number(item.unit_price), bottle_quantity: item.bottle_quantity, bottle_unit_price: Number(item.bottle_unit_price),
     })),
   };
 }
 
-export function purchaseTotals(lines: PurchaseLinePayload[], commission: number, transport: number, labour: number, purchase?: Purchase) {
-  // Unpaid receipts bill actual quantities. Prepayment freezes billed quantities.
-  const subtotalCents = lines.reduce((sum, line) => {
-    const billed = purchase?.status !== 'created'
-      ? purchase?.items.find(item => item.purchase_item_id === line.purchase_item_id)?.billed_quantity : undefined;
-    return sum + (billed ?? line.quantity) * Math.round(line.unit_price * 100);
-  }, 0);
-  const payableCents = subtotalCents - Math.round(commission * 100);
+export function purchaseTotals(lines: PurchaseLinePayload[], transport: number, labour: number) {
+  const subtotalCents = lines.reduce((sum, line) => sum + line.quantity * Math.round(line.unit_price * 100) + line.bottle_quantity * Math.round(line.bottle_unit_price * 100), 0);
+  const payableCents = subtotalCents;
   return {
     subtotal: subtotalCents / 100, company_payable: payableCents / 100,
     total_cost: (payableCents + Math.round(transport * 100) + Math.round(labour * 100)) / 100,
@@ -43,7 +37,7 @@ export function purchaseAccess(purchase: Purchase, canManage = true, isOwner = f
     cancel: canManage && isOwner && (purchase.status === 'created' || purchase.status === 'in_transit' || purchase.business_category === 'stove' && purchase.status === 'received'),
     financials: editable && !financialLocked && purchase.status !== 'received',
     dispatch: editable && (purchase.business_category !== 'stove' || Number(purchase.transport_cost)>0) && purchase.status === 'created', receive: editable && (purchase.status === 'in_transit' || purchase.business_category === 'stove' && purchase.status === 'created' && Number(purchase.transport_cost)===0),
-    pay: editable && (purchase.status !== 'created' || purchase.business_category === 'stove') && purchase.payment_status !== 'paid' && Number(purchase.paid_amount ?? 0) < (Number(purchase.company_payable) + Number(purchase.labour_cost)),
+    pay: editable && (purchase.status !== 'created' || purchase.business_category === 'stove') && purchase.payment_status !== 'paid' && Number(purchase.paid_amount ?? 0) < (Number(purchase.company_payable) + Number(purchase.labour_cost) - Number(purchase.rebate_amount)),
   };
 }
 
@@ -63,7 +57,7 @@ export function purchaseEmptyShortages(lines: PurchaseLinePayload[], items: {
   item_id: string; empty_quantity: number; lpg_brands: { brand_name: string } | null; size_kg: number; mouth_size?: string | null;
 }[]): EmptyShortage[] {
   const required = new Map<string, number>();
-  for (const line of lines) if (line.type === 'refill') required.set(line.item_id, (required.get(line.item_id) ?? 0) + line.quantity);
+  for (const line of lines) required.set(line.item_id, (required.get(line.item_id) ?? 0) + line.quantity - line.bottle_quantity);
   return items.flatMap(item => {
     const quantity = required.get(item.item_id) ?? 0;
     return quantity > item.empty_quantity ? [{ item_id: item.item_id,
@@ -72,19 +66,19 @@ export function purchaseEmptyShortages(lines: PurchaseLinePayload[], items: {
   });
 }
 
-export function validatePurchaseDraft(draft: PurchaseDraft, subtotal: number): string | null {
-  const amounts = [draft.transport_cost, draft.labour_cost, draft.commission, ...draft.items.map(i => i.unit_price)];
+export function validatePurchaseDraft(draft: PurchaseDraft): string | null {
+  const amounts = [draft.transport_cost, draft.labour_cost, draft.rebate_amount, ...draft.items.flatMap(i => [i.unit_price, i.bottle_unit_price])];
   if (amounts.some(n => !Number.isFinite(n) || n < 0 || n > 9999999999.99)) return 'Enter valid nonnegative costs and prices.';
-  if (draft.commission > subtotal) return 'Commission cannot exceed the product subtotal.';
+  if (Math.round(draft.rebate_amount * 100) !== draft.rebate_amount * 100 && Math.abs(Math.round(draft.rebate_amount * 100) - draft.rebate_amount * 100) > 1e-6) return 'Enter a rebate with at most two decimals.';
+  if (draft.rebate_amount > purchaseTotals(draft.items, draft.transport_cost, draft.labour_cost).subtotal) return 'Commission rebate cannot exceed the company product invoice.';
   const keys = new Set<string>();
   for (const line of draft.items) {
-    if (!line.item_id || !Number.isInteger(line.quantity) || line.quantity <= 0 || !Number.isInteger(line.empty_dispatched) || line.empty_dispatched < 0) {
-      return 'Select a product and enter a positive expected quantity and whole outgoing quantities.';
+    if (!line.item_id || !Number.isInteger(line.quantity) || line.quantity <= 0 || !Number.isInteger(line.bottle_quantity) || line.bottle_quantity < 0 || line.bottle_quantity > line.quantity) {
+      return 'Select a product. Gas quantity must be positive and Bottle quantity between zero and Gas quantity.';
     }
-    if (line.type === 'package' && line.empty_dispatched !== 0) return 'New cylinders do not dispatch empties.';
-    if (line.type === 'refill' && line.empty_dispatched !== line.quantity) return 'Refills exchange one empty cylinder per refill.';
-    const key = `${line.item_id}:${line.type}`;
-    if (keys.has(key)) return 'Each product can have one refill line and one new-cylinder line.';
+    if (line.bottle_quantity === 0 && line.bottle_unit_price !== 0) return 'Bottle price requires a purchased Bottle quantity.';
+    const key = line.item_id;
+    if (keys.has(key)) return 'Use one purchase line per product.';
     keys.add(key);
   }
   return null;

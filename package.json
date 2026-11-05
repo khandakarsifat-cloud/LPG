@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "accounting:db:test": "node supabase/tests/run-unified-accounting.mjs --vps",
-    "finance:dimensions:api:test": "node supabase/tests/financial-business.mjs --vps",
-    "accounting:api:test": "node supabase/tests/fifo-business.mjs --vps && node supabase/tests/fifo-security-api.mjs --vps && node tests/fifo-business.browser.mjs --vps",
+    "accounting:actions:live:test": "node tests/summarized-actions-live.browser.mjs --vps",
+    "finance:dimensions:api:test": "node supabase/tests/core-independent.mjs --vps",
+    "accounting:api:test": "node supabase/tests/core-business.mjs --vps && node tests/core-workflows.browser.mjs --vps && node supabase/tests/core-stove.mjs --vps && node supabase/tests/core-exchange.mjs --vps && node supabase/tests/core-assets-logistics.mjs --vps && node tests/core-recovery.browser.mjs --vps && node supabase/tests/core-independent.mjs --vps && node supabase/tests/core-security-api.mjs --vps && node tests/core-business.browser.mjs --vps",
     "attendance:db:test": "node supabase/tests/run-attendance.mjs --vps",
     "attendance:api:test": "node supabase/tests/attendance-api.mjs --vps --browser",
     "attendance:test": "node --test attendance-receiver/*.test.mjs",
@@ -28,7 +29,10 @@
     "purchase:test": "node --test tests/purchase.test.ts",
     "purchase:db:test": "node supabase/tests/run-purchases.mjs",
     "auth:db:test": "node supabase/tests/run-account-access.mjs --vps",
-    "auth:api:test": "node supabase/tests/run-account-access-api.mjs --vps"
+    "auth:api:test": "node supabase/tests/run-account-access-api.mjs --vps",
+    "finance:visibility:api:test": "node supabase/tests/finance-visibility-live.mjs --vps && node tests/finance-visibility.browser.mjs --vps && node supabase/tests/finance-visibility-live.mjs --vps --verify && node supabase/tests/finance-visibility-live.mjs --vps --cleanup",
+    "rebate:api:test": "node supabase/tests/purchase-rebate-live.mjs --vps && node tests/purchase-rebate.browser.mjs --vps && node supabase/tests/purchase-rebate-live.mjs --vps --verify && node supabase/tests/purchase-rebate-live.mjs --vps --cleanup",
+    "backup:live:test": "node tests/manual-backup-live.mjs --vps"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

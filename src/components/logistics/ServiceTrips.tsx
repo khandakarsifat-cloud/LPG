@@ -116,7 +116,7 @@ export function ServiceTrips({ vehicleId }: { vehicleId: string }) {
                     {s.title}
                   </strong>
                   <small>
-                    {s.service_date} · {s.finalized_at ? 'Finalized' : 'Open'}
+                    {s.service_date} · <span className={`purchase-badge service-status ${s.finalized_at ? 'service-finalized' : 'service-open'}`}>{s.finalized_at ? 'Finalized' : 'Open'}</span>
                   </small>
                   <small>
                     {[...new Set(s.expenses.map((e) => e.category_name))].join(
@@ -218,9 +218,7 @@ export function ServiceTripDetails({
                   <h3>{s.title}</h3>
                   <p>
                     {s.service_date} ·{' '}
-                    {s.finalized_at
-                      ? 'Finalized'
-                      : 'Open for expenses and payments'}
+                    <span className={`purchase-badge service-status ${s.finalized_at ? 'service-finalized' : 'service-open'}`}>{s.finalized_at ? 'Finalized' : 'Open'}</span>
                   </p>
                 </div>
                 {can('logistics:services') && !s.finalized_at && (
