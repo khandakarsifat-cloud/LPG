@@ -8,7 +8,7 @@ import urllib.error
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health, configure_attendance_token, configure_account_service, apply_migration_batch, ACCOUNTING_CUTOVER, STOCK_CUTOVERS
+from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health, configure_attendance_token, configure_account_service, apply_migration_batch, ACCOUNTING_CUTOVER, STOCK_CUTOVERS, PURCHASE_CASH_CUTOVER
 
 
 class AccountingCutoverTests(unittest.TestCase):
@@ -50,7 +50,7 @@ class AccountingCutoverTests(unittest.TestCase):
         self.assertTrue(any('active=>false' in ' '.join(args) and label == 'Restore scheduler intent' for args, label in calls))
 
     def test_stock_cutovers_use_the_same_recovery_gate(self):
-        for version in STOCK_CUTOVERS:
+        for version in STOCK_CUTOVERS | {PURCHASE_CASH_CUTOVER}:
             with self.subTest(version=version):
                 calls, state = self.exercise(version=version)
                 labels = [label for _, label in calls]

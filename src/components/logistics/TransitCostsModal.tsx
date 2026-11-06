@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
-import { useUpdateTransitCosts, useTransitionTransit } from '../../hooks/useLogistics';
+import { useUpdateTransitCosts, useTransitionTransit, usePurchaseTransport, useRefundPurchaseTransport } from '../../hooks/useLogistics';
 import { PurchaseConfirmation, PurchaseDialog, PurchaseNumber } from '../purchases/PurchaseControls';
 import { formatBDT } from '../../lib/formatBDT';
 import { transitStatus, type Transit } from '../../types/logistics';
@@ -13,6 +13,33 @@ import { OperatingPayments } from './OperatingPayments';
 import { useVehicleExpenseCategories } from '../../hooks/useVehicleAccounting';
 const transitDraft = (transit: Transit) => ({ driverCost: Number(transit.driver_cost), helperCost: Number(transit.helper_cost),
   oilCost: Number(transit.oil_cost), othersCost: Number(transit.others_cost ?? 0), additionalCosts: transit.additional_costs ?? [] });
+
+function PurchaseTransport({transit}:{transit:Transit}) {
+ const {can}=useAuth();const query=usePurchaseTransport(transit.transit_id,!!transit.purchase_id);
+ const refund=useRefundPurchaseTransport(transit.transit_id);
+ const [amount,setAmount]=useState(0);const [review,setReview]=useState(false);
+ async function confirmRefund(){
+  try{await refund.mutateAsync(refund.hasPending?undefined:amount);setReview(false);setAmount(0);toast.success('Transport refund paid');}
+  catch{setReview(false);}
+ }
+ if(query.error)return <p className="purchase-error" role="alert">{query.error.message}</p>;
+ const value=query.data;if(!value)return null;
+ return <section className="purchase-section"><h3>Purchase transport payment</h3>
+  <dl className="purchase-meta"><div><dt>Paid to Logistics</dt><dd>{formatBDT(value.paid)}</dd></div>
+   <div><dt>Refunded to purchase</dt><dd>{formatBDT(value.refunded)}</dd></div></dl>
+  {value.can_refund&&can('purchases:cancel')&&can('logistics:pay')&&(value.remaining>0||refund.hasPending)&&<>
+   <p className="purchase-hint">Approve the refundable amount, up to {formatBDT(value.remaining)}. Payment returns through the original Cash Register.</p>
+   <PurchaseNumber label="Transport refund amount (Tk)" money value={amount} onChange={v=>setAmount(v??0)}/>
+   <button type="button" className="btn btn-secondary" disabled={refund.isPending||!refund.hasPending&&(amount<=0||amount>value.remaining)}
+    onClick={()=>{if(refund.hasPending)void confirmRefund();else setReview(true);}}>{refund.hasPending?'Recover transport refund':'Approve & pay transport refund'}</button>
+  </>}
+  {refund.error&&<p className="purchase-error" role="alert">{refund.error.message}</p>}
+  {review&&<PurchaseConfirmation title="Approve transport refund?" action="Approve & pay refund" busy={refund.isPending}
+   onCancel={()=>setReview(false)} onConfirm={()=>void confirmRefund()}>
+   <p>Return {formatBDT(amount)} from Logistics to the purchasing business through Cash Register.</p>
+  </PurchaseConfirmation>}
+ </section>;
+}
 export function TransitCostsModal({ open, onClose, transit }: { open: boolean; onClose: () => void; transit: Transit }) {
   return open ? <TransitDetails key={transit.transit_id} onClose={onClose} transit={transit} /> : null;
 }
@@ -81,11 +108,12 @@ function TransitDetails({ onClose, transit }: { onClose: () => void; transit: Tr
             <dl className="purchase-meta">
               <div><dt>Client</dt><dd>{transit.client_name || 'Not recorded'}</dd></div>
               <div><dt>Destination</dt><dd>{transit.destination || 'Not recorded'}</dd></div>
-              <div><dt>Driver</dt><dd>{transit.driver_name || 'Not recorded'}</dd></div><div><dt>Helper</dt><dd>{transit.helper_name || 'Not recorded'}</dd></div><div><dt>{transit.purchase_id ? 'Purchase transport allocation' : 'Transport fee'}</dt><dd>{formatBDT(Number(transit.transport_fee))}</dd></div>
+              <div><dt>Driver</dt><dd>{transit.driver_name || 'Not recorded'}</dd></div><div><dt>Helper</dt><dd>{transit.helper_name || 'Not recorded'}</dd></div><div><dt>Transport charge</dt><dd>{formatBDT(Number(transit.transport_fee))}</dd></div>
             </dl>
             {transit.description && <p className="purchase-hint">{transit.description}</p>}
             {transit.purchase_id && transit.status === 'cancelled' && <p className="purchase-alert">Purchase {transit.purchase_financial_closed_at ? 'financially closed' : `refunds pending: ${formatBDT(Number(transit.purchase_refund_due ?? 0))}`}. Operating expenses remain payable and close independently below.</p>}
           </section>
+          {transit.purchase_id&&<PurchaseTransport transit={transit}/>}
           {error && <p role="alert" className="purchase-error">{error}</p>}
           {dirty && draftRevision !== transit.revision && <p className="purchase-alert">Transit costs changed while you were editing. <button type="button" className="btn btn-secondary" onClick={loadSaved}>Reload saved costs</button></p>}
           <p className="purchase-alert">{transit.closed_at ? 'Transit expenses are settled and locked.' : transit.purchase_id && transit.status === 'active' ? 'Receive or cancel this shipment in Purchases first. Then Complete transit pays the remaining crew and operating costs from Cash Register.' : 'Enter the trip costs, then choose Complete transit. Confirm once to save and pay all remaining costs from Cash Register and return the vehicle Home.'}</p>

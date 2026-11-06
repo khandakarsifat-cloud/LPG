@@ -19,6 +19,7 @@ const concurrencyFile = 'supabase/tests/core-overhaul-concurrency.py';
 const payload = {
   migrations, reset: readFileSync('deploy/business-data-reset.sql', 'utf8'),
   access_helpers: readFileSync('supabase/tests/account-access-fixtures.sql', 'utf8'),
+  transport_cash: readFileSync('supabase/tests/purchase-transport-cash.sql', 'utf8'),
   functional: readFileSync('supabase/tests/core-overhaul.sql', 'utf8'),
   security: readFileSync('supabase/tests/core-overhaul-security.sql', 'utf8'),
   rebate: readFileSync('supabase/tests/purchase-rebate.sql', 'utf8'),

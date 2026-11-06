@@ -1,4 +1,5 @@
 import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -27,6 +28,36 @@ export function useVehicle(id: string | null) {
 export function useTransit(id: string | null) {
  return useQuery<Transit>({ queryKey: ['logistics', 'transit', id], enabled: !!id, refetchInterval: 30_000,
   queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_transit', { p_transit_id: id }).abortSignal(signal); if (error) throw error; return data; } });
+}
+
+export function usePurchaseTransport(transitId: string, enabled: boolean) {
+ return useQuery<{paid:number;refunded:number;remaining:number;can_refund:boolean;wallet_name:string|null}|null>({
+  queryKey:['logistics','purchase-transport',transitId],enabled,refetchInterval:30_000,
+  queryFn:async({signal})=>{
+   const {data,error}=await supabase.rpc('get_purchase_transport',{p_transit_id:transitId}).abortSignal(signal);
+   if(error)throw new Error(error.message);
+   return data;
+  },
+ });
+}
+
+export function useRefundPurchaseTransport(transitId: string) {
+ const qc=useQueryClient();const {profile,user}=useAuth();
+ const key=`purchase-transport-refund:${profile?.tenant_id}:${user?.id}:${transitId}`;
+ const [pending,setPending]=useState(()=>hasPendingRequest(key));
+ const mutation=useMutation({
+  mutationFn:async(amount:number|undefined)=>{
+   const request=prepareRequest(key,amount===undefined?undefined:{transit_id:transitId,amount});setPending(true);
+   const {data,error}=await supabase.rpc('refund_purchase_transport',{
+    p_transit_id:request.body.transit_id,p_amount:request.body.amount,p_request_id:request.id,
+   });
+   if(!error||isDefiniteRejection(error.code)){finishRequest(key,request.id);setPending(false);}
+   if(error)throw new Error(error.message);
+   return data;
+  },
+  onSettled:()=>Promise.all([['logistics'],['purchases'],['finance'],['dashboard']].map(queryKey=>invalidateFreshQueries(qc,{queryKey}))),
+ });
+ return {...mutation,hasPending:pending};
 }
 export function useTransitDirectory(filters: LogisticsFilters, pageSize: number) {
  return useBatchedDirectory<TransitDirectoryEntry>(['logistics', 'transits', filters], pageSize, async (offset, limit, signal) => {

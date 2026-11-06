@@ -163,7 +163,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
       {confirm === 'receive' && <div className="dialog-form"><DatePicker label="Actual received date" value={receivedOn} max={dhakaToday()} min={purchase.business_category==='lpg'?purchase.dispatched_at?.slice(0,10):undefined} onChange={setReceivedOn}/></div>}
       {purchase.business_category === 'stove' ? <><p>{confirm === 'receive' ? 'Receive the saved quantities directly into inventory. Quantities and prices become immutable.' : 'Cancel this purchase permanently. Received stock must still be available; inventory and supplier debt will be reversed. Cash refunds retain their original payment evidence.'}</p>{confirm === 'cancel' && <label className="input-group"><span className="input-label">Type exactly CANCEL</span><input className="input-field" value={cancellationText} onChange={e => setCancellationText(e.target.value)} /></label>}</> : confirm === 'dispatch' ? <>
         <p>Dispatch <strong>{purchase.vehicle_name}</strong> to <strong>{purchase.plant_name}</strong>. Deduct <strong>{outgoing} empty cylinders</strong> from inventory; no filled cylinders are added yet.</p>
-        <p>Allocate {formatBDT(Number(purchase.transport_cost))} as an internal transport allocation, excluded from recorded revenue and profit. Dispatch does not transfer or deduct wallet money.</p>
+        <p>Pay {formatBDT(Number(purchase.transport_cost))} from the purchasing business to Logistics through Cash Register. Wallet history will show the purchase payment and the transit receipt.</p>
         <p>Vehicle, products and expected quantities become locked until receipt.</p>
       </> : confirm === 'receive' ? <>
         <p>Receive all saved expected quantities from <strong>{purchase.plant_name}</strong>.</p>
@@ -172,7 +172,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
       </> : <>
         <p>Cancel this {purchase.status === 'created' ? 'draft' : 'purchase'} permanently. Unsaved edits will be discarded and normal purchase operations will stop.</p>
         <p>{purchase.status === 'created' ? 'No dispatched inventory needs returning.' : 'Return the recorded dispatched empties, cancel the linked transit and release the assigned vehicle.'} Received purchases can never be cancelled.</p>
-        <p>Actual purchase payments create a source-backed refund obligation. No money is refunded by this confirmation. Partial refunds may return to one or more active wallets. Purchase transport remains an internal allocation; incurred costs remain payable.</p>
+        <p>Supplier payments can be refunded separately. Logistics can approve and pay a full or partial transport refund from the transit details after cancellation.</p>
         <p>Legitimate vehicle operating expenses are preserved. Transit cost closure is independent of purchase refund completion. The purchase stays Pending refund until every obligation is settled.</p>
         <label className="input-group"><span className="input-label">Type exactly CANCEL</span><input className="input-field" aria-label="Type exactly CANCEL" autoComplete="off" value={cancellationText} onChange={e => setCancellationText(e.target.value)} disabled={busy} /></label>
       </>}

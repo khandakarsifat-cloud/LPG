@@ -22,7 +22,7 @@ export function PurchaseIdentity({ purchase }: { purchase: Purchase }) {
       {purchase.paid_at && <div><dt>Paid</dt><dd>{purchaseDate(purchase.paid_at)}</dd></div>}
       {Number(purchase.operating_cost) > 0 && <div><dt>Logistics operating costs</dt><dd>{formatBDT(Number(purchase.operating_cost))}</dd></div>}
     </dl>
-    {Number(purchase.operating_cost) > 0 && <p className="purchase-hint">Transit costs are incurred separately and paid from real wallets. The purchase transport charge is an internal revenue allocation.</p>}
+    {Number(purchase.operating_cost) > 0 && <p className="purchase-hint">Logistics records its crew and operating costs separately from the transport payment received for this purchase.</p>}
   </section>;
 }
 

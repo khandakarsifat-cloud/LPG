@@ -19,6 +19,7 @@ CORE_SERVICES = set(SERVICES) - {'studio', 'meta', 'attendance-receiver', 'accou
 EXCLUDED = ['frontend', 'functions', 'supavisor', 'mailpit']
 ACCOUNTING_CUTOVER = '20261105020000'
 STOCK_CUTOVERS = {'20261106023012', '20261106023014'}
+PURCHASE_CASH_CUTOVER = '20261106113739'
 
 
 def require(condition, message):
@@ -41,7 +42,7 @@ def apply_migration_batch(psql, sql, pending, compose, current, backup):
     Keep recovery intent beside the fresh dump; always restore prior cron/runtime
     intent if SQL fails. A process/host interruption needs that recorded recovery.
     """
-    if not ({ACCOUNTING_CUTOVER} | STOCK_CUTOVERS).intersection(version for version, _ in pending):
+    if not ({ACCOUNTING_CUTOVER, PURCHASE_CASH_CUTOVER} | STOCK_CUTOVERS).intersection(version for version, _ in pending):
         run(psql + ['--single-transaction', '-f', '-'], 'Approved migrations (entire batch is transactional)', data=sql.encode())
         return
     writers = [name for name in ['rest', 'account-service', 'attendance-receiver'] if name in current]

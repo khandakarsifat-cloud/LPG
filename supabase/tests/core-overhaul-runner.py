@@ -118,7 +118,8 @@ try:
               elsif r.schema_name='app_private' and r.table_name='fifo_positions' then relation:='fifo_layers';r.table_name:='fifo_layers';
               elsif r.schema_name='app_private' and r.table_name='fifo_consumptions' and to_regclass('app_private.fifo_position_effects') is not null
                 then relation:='fifo_position_effects';end if;
-              execute format('select jsonb_build_object(''count'',count(*),''digest'',md5(coalesce(string_agg(digest,'''' order by digest),''''))) from(select md5((%s)::text) digest from %I.%I x)r',row_json,r.schema_name,relation) into v;
+               execute format('select jsonb_build_object(''count'',count(*),''digest'',md5(coalesce(string_agg(digest,'''' order by digest),''''))) from(select md5((to_jsonb(x)-%L::text[])::text) digest from %I.%I x)r',
+                 case when r.schema_name='app_private' and r.table_name='internal_transport_settlements' then array['wallet_id','refunded_amount'] else array['recognize_on_receipt'] end,r.schema_name,r.table_name) into v;
               result:=result||jsonb_build_object(r.schema_name||'.'||r.table_name,v);
              end loop;return result;end $$;
              create temporary table preserved_rows as select pg_temp.preserved_rows() evidence;
@@ -165,21 +166,22 @@ try:
                 sql('begin;\n' + migration['sql'] + '\ncommit;')
                 sql('insert into supabase_migrations.schema_migrations(version,name) values(' + lit(migration['version']) + ',' + lit(migration['name']) + ');')
                 print('PASS forward migration ' + migration['version'], flush=True)
-        result = sql('begin;\n' + payload['access_helpers'] + '\n' + payload['functional'] + '\nrollback;')
+        legacy_defaults = 'alter table public.purchases alter column recognize_on_receipt set default false;\n'
+        result = sql('begin;\n' + legacy_defaults + payload['access_helpers'] + '\n' + payload['functional'] + '\nrollback;')
         print('PASS complete component, exchange, return, history, treasury and dependent-module SQL lifecycle', flush=True)
-        sql('begin;\n' + payload['access_helpers'] + '\n' + payload['rebate'] + '\nrollback;')
+        sql('begin;\n' + legacy_defaults + payload['access_helpers'] + '\n' + payload['rebate'] + '\nrollback;')
         print('PASS rebate lifecycle, unchanged prices/FIFO/COGS, corrections, refund versus company credit and independent financial positions', flush=True)
-        sql('begin;\n' + payload['access_helpers'] + '\n' + payload['lending'] + '\nrollback;')
+        sql('begin;\n' + legacy_defaults + payload['access_helpers'] + '\n' + payload['lending'] + '\nrollback;')
         print('PASS lending, partial/full repayments, replay, exact cents, activity filters and independent journal positions', flush=True)
-        sql('begin;\n' + payload['access_helpers'] + '\n' + payload['security'] + '\nrollback;')
+        sql('begin;\n' + legacy_defaults + payload['access_helpers'] + '\n' + payload['security'] + '\nrollback;')
         print('PASS authenticated/anonymous permissions, tenant isolation, private helper boundaries and canonical contracts', flush=True)
-        sql('begin;\n' + payload['access_helpers'] + '\n' + payload['visibility'] + '\nrollback;')
+        sql('begin;\n' + legacy_defaults + payload['access_helpers'] + '\n' + payload['visibility'] + '\nrollback;')
         print('PASS independent received-quantity/FIFO margins and authenticated per-wallet visibility, hidden-balance writes and atomic denials', flush=True)
         if payload.get('access_performance_deletion'):
-            sql('begin;\n' + payload['access_helpers'] + '\n' + payload['visibility'] + '\n' + payload['access_performance_deletion'] + '\nrollback;')
+            sql('begin;\n' + legacy_defaults + payload['access_helpers'] + '\n' + payload['visibility'] + '\n' + payload['access_performance_deletion'] + '\nrollback;')
             print('PASS independent historical product margins, discount rounding, dated reversals, action grants and fenced business deletion with active foreign keys', flush=True)
         if payload.get('action_storage'):
-            current = sql('begin;\n' + payload['access_helpers'] + '\n' + payload['action_storage'] + '\nrollback;')
+            current = sql('begin;\n' + legacy_defaults + payload['access_helpers'] + '\n' + payload['action_storage'] + '\nrollback;')
             if baseline:
                 prior_reports = json.loads(baseline.strip().splitlines()[-1])['_reports']
                 current_reports = json.loads(current.strip().splitlines()[-1])['_reports']
@@ -189,7 +191,10 @@ try:
                 print('PASS before/after opening, closing, totals, acquisitions, cash classifications, all business positions and daily trends match exactly', flush=True)
             print('ACTION_STORAGE_AFTER ' + json.dumps({k:v for k,v in json.loads(current.strip().splitlines()[-1]).items() if k != '_reports'}), flush=True)
             print('PASS small/large action journal counts, split settlements, delayed cross-company bottles, retries and source/FIFO controls', flush=True)
+        sql('begin;\n' + payload['access_helpers'] + '\n' + payload['transport_cash'] + '\nrollback;')
+        print('PASS receipt recognition, draft costs, owned custody, paired cash transport and partial refund contracts', flush=True)
         if payload.get('concurrency'):
+            sql('alter table public.purchases alter column recognize_on_receipt set default false;')
             exec(payload['concurrency'], globals())
         print('PASS canonical core database suite; live business records were not changed', flush=True)
 finally:
