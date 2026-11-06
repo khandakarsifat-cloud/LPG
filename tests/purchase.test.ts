@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { emptyPurchaseDraft, purchaseAccess, purchaseDraft, purchaseTotals, purchaseEmptyShortages, validatePurchaseDraft } from '../src/lib/purchase.ts';
 import { inventoryMovementLabel } from '../src/lib/inventoryMovement.ts';
 import type { Purchase } from '../src/types/purchase.ts';
-import { describePurchaseActivity } from '../src/lib/purchaseActivity.ts';
 
 const purchase: Purchase = {
   purchase_id: 'purchase', plant_id: 'plant', plant_name: 'Plant', brand_id: 'brand', company_name: 'Company',
@@ -68,14 +67,6 @@ test('dispatch, receipt, payment and cancellation remain independently guarded',
     const access = purchaseAccess({ ...purchase, status }, false);
     assert.equal(access.editable, false); assert.equal(access.dispatch, false); assert.equal(access.receive, false); assert.equal(access.pay, false);
   }
-});
-
-test('activity displays original evidence for costs, notes and vehicle changes', () => {
-  const result = describePurchaseActivity({ activity_id: 'a', action: 'updated', actor_name: '', created_at: '', details: {
-    before: { labour_cost: 10, notes: 'old', vehicle_id: null }, after: { labour_cost: 20, notes: 'Bring filled cylinders', vehicle_id: 'vehicle' },
-  } }, purchase);
-  assert.deepEqual(result.changes, ['Labour: Tk 10.00 → Tk 20.00', 'Vehicle assigned: Vehicle', 'Notes updated: Bring filled cylinders']);
-  assert(!result.changes.join(' ').includes('1,300'));
 });
 
 test('inventory history distinguishes custody from filled receipt', () => {

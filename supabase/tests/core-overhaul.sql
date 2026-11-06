@@ -28,6 +28,18 @@ begin
  req:=gen_random_uuid();result:=public.create_purchase(body||jsonb_build_object('request_id',req));pid:=(result->>'purchase_id')::uuid;
  perform pg_temp.assert(public.create_purchase(body||jsonb_build_object('request_id',req))=result,'Purchase replay returns the original operation');
  select revision into rev from public.purchases where tenant_id=t and purchase_id=pid;
+ perform public.update_purchase(pid,jsonb_build_object('notes',body->>'notes','items',body->'items'),rev);
+ perform pg_temp.assert((select count(*)=1 from public.purchase_activity where tenant_id=t and purchase_id=pid),'A no-op edit leaves one creation message');
+ select revision into rev from public.purchases where tenant_id=t and purchase_id=pid;
+ perform public.update_purchase(pid,jsonb_build_object('notes','Private fixture note','items',
+   jsonb_set(body->'items','{0,bottle_unit_price}','1601')),rev);
+ perform pg_temp.assert(exists(select 1 from public.get_purchase_activity(pid,1,1) e
+   where e->>'kind'='activity' and e->>'message' like '%Bottle unit price changed from Tk 1600.00 to Tk 1601.00%'
+     and e->>'message' like '%Purchase notes updated.%' and e->>'message' not like '%Private fixture note%'),
+   'One compact message describes actual edits and omits the note text');
+ select revision into rev from public.purchases where tenant_id=t and purchase_id=pid;
+ perform public.update_purchase(pid,jsonb_build_object('items',body->'items'),rev);
+ select revision into rev from public.purchases where tenant_id=t and purchase_id=pid;
  select sum(amount) into before_cash from public.accounting_lines where tenant_id=t and account='cash';
  perform public.dispatch_purchase(pid,rev);
  perform pg_temp.assert((select empty_quantity=0 from public.items where tenant_id=t and item_id=j),'100 Gas + 30 Bottle dispatches exactly 70 empties');
@@ -153,7 +165,13 @@ begin
  result:=public.create_purchase(jsonb_build_object('business_category','stove','supplier_name','Appliance supplier','request_id',gen_random_uuid(),'vehicle_id',truck,'transport_cost',200,'labour_cost',100,'items',jsonb_build_array(jsonb_build_object('item_id',stove,'quantity',3,'bottle_quantity',0,'unit_price',1500,'bottle_unit_price',0))));pid:=(result->>'purchase_id')::uuid;
  select revision into rev from public.purchases where tenant_id=t and purchase_id=pid;perform public.dispatch_purchase(pid,rev);
  select revision into rev from public.purchases where tenant_id=t and purchase_id=pid;perform public.receive_purchase(pid,rev);
- perform public.record_purchase_payment(pid,jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',1000)),gen_random_uuid());
+ req:=gen_random_uuid();
+ body:=jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',600),jsonb_build_object('wallet_id',cash,'amount',400));
+ result:=public.record_purchase_payment(pid,body,req);
+ perform pg_temp.assert(public.record_purchase_payment(pid,body,req)=result,'Payment retry returns the original result');
+ perform pg_temp.assert((select count(*)=1 and bool_and((e->>'amount')::numeric=1000 and jsonb_array_length(e->'wallet_entries')=2)
+   from public.get_purchase_activity(pid) e where e->>'kind'='payment'),'Split payment is one source-backed history entry');
+ perform pg_temp.assert((select count(*)=3 from public.purchase_activity where tenant_id=t and purchase_id=pid),'Payment writes no duplicate activity');
  perform pg_temp.assert((select filled_quantity=3 and filled_value=4600 and empty_quantity=0 from public.inventory_costs where tenant_id=t and item_id=stove),'Stove receipt and labour use the same actual acquisition engine without Bottle components');
  perform pg_temp.assert((select payable_amount=4600 and paid_amount=1000 from public.purchases where tenant_id=t and purchase_id=pid),'Stove partial supplier payment preserves its outstanding acquisition liability');
  select revision into rev from public.purchases where tenant_id=t and purchase_id=pid;
@@ -163,7 +181,11 @@ begin
  perform pg_temp.assert((select filled_quantity=0 and filled_value=0 from public.inventory_costs where tenant_id=t and item_id=stove),'Stove return removes its exact unconsumed acquisition');
  perform pg_temp.assert((select coalesce(sum(amount),0)=0 from public.accounting_lines where tenant_id=t and account='inventory_transit'),'Returned received stock leaves no phantom transport asset in transit');
  select obligation_id into obligation from public.purchase_refund_obligations where tenant_id=t and purchase_id=pid;
- perform public.refund_purchase(pid,obligation,jsonb_build_array(jsonb_build_object('wallet_id',bank,'amount',1000)),gen_random_uuid());
+ perform public.refund_purchase(pid,obligation,jsonb_build_array(jsonb_build_object('wallet_id',bank,'amount',400)),gen_random_uuid());
+ perform public.refund_purchase(pid,obligation,jsonb_build_array(jsonb_build_object('wallet_id',bank,'amount',600)),gen_random_uuid());
+ perform pg_temp.assert((select count(*)=2 and sum((e->>'amount')::numeric)=1000
+   from public.get_purchase_activity(pid) e where e->>'kind'='refund'),'Partial refunds show separately from their original payment');
+ perform pg_temp.assert((select count(*)=4 from public.purchase_activity where tenant_id=t and purchase_id=pid),'Refund writes no duplicate activity');
  perform pg_temp.assert((select refund_due=0 and financial_closed_at is not null from public.purchases where tenant_id=t and purchase_id=pid),'An actual supplier refund closes the original cancellation obligation');
  perform public.employee_payment_operation(jsonb_build_object('action','pay','items',jsonb_build_array(jsonb_build_object('employee_id',driver,'kind','bonus','bonus_name','Trip safety bonus','payment_date',(now() at time zone 'Asia/Dhaka')::date,'payments',jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',100))))),gen_random_uuid());
  report:=public.get_finance_analysis(jsonb_build_object('from',(now() at time zone 'Asia/Dhaka')::date,'to',(now() at time zone 'Asia/Dhaka')::date,'category','logistics','grain','day'));

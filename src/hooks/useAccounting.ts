@@ -23,7 +23,6 @@ export function useAccountingProduct(id: string | null) {
   queryFn: async ({ signal }) => { const { data, error } = await supabase.from('items').select('*,lpg_brands(brand_id,brand_name)').eq('item_id', id).limit(1).abortSignal(signal).overrideTypes<(AccountingProduct)[], { merge: false }>(); if (error) throw error; if (!data?.[0]) throw new Error('Product not found'); return data[0]; } });
 }
 
-export function useOwnerAccess() { return useQuery<boolean>({ queryKey: ['finance', 'owner-access'], queryFn: async () => { const { data, error } = await supabase.rpc('can_cancel_purchases'); if (error) throw error; return data; } }); }
 function useAccountingWrite<T extends object>(rpc: string, scope: string) {
  const { profile, user } = useAuth(); const qc = useQueryClient(); const key = `lpg-${scope}:${profile?.tenant_id}:${user?.id}`;
  const [pending, setPending] = useState(() => hasPendingRequest(key));
@@ -67,7 +66,7 @@ export function useCanOpenAccountingRecord() {
  const { profile,can }=useAuth();
  return function canOpen(row: AccountingBreakdownEntry) {
   if (profile?.tenant_id !== row.tenant_id || !row.record_id) return false;
-  return row.record_kind === 'financial_entry' ? can('finance:entries:view') : (row.record_kind === 'transit' || row.record_kind === 'service_trip') ? can('logistics:view') || can('logistics:manage') : row.record_kind === 'customer' ? can('customers:view') || can('customers:manage') : row.record_kind === 'sale' ? can('sales:view') || can('dashboard:view') : row.record_kind === 'purchase' ? can('purchases:view') || can('purchases:manage') : row.record_kind === 'product' ? can('inventory:view') || can('inventory:manage') : row.record_kind === 'employee' ? can('employees:view') || can('employees:manage') : row.record_kind === 'loan' ? can('finance:loans') : row.record_kind === 'asset' && can('finance:owner');
+  return row.record_kind === 'financial_entry' ? can('finance:entries:view') : (row.record_kind === 'transit' || row.record_kind === 'service_trip') ? can('logistics:view') || can('logistics:manage') : row.record_kind === 'customer' ? can('customers:view') || can('customers:manage') : row.record_kind === 'sale' ? can('sales:view') || can('dashboard:view') : row.record_kind === 'purchase' ? can('purchases:view') || can('purchases:manage') : row.record_kind === 'product' ? can('inventory:view') || can('inventory:manage') : row.record_kind === 'employee' ? can('employees:view') || can('employees:manage') : row.record_kind === 'loan' ? can('finance:loans') : row.record_kind === 'asset' && can('finance:assets:manage');
  }
 
 }

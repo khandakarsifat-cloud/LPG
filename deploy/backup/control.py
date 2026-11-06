@@ -13,6 +13,9 @@ import urllib.parse
 import urllib.request
 import uuid
 
+import confirmations
+import business_deletion
+
 from core import CALLBACK, FRONTEND, ROOT, SECRETS, STATE, Lock, command, event, next_run, now, process_identity, read, write
 
 
@@ -130,7 +133,7 @@ def status():
     history = read(STATE / 'history.json', [])
     current_generation = read(STATE / 'generation.json', {}).get('id', 'original')
     history = [{**point, 'previous_generation': point.get('generation', 'original') != current_generation} for point in history]
-    latest = next((p for p in history if p.get('status') == 'verified' and not p['previous_generation']), None)
+    latest = next((p for p in history if p.get('status') == 'verified' and p.get('available') and not p['previous_generation']), None)
     overdue = bool(latest and now().timestamp() - dt.datetime.fromisoformat(latest['captured_at']).timestamp() > 36 * 3600)
     job = read(STATE / 'job.json', {'status': 'idle'})
     # A killed process must not leave a permanent optimistic running indicator.
@@ -240,6 +243,21 @@ class Handler(BaseHTTPRequestHandler):
                 path = parsed.path
                 if path == '/backups/v1/status':
                     result = status()
+                elif path == '/backups/v1/business-deletion/preview':
+                    if set(body) != {'target'}:
+                        raise Fault('Select a business.')
+                    result = business_deletion.preview(body['target'])
+                elif path == '/backups/v1/business-deletion/jobs':
+                    result = {'entries': business_deletion.jobs()}
+                elif path == '/backups/v1/business-deletion/start':
+                    result = business_deletion.start(body, actor)
+                elif path == '/backups/v1/authorize':
+                    if set(body) != {'action', 'target', 'password'}:
+                        raise Fault('Choose an operation and enter your current password.')
+                    try:
+                        result = confirmations.issue(actor, self.headers['Authorization'], body['action'], body['target'], body['password'])
+                    except ValueError as error:
+                        raise Fault(str(error), 403)
                 elif path == '/backups/v1/full':
                     result = start_full(body, actor)
                 elif path == '/backups/v1/connect':
@@ -271,6 +289,8 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(409, {'error': 'A backup or deployment is running. Retry when it finishes.'})
         except Fault as error:
             self.respond(error.status, {'error': str(error)})
+        except ValueError as error:
+            self.respond(400, {'error': str(error)})
         except Exception:
             self.respond(500, {'error': 'Backup management is unavailable. Inspect the private service health.'})
 

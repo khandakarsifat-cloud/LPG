@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import { useState, type FormEvent } from 'react';
 import { History, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -11,6 +12,7 @@ const date = (value: string) => new Date(value).toLocaleString('en-BD', { timeZo
 const amount = (value: number | null | undefined) => value == null ? 'Not available' : formatBDT(value);
 
 export function OperationalPrices({ itemId, data, disabled }: { itemId: string; data: ProductInventory; disabled: boolean }) {
+  const {can}=useAuth();
   const [editing, setEditing] = useState<BuyingComponent | null>(null);
   return <div className="operational-buying" aria-labelledby="operational-buying-title">
     <div className="product-section-heading"><h4 id="operational-buying-title">Approximate buying prices</h4><span className="product-approx">Operational reference · per unit</span></div>
@@ -20,7 +22,7 @@ export function OperationalPrices({ itemId, data, disabled }: { itemId: string; 
         <p>{price?.is_manual ? 'Manual override' : 'Latest received purchase suggestion'}</p>
         <dl><div><dt>Purchase / unit</dt><dd>{amount(price?.invoice_unit_price)}</dd></div><div><dt>Transport + labour / unit</dt><dd>{amount(price?.overhead_per_unit)}</dd></div></dl>
         {price?.is_manual && <small>Automatic suggestion: {amount(price.automatic_price)}</small>}
-        {data.can_manage_prices && <button className="btn btn-secondary" disabled={disabled} onClick={() => setEditing(kind)}><Pencil size={13} />Edit component price</button>}
+        {can('inventory:buying_prices') && <button className="btn btn-secondary" disabled={disabled} onClick={() => setEditing(kind)}><Pencil size={13} />Edit component price</button>}
       </article>;
     })}<article className="product-buying"><div className="product-buying-heading"><span>Package (Gas + Bottle)</span><strong>{amount(data.buying_prices.every(p => p.new_price != null) && data.buying_prices.length === 2 ? data.buying_prices.reduce((total, p) => total + Number(p.new_price), 0) : null)}</strong></div></article></div>
     <p className="product-help">Gas and Bottle acquisition prices include allocated transport and labour. A newer receipt updates its purchased components. Historical FIFO costs stay fixed.</p>

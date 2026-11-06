@@ -26,7 +26,7 @@ export const inventoryKeys = {
 // QUERIES
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Inventory balances — simply fetches all items, as they now contain filled_quantity and empty_quantity */
+/** Filled and Empty are the stock display quantities. The database derives Empty from on-hand Bottle less Gas. */
 export const useInventoryBalances = () =>
   useQuery<ItemWithBrand[]>({
     queryKey: inventoryKeys.balances,

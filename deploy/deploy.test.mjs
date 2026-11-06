@@ -37,6 +37,7 @@ test('production dependency closure rejects indirect development services and vo
 test('routine bundle excludes environments, credentials, local data and bootstrap initialization', () => {
   const files = backendFiles();
   assert(files.includes('compose.vps.yml'));
+  assert(files.includes('deploy/backup/business_deletion.py'));
   assert(files.some(name => name.startsWith('supabase/migrations/')));
   assert(!files.some(name => /\.env|\.pem|bootstrap|storage\/|volumes\/db\//.test(name)));
   const initial = backendFiles(true);

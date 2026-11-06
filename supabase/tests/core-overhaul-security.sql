@@ -31,6 +31,7 @@ set local role authenticated;
 select pg_temp.assert((select count(*)=0 from public.items where tenant_id=(select value from core_security_fixture where key='tenant_b')),'Raw table RLS hides another tenant inventory');
 select pg_temp.assert((select count(*)=1 from public.items where tenant_id=(select value from core_security_fixture where key='tenant_a')),'RLS still exposes the owner own inventory');
 select pg_temp.assert((select count(*)=0 from public.get_purchases_by_ids(array[(select value from core_security_fixture where key='purchase_b')])),'Protected directory cannot expose another tenant purchase');
+select pg_temp.assert((select count(*)=0 from public.get_purchase_activity((select value from core_security_fixture where key='purchase_b'),0,7)),'Purchase history cannot expose another tenant purchase');
 do $$begin
  begin
   perform public.set_purchase_rebate((select value from core_security_fixture where key='purchase_b'),'{"amount":1,"revision":1}',gen_random_uuid());

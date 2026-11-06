@@ -66,8 +66,9 @@ export const usePurchaseActivity = (purchaseId: string, page: number) => useQuer
     // Keep the RPC's chronological order. One extra row tells us whether there
     // is another page without a separate count or downloading the full history.
     const start = page * PURCHASE_ACTIVITY_PAGE_SIZE;
-    const { data, error } = await supabase.rpc('get_purchase_activity', { p_purchase_id: purchaseId })
-      .range(start, start + PURCHASE_ACTIVITY_PAGE_SIZE).abortSignal(signal);
+    const { data, error } = await supabase.rpc('get_purchase_activity', {
+      p_purchase_id: purchaseId, p_offset: start, p_limit: PURCHASE_ACTIVITY_PAGE_SIZE + 1,
+    }).abortSignal(signal);
     if (error) throw error;
     const rows = (data ?? []) as PurchaseActivity[];
     return { page, entries: rows.slice(0, PURCHASE_ACTIVITY_PAGE_SIZE), hasMore: rows.length > PURCHASE_ACTIVITY_PAGE_SIZE };

@@ -190,3 +190,27 @@ assert sql('select count(*)=1 from public.wallet_transactions where tenant_id=' 
 assert sql('select sum(balance)=(select sum(amount) from public.accounting_lines where tenant_id=' + lit(tenant) + " and account='cash') from public.wallets where tenant_id=" + lit(tenant)).strip() == 't'
 assert sql('select count(*)=0 from (select journal_id from public.accounting_lines where tenant_id=' + lit(tenant) + ' group by journal_id,business_category having sum(amount)<>0)x').strip() == 't'
 print('PASS concurrent month-end savepoints and backdated retries equal full journal recomputation; pooled wallets and journals reconcile', flush=True)
+
+# The tenant fence must wait for a writer that already passed authorization,
+# include its committed record in the deletion manifest, and reject late writes.
+deletion_actor='fc041000-0000-4000-8000-000000000099'
+deletion_id=str(uuid.uuid4())
+sql("insert into auth.users(id,email,is_anonymous) values("+lit(deletion_actor)+",'deletion-race-admin@example.invalid',false);insert into app_private.platform_superadmins(user_id,is_active) values("+lit(deletion_actor)+",true);")
+claims=json.dumps({'sub':owner,'session_id':owner,'role':'authenticated'})
+writer_sql="begin;set local application_name='lpg_deletion_race_writer';set local role authenticated;select set_config('request.jwt.claims',"+lit(claims)+",true);insert into public.customers(tenant_id,name,phone) values("+lit(tenant)+",'Deletion fence inflight writer','01790000499');select pg_sleep(3);commit;"
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+    writer=pool.submit(sql,writer_sql)
+    import time
+    for _ in range(30):
+        sleeping=sql("select exists(select 1 from pg_stat_activity where datname=current_database() and application_name='lpg_deletion_race_writer' and wait_event='PgSleep');").strip()
+        if sleeping=='t':break
+        time.sleep(.05)
+    assert sleeping=='t','Concurrent writer did not reach its post-write barrier'
+    fenced=pool.submit(sql,'select app_private.prepare_business_deletion('+','.join([lit(tenant),lit(deletion_id),lit(deletion_actor),lit('Core concurrency disposable acceptance')])+');')
+    writer.result()
+    job=json.loads(fenced.result().strip().splitlines()[-1])
+assert job['manifest']['tables']['public.customers']>=1,'Fence omitted committed in-flight business activity'
+late=attempt('public.accounting_operation('+object_sql(loan_body)+','+lit(uuid.uuid4())+')')
+assert not late['ok'],'Suspended deletion target accepted a later financial writer'
+assert sql("select count(*)=1 from public.customers where tenant_id="+lit(tenant)+" and name='Deletion fence inflight writer';").strip()=='t'
+print('PASS business deletion drains in-flight tenant writes, captures their committed records and blocks later financial actions',flush=True)

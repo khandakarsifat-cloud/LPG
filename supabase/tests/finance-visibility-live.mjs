@@ -15,6 +15,8 @@ const m=existsSync(file)?JSON.parse(readFileSync(file,'utf8')):{business_name:`F
 const persist=()=>writeFileSync(file,JSON.stringify(m,null,2));
 const c=createClient(f.VITE_SUPABASE_URL,f.VITE_SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 const checked=async p=>{const {data,error}=await p;if(error)throw Error(error.message);return data;};
+const report=()=>checked(c.rpc('get_product_performance',{p_business:'lpg'}));
+const quantities=async()=>Object.fromEntries((await report()).rows.flatMap(row=>[[`bought_${row.type}`,row.bought],[`sold_${row.type}`,row.sold]]));
 const ssh=[...(b.VPS_SSH_KEY?['-i',b.VPS_SSH_KEY]:[]),'-p',b.VPS_PORT,'-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',`${b.VPS_USER}@${b.VPS_HOST}`];
 const sql=input=>execFileSync('ssh',[...ssh,'sudo -n docker exec -i lpg-db-1 psql -X -U supabase_admin -d postgres -qAt -v ON_ERROR_STOP=1'],{input,encoding:'utf8',stdio:['pipe','pipe','pipe']}).trim();
 const uid=id=>{assert.match(id,/^[0-9a-f-]{36}$/);return `'${id}'::uuid`;};
@@ -35,7 +37,7 @@ try{
   assert(m.browser_at);
   const wallets=await checked(c.rpc('get_finance_wallets'));assert.equal(Number(wallets.find(w=>w.wallet_id===m.cash).balance),-37.5);
   assert.equal((await checked(c.rpc('get_financial_entries'))).total,2);
-  const report=await checked(c.rpc('get_lpg_performance'));assert.deepEqual(report.totals,{bought_refill:70,bought_package:30,sold_refill:2,sold_package:1});
+  assert.deepEqual(await quantities(),{bought_refill:70,bought_package:30,sold_refill:2,sold_package:1});
   const fifo=await checked(c.rpc('get_lpg_fifo_stock',{p_item_id:m.item}));assert.equal(fifo.summary.filled,97);assert.equal(fifo.summary.empty,1);
   const accounting=JSON.parse(sql(`select jsonb_build_object('wallets',(select coalesce(sum(balance),0) from public.wallets where tenant_id=${uid(m.tenant_id)}),'cash',(select coalesce(sum(amount),0) from public.accounting_lines where tenant_id=${uid(m.tenant_id)} and account='cash'),'bad_journals',(select count(*) from(select journal_id from public.accounting_lines where tenant_id=${uid(m.tenant_id)} group by journal_id having sum(amount)<>0)x),'bad_wallets',(select count(*) from public.wallets w where tenant_id=${uid(m.tenant_id)} and balance<>opening_balance+coalesce((select sum(amount) from public.wallet_transactions x where x.tenant_id=w.tenant_id and x.wallet_id=w.wallet_id),0)),'stock',(select sum(remaining_value+remaining_internal_value) from app_private.fifo_layers where tenant_id=${uid(m.tenant_id)}),'inventory_journal',(select sum(amount) from public.accounting_lines where tenant_id=${uid(m.tenant_id)} and account='inventory_lpg'));`));
   assert.equal(accounting.wallets,accounting.cash);assert.equal(accounting.bad_journals,0);assert.equal(accounting.bad_wallets,0);assert.equal(accounting.stock,accounting.inventory_journal);assert.equal(accounting.stock,fifo.summary.carrying_value);
@@ -61,13 +63,13 @@ try{
   m.purchase=(await run('purchase','create_purchase',{p_payload:{request_id:randomUUID(),plant_id:m.plant,vehicle_id:m.truck,transport_cost:2600,labour_cost:1300,items:[{item_id:m.item,quantity:100,bottle_quantity:30,unit_price:800,bottle_unit_price:1600}]}})).purchase_id;persist();
   const detail=async()=> (await checked(c.rpc('get_purchases_by_ids',{p_ids:[m.purchase]})))[0];
   await run('dispatch','dispatch_purchase',{p_purchase_id:m.purchase,p_revision:(await detail()).revision});
-  assert.equal((await checked(c.rpc('get_lpg_performance'))).totals.bought_refill,m.events.receive?.completed?70:0);
+  assert.equal((await quantities()).bought_refill,m.events.receive?.completed?70:0);
   await run('receive','receive_purchase',{p_purchase_id:m.purchase,p_revision:(await detail()).revision});
   await run('prices','save_product_prices',{p_item_id:m.item,p_customer_tier:'retail',p_prices:{refill:{price:1250,mrp:null},package:{price:3000,mrp:null}},p_expected:{refill:null,package:null}});
   await run('sale','create_pos_sale',{p_customer_phone:'01799000556',p_customer_name:'Performance buyer',p_customer_shop_name:null,p_customer_address:'Dhaka',p_customer_tier:'retail',p_discount_amount:0,p_exchange_fee:0,p_notes:'Performance and unsettled bottle acceptance',p_bottles:{lines:[{received_item_id:m.item,quantity:1}]},p_items:[{item_id:m.item,type:'refill',quantity:2,unit_price:1250},{item_id:m.item,type:'package',quantity:1,unit_price:3000},{item_id:m.item,type:'empty_return',quantity:2,unit_price:0}],p_payments:[],p_request_id:randomUUID()});
   const catalog=await checked(c.rpc('get_financial_catalog'));m.expense_type=catalog.types.find(x=>x.name==='Visibility acceptance expense')?.type_id??(await run('expense-type','save_financial_type',{p_payload:{name:'Visibility acceptance expense',account:'operating_expense',allocations:{lpg:100},is_active:true}})).type_id;
   await run('owner-entry','record_financial_entry',{p_payload:{type_id:m.expense_type,expected_revision:1,wallet_id:m.bank,amount:10,date:new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Dhaka'}),description:'Owner separate entry'},p_request_id:randomUUID()});
-  assert.deepEqual((await checked(c.rpc('get_lpg_performance'))).totals,{bought_refill:70,bought_package:30,sold_refill:2,sold_package:1});
+  assert.deepEqual(await quantities(),{bought_refill:70,bought_package:30,sold_refill:2,sold_package:1});
   const fifo=await checked(c.rpc('get_lpg_fifo_stock',{p_item_id:m.item}));assert.equal(fifo.summary.filled,97);assert.equal(fifo.summary.empty,1);assert.equal((await checked(c.rpc('get_lpg_fifo_stock',{p_item_id:m.item,p_tier:'wholesale'}))).layers[0].package_margin,fifo.layers[0].package_margin);
   m.setup_at=new Date().toISOString();persist();console.log('PASS actual Auth owner/staff provisioning, purchase dispatch/receipt, mixed Refill/Package sale and independent report/FIFO quantities; ready for published browser');
  }

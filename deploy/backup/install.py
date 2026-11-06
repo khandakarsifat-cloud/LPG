@@ -94,6 +94,11 @@ WantedBy=timers.target
         'Description=LPG administrator-requested immediate full backup').replace(
         'ExecStart=/usr/bin/python3 -B /opt/lpg/deploy/backup.py',
         'ExecStart=/usr/bin/python3 -B /opt/lpg/deploy/backup/worker.py --manual-full')
+    units['lpg-business-deletion.service'] = units['lpg-backup.service'].replace(
+        'Description=LPG encrypted whole-system Google Drive recovery point',
+        'Description=LPG confirmed business deletion with recovery protection').replace(
+        'ExecStart=/usr/bin/python3 -B /opt/lpg/deploy/backup.py',
+        'ExecStart=/usr/bin/python3 -B /opt/lpg/deploy/backup/business_deletion.py')
     changed = False
     for name, value in units.items():
         path = Path('/etc/systemd/system') / name

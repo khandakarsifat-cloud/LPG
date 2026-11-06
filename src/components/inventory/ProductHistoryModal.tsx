@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useProductInventory, useSaveProductPrices } from '../../hooks/useInventory';
 import { formatBDNumber } from '../../lib/formatBDT';
+import { useAuth } from '../../contexts/AuthContext';
 import { OperationalPrices } from './OperationalPrices';
 import type { CustomerTier, ItemWithBrand, PriceType, ProductPrice } from '../../types/inventory';
 import '../purchases/purchases.css';
@@ -31,6 +32,7 @@ function PricingEditor({ itemId, tier, prices, disabled, onCancel, onSaved, onPe
   disabled: boolean;
   onCancel: () => void; onSaved: () => void; onPending: (pending: boolean) => void;
 }) {
+  const {can}=useAuth();
   const save = useSaveProductPrices();
   const [baseline] = useState(() => ({
     refill: prices.find(p => p.customer_tier === tier && p.price_type === 'refill')?.effective_from ?? null,
@@ -66,7 +68,7 @@ function PricingEditor({ itemId, tier, prices, disabled, onCancel, onSaved, onPe
       {kinds.map(kind => <div className="product-price-row" key={kind}>
         <strong>{kindLabel[kind]}</strong>
         {(['mrp', 'price'] as const).map(field => <input key={field} className="input-field" type="number" min="0" max="9999999999.99" step="0.01"
-          required={field === 'price'} disabled={save.isPending || disabled} aria-label={`${kindLabel[kind]} ${field === 'mrp' ? 'MRP' : 'selling price'}`}
+          required={field === 'price'} disabled={save.isPending || disabled || !can(field==='mrp'?'inventory:mrp':'inventory:prices')} aria-label={`${kindLabel[kind]} ${field === 'mrp' ? 'MRP' : 'selling price'}`}
           placeholder={field === 'mrp' ? 'Optional' : 'Required'} value={fields[kind][field]}
           onChange={event => setFields(previous => ({ ...previous, [kind]: { ...previous[kind], [field]: event.target.value } }))} />)}
       </div>)}

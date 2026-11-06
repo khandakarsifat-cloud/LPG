@@ -62,14 +62,14 @@ export function PurchaseSelect({ label, value, options, placeholder = 'Select…
   </div>;
 }
 
-export function PurchaseNumber({ label, value, onChange, money = false, hint, invalid = false }: {
-  label: string; value: number | null; onChange: (value: number | null) => void; money?: boolean; hint?: string; invalid?: boolean;
+export function PurchaseNumber({ label, value, onChange, money = false, hint, invalid = false, disabled=false }: {
+  label: string; value: number | null; onChange: (value: number | null) => void; money?: boolean; hint?: string; invalid?: boolean; disabled?:boolean;
 }) {
   const id = useId();
   const [text, setText] = useState<string | null>(null);
   return <div className="input-group">
     <label className="input-label" htmlFor={id}>{label}</label>
-    <input id={id} className="input-field purchase-number" type="text" aria-invalid={invalid} aria-describedby={hint ? `${id}-hint` : undefined} inputMode={money ? 'decimal' : 'numeric'}
+    <input id={id} disabled={disabled} className="input-field purchase-number" type="text" aria-invalid={invalid} aria-describedby={hint ? `${id}-hint` : undefined} inputMode={money ? 'decimal' : 'numeric'}
       autoComplete="off" placeholder={money ? '0.00' : '0'} value={text ?? (value === null ? '' : money ? value.toFixed(2) : formatBDQty(value))}
       onFocus={money ? undefined : event => event.currentTarget.select()}
       onBlur={() => setText(null)} onChange={event => {
@@ -95,13 +95,13 @@ export function PurchaseFinancials({ draft, totals, onChange }: {
   onChange?: (draft: PurchaseDraft) => void;
   businessCategory?: 'lpg' | 'stove';
 }) {
-  const { access } = useAuth();
-  const isOwner = access?.role === 'OWNER' || access?.is_superadmin === true;
+  const { can } = useAuth();
+  const canApplyRebate = can('purchases:rebates');
   return <section className="purchase-section"><h3>Financial breakdown</h3>
     <div className="purchase-financial-grid">
       {onChange && <div className="purchase-cost-fields">
         <PurchaseNumber label="Internal Logistics transport (Tk)" value={draft.transport_cost} money onChange={n => onChange({ ...draft, transport_cost: n ?? 0 })} />
-        {isOwner && <PurchaseNumber label="Commission rebate used (Tk)" value={draft.rebate_amount} money invalid={draft.rebate_amount > totals.subtotal} onChange={n => onChange({ ...draft, rebate_amount: n ?? 0 })} hint="Company credit applied to this bill. Product prices and acquisition costs stay unchanged." />}
+        {canApplyRebate && <PurchaseNumber label="Commission rebate used (Tk)" value={draft.rebate_amount} money invalid={draft.rebate_amount > totals.subtotal} onChange={n => onChange({ ...draft, rebate_amount: n ?? 0 })} hint="Company credit applied to this bill. Product prices and acquisition costs stay unchanged." />}
         <PurchaseNumber label="Labour cost (Tk)" value={draft.labour_cost} money onChange={n => onChange({ ...draft, labour_cost: n ?? 0 })} />
       </div>}
       <dl className="purchase-totals">

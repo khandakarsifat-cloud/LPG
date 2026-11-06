@@ -4,6 +4,16 @@ This is recovery of **every business together**. Do not run restore against an
 existing LPG database or populated volume. Never run installation bootstrap on
 a recovered cluster. Keep the original VPS isolated until cutover is reviewed.
 
+Business deletion in Platform Admin uses the same full-backup and isolated restore
+verification pipeline before removing files or data. Its root-owned worker holds
+the existing deployment lock, so deployment/backup/deletion do not overlap. Track
+progress and resume failed jobs in Admin → Businesses; a retry requires renewed
+password and typed DELETE confirmation. Private jobs live in
+`app_private.business_deletions` and `backups/cloud/business-deletions/`. A stopped
+job must remain fenced; never reactivate it or manually disable source/FK guards.
+The retained recovery point restores the whole system under this guide, not just
+the deleted tenant. Normal backup retention still applies.
+
 ## Recovery kit (keep outside the VPS)
 
 The private kit must contain `restic-password`, `rclone.conf`, this guide and the

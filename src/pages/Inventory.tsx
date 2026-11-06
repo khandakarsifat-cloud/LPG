@@ -1,4 +1,3 @@
-import { useOwnerAccess } from '../hooks/useAccounting';
 import { StoveInventory, StoveInventorySummary } from '../components/inventory/StoveInventory';
 import { InventoryAdjustmentDialog } from '../components/inventory/InventoryAdjustments';
 import { useState } from 'react';
@@ -21,7 +20,6 @@ export const InventoryPage = () => {
   const { can } = useAuth();
   const brands = useLPGBrands();
   const valuation = useInventoryValuation();
-  const owner = useOwnerAccess();
   const [adjusting, setAdjusting] = useState(false);
 
   const [tab, setTab]                 = useState<Tab>(params.get('stock') === 'low' ? 'alerts' : 'balances');
@@ -165,7 +163,7 @@ export const InventoryPage = () => {
         </div>
 
         <div className="inv-tabs-actions">
-          {owner.data && tab !== 'history' && tab !== 'alerts' && (
+          {can('inventory:adjust') && tab !== 'history' && tab !== 'alerts' && (
             <button
               type="button"
               className="btn btn-secondary inv-tab-action-btn"

@@ -77,7 +77,8 @@
 .purchase-activity-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem .75rem; }
 .purchase-activity time, .purchase-activity-actor { color: var(--text-muted); font-size: .75rem; }
 .purchase-activity-actor { display: block; margin-top: .2rem; }
-.purchase-activity-changes { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .3rem; line-height: 1.5; }
+.purchase-activity-message { margin: .5rem 0 0; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
+.purchase-activity-total { margin: .5rem 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 .purchase-activity details { margin-top: .5rem; }
 .purchase-activity-wallet { padding-top: .5rem; margin-top: .5rem; border-top: 1px solid var(--border-color); }
 .purchase-activity-wallet > div { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; font-size: .75rem; }

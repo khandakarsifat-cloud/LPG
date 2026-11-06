@@ -3,7 +3,6 @@ import { Pagination, PageNavigation } from '../ui/Pagination';
 import { useState } from 'react';
 import { usePurchaseActivity } from '../../hooks/usePurchases';
 import { purchaseDraft, purchaseDate } from '../../lib/purchase';
-import { describePurchaseActivity } from '../../lib/purchaseActivity';
 import { formatBDT } from '../../lib/formatBDT';
 import { PurchaseFinancials, PurchaseStatuses } from './PurchaseControls';
 import type { Purchase } from '../../types/purchase';
@@ -48,11 +47,6 @@ export function PurchaseSummary({ purchase, showNotes = true }: { purchase: Purc
   </>;
 }
 
-function ActivityLines({ lines, label }: { lines: string[]; label: string }) {
-  const paging = useListPage(lines, 8);
-  return <><ul className="purchase-activity-changes">{paging.entries.map((line, index) => <li key={index}>{line}</li>)}</ul><Pagination {...paging} onChange={paging.setPage} label={label} /></>;
-}
-
 export function PurchaseHistory({ purchase }: { purchase: Purchase }) {
   const [page, setPage] = useState(0);
   const query = usePurchaseActivity(purchase.purchase_id, page);
@@ -62,24 +56,19 @@ export function PurchaseHistory({ purchase }: { purchase: Purchase }) {
     {query.isLoading && <p className="purchase-hint">Loading activity…</p>}
     {query.isError && <p role="alert" className="purchase-error">Activity could not be loaded. <button type="button" className="btn btn-ghost" onClick={() => void query.refetch()}>Retry</button></p>}
     {!query.isError && !query.isLoading && entries.length === 0 && <p className="purchase-hint">No activity on this page.</p>}
-    {!query.isError && <ol className="purchase-activity">{entries.map((activity, index) => {
-      const previous = entries.slice(0, index).reverse().find(entry => Array.isArray(entry.details?.items));
-      const summary = describePurchaseActivity(activity, purchase, previous?.details.items);
-      return <li className="history-card" key={activity.activity_id} data-activity-id={activity.activity_id}>
-        <div className="purchase-activity-heading"><strong>{summary.title}</strong><time dateTime={activity.created_at}>{purchaseDate(activity.created_at)}</time></div>
+    {!query.isError && <ol className="purchase-activity">{entries.map(activity => {
+      const title = activity.kind === 'payment' ? 'Purchase payment recorded' : activity.kind === 'refund' ? 'Purchase refund recorded' : 'Purchase activity';
+      return <li className="history-card" key={`${activity.kind}:${activity.activity_id}`} data-activity-id={activity.activity_id}>
+        <div className="purchase-activity-heading"><strong>{title}</strong><time dateTime={activity.created_at}>{purchaseDate(activity.created_at)}</time></div>
         <span className="purchase-activity-actor">{activity.actor_name}</span>
-        {activity.wallet_entries?.map(entry => <div className="purchase-activity-wallet" key={entry.transaction_id} data-transaction-id={entry.transaction_id}>
+        {activity.kind === 'activity' ? <p className="purchase-activity-message">{activity.message}</p> : <>
+        <p className="purchase-activity-total">{activity.kind === 'refund' ? '+' : '−'}{formatBDT(Number(activity.amount))}</p>
+        {activity.wallet_entries.map(entry => <div className="purchase-activity-wallet" key={entry.transaction_id} data-transaction-id={entry.transaction_id}>
           <div><strong>{entry.wallet_name}</strong><strong>{entry.amount > 0 ? '+' : '−'}{formatBDT(Math.abs(entry.amount))}</strong></div>
           <small>{entry.description}{entry.reference && ` · Ref: ${entry.reference}`}</small>
-          <details><summary>Audit references</summary><p className="purchase-hint">{purchaseDate(entry.created_at)} · {entry.actor ?? 'Historical actor not recorded'}<br />Method: {entry.method}{entry.component && ` · Component: ${entry.component}`}<br />Ledger: {entry.transaction_id}{entry.purchase_payment_id && <><br />Payment: {entry.purchase_payment_id}</>}{entry.operation_id && <><br />Operation: {entry.operation_id}</>}</p></details>
+          <details><summary>Audit references</summary><p className="purchase-hint">{purchaseDate(entry.created_at)}<br />Method: {entry.method}<br />Ledger: {entry.transaction_id}{entry.purchase_payment_id && <><br />Payment: {entry.purchase_payment_id}</>}{entry.operation_id && <><br />Operation: {entry.operation_id}</>}</p></details>
         </div>)}
-        <ul className="purchase-activity-changes">{summary.changes.slice(0, 3).map((change, i) => <li key={i}>{change}</li>)}</ul>
-        {summary.changes.length > 3 && <details><summary>{summary.changes.length - 3} more changes</summary>
-          <ActivityLines lines={summary.changes.slice(3)} label="changes" />
-        </details>}
-        {summary.snapshots.length > 0 && <details><summary>Saved products ({summary.snapshots.length})</summary>
-          <ActivityLines lines={summary.snapshots} label="saved products" />
-        </details>}
+        </>}
       </li>;
     })}</ol>}
     <PageNavigation page={query.data?.page ?? page} hasMore={!query.isError && (query.data?.hasMore ?? false)} busy={query.isFetching}

@@ -8,11 +8,11 @@ import urllib.error
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health, configure_attendance_token, configure_account_service, apply_migration_batch, ACCOUNTING_CUTOVER
+from backend import SERVICES, digest, migration_plan, update, validate_model, validate_sql, verify_health, configure_attendance_token, configure_account_service, apply_migration_batch, ACCOUNTING_CUTOVER, STOCK_CUTOVERS
 
 
 class AccountingCutoverTests(unittest.TestCase):
-    def exercise(self, failure=None):
+    def exercise(self, failure=None, version=ACCOUNTING_CUTOVER):
         calls = []
         def command(args, label, **kwargs):
             calls.append((args, label))
@@ -28,7 +28,7 @@ class AccountingCutoverTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch('backend.run', side_effect=command), patch('backend.time.sleep'):
             folder = Path(directory)
             try:
-                apply_migration_batch(['psql', '-d', 'postgres'], 'select 1;', [(ACCOUNTING_CUTOVER, Path('test.sql'))], ['compose'], {'rest': {}, 'account-service': {}}, folder)
+                apply_migration_batch(['psql', '-d', 'postgres'], 'select 1;', [(version, Path('test.sql'))], ['compose'], {'rest': {}, 'account-service': {}}, folder)
             except RuntimeError:
                 if failure is None:
                     raise
@@ -48,6 +48,14 @@ class AccountingCutoverTests(unittest.TestCase):
         self.assertEqual(state['phase'], 'resumed')
         self.assertTrue(any(label == 'Resume transaction writers' for _, label in calls))
         self.assertTrue(any('active=>false' in ' '.join(args) and label == 'Restore scheduler intent' for args, label in calls))
+
+    def test_stock_cutovers_use_the_same_recovery_gate(self):
+        for version in STOCK_CUTOVERS:
+            with self.subTest(version=version):
+                calls, state = self.exercise(version=version)
+                labels = [label for _, label in calls]
+                self.assertLess(labels.index('Drain application transaction writers'), labels.index('Quiesced accounting recovery point'))
+                self.assertEqual(state['phase'], 'resumed')
 
     def test_jobs_that_do_not_drain_prevent_sql_and_restore_runtime(self):
         calls, state = self.exercise('drain')

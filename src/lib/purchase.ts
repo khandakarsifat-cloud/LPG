@@ -29,12 +29,12 @@ export function purchaseTotals(lines: PurchaseLinePayload[], transport: number, 
   };
 }
 
-export function purchaseAccess(purchase: Purchase, canManage = true, isOwner = false, financialLocked = purchase.payment_status !== 'unpaid') {
+export function purchaseAccess(purchase: Purchase, canManage = true, canCancel = false, financialLocked = purchase.payment_status !== 'unpaid') {
   const complete = purchase.status === 'received' && purchase.payment_status === 'paid';
   const editable = canManage && !complete && purchase.status !== 'cancelled';
   return {
     complete, editable, products: editable && !financialLocked && purchase.status === 'created',
-    cancel: canManage && isOwner && (purchase.status === 'created' || purchase.status === 'in_transit' || purchase.business_category === 'stove' && purchase.status === 'received'),
+    cancel: canManage && canCancel && (purchase.status === 'created' || purchase.status === 'in_transit' || purchase.business_category === 'stove' && purchase.status === 'received'),
     financials: editable && !financialLocked && purchase.status !== 'received',
     dispatch: editable && (purchase.business_category !== 'stove' || Number(purchase.transport_cost)>0) && purchase.status === 'created', receive: editable && (purchase.status === 'in_transit' || purchase.business_category === 'stove' && purchase.status === 'created' && Number(purchase.transport_cost)===0),
     pay: editable && (purchase.status !== 'created' || purchase.business_category === 'stove') && purchase.payment_status !== 'paid' && Number(purchase.paid_amount ?? 0) < (Number(purchase.company_payable) + Number(purchase.labour_cost) - Number(purchase.rebate_amount)),

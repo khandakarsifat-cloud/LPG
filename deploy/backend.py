@@ -18,6 +18,7 @@ SERVICES = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'st
 CORE_SERVICES = set(SERVICES) - {'studio', 'meta', 'attendance-receiver', 'account-service'}
 EXCLUDED = ['frontend', 'functions', 'supavisor', 'mailpit']
 ACCOUNTING_CUTOVER = '20261105020000'
+STOCK_CUTOVERS = {'20261106023012', '20261106023014'}
 
 
 def require(condition, message):
@@ -34,13 +35,13 @@ def run(args, label, *, data=None, output=None, stdin=None):
 
 
 def apply_migration_batch(psql, sql, pending, compose, current, backup):
-    """Quiesce the reviewed posting cutover; other forward migrations are unchanged.
+    """Quiesce reviewed migrations that switch accounting or stock writers.
 
     The caller already holds the deployment/backup lock and verified all services.
     Keep recovery intent beside the fresh dump; always restore prior cron/runtime
     intent if SQL fails. A process/host interruption needs that recorded recovery.
     """
-    if ACCOUNTING_CUTOVER not in {version for version, _ in pending}:
+    if not ({ACCOUNTING_CUTOVER} | STOCK_CUTOVERS).intersection(version for version, _ in pending):
         run(psql + ['--single-transaction', '-f', '-'], 'Approved migrations (entire batch is transactional)', data=sql.encode())
         return
     writers = [name for name in ['rest', 'account-service', 'attendance-receiver'] if name in current]
@@ -48,7 +49,7 @@ def apply_migration_batch(psql, sql, pending, compose, current, backup):
     intent = backup / 'accounting-cutover.json'
     intent.write_text(json.dumps({'services': writers, 'cron': jobs, 'phase': 'pausing'}, indent=2))
     intent.chmod(0o600)
-    print('Pausing transaction writers for the reviewed accounting cutover.', flush=True)
+    print('Pausing transaction writers for the reviewed accounting or stock cutover.', flush=True)
     try:
         for job in jobs:
             if job['active']:

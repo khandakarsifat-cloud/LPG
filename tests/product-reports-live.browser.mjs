@@ -1,0 +1,126 @@
+// Read-only published acceptance on the retained component lab. Modal-only staff
+// data is intercepted and explicitly does not test account mutation authorization.
+import assert from 'node:assert/strict';
+import { readFileSync, mkdirSync } from 'node:fs';
+import { parseEnv } from 'node:util';
+import { createClient } from '@supabase/supabase-js';
+import { chromium } from 'playwright';
+
+assert(process.argv.includes('--vps'));
+const config = parseEnv(readFileSync('deploy/.env.frontend', 'utf8'));
+const secret = parseEnv(readFileSync('.env.core-test', 'utf8'));
+const manifest = JSON.parse(readFileSync('.temp/core-business/manifest.json', 'utf8'));
+const api = 'https://api.lpg.144.79.249.4.sslip.io';
+assert.equal(config.VITE_SUPABASE_URL, api);
+const client = createClient(api, config.VITE_SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+const auth = await client.auth.signInWithPassword({ email: secret.LPG_TEST_EMAIL, password: secret.LPG_TEST_PASSWORD });
+assert(!auth.error, 'Dedicated acceptance login failed');
+const { data: access, error } = await client.rpc('get_access_context');
+assert(!error && access.tenant_id === manifest.tenant_id && !access.is_superadmin, 'Retained acceptance membership required');
+assert(['sales:discount','finance:capital','finance:opening','finance:loans:manage','finance:assets:manage','finance:obligations:manage'].every(p=>access.permissions.includes(p)),'Owner retains all explicit action permissions');
+const protectedJobs=await fetch(`${api}/backups/v1/business-deletion/jobs`,{method:'POST',headers:{Authorization:`Bearer ${auth.data.session.access_token}`,'Content-Type':'application/json'},body:'{}'});
+assert.equal(protectedJobs.status,403,'Ordinary owner cannot reach platform deletion jobs');
+const output = '.temp/change-verification/product-reports'; mkdirSync(output, { recursive: true });
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+try {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  await context.addInitScript(({ key, session }) => localStorage.setItem(key, JSON.stringify(session)), { key: `sb-${new URL(api).host}-auth-token`, session: auth.data.session });
+  const page = await context.newPage(); const errors = []; page.on('pageerror', e => errors.push(e.message)); page.setDefaultTimeout(30_000);
+  await page.goto('https://floral-dew-443b.khandakarsifat.workers.dev/?report-acceptance=1#/finance');
+  await page.getByRole('button', { name: 'Product performance & FIFO', exact: true }).click();
+  await page.getByRole('heading', { name: 'Stove purchases & sales', exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelectorAll('.performance-table').length === 2);
+  assert.equal(await page.getByRole('columnheader', {name:'Avg. margin / unit',exact:true}).count(),2);
+  await page.getByRole('button',{name:'Choose date: From',exact:true}).click();
+  const rangeResponses = ['lpg','stove'].map(business=>page.waitForResponse(r=>r.url().includes('/rpc/get_product_performance')&&r.request().postDataJSON()?.p_business===business&&!!r.request().postDataJSON()?.p_from));
+  await page.getByRole('button',{name:'Today',exact:true}).click();
+  const ranges=await Promise.all(rangeResponses);
+  assert(ranges.every(r=>r.ok())&&ranges[0].request().postDataJSON().p_from===ranges[1].request().postDataJSON().p_from,'Calendar sends the same range to both live reports');
+  await page.getByRole('button',{name:'All time',exact:true}).click();
+  await page.locator('.product-choice').first().click();
+  await page.getByRole('heading', { name: 'Available stock & margins', exact: true }).waitFor();
+  await page.locator('.unified-fifo-table').waitFor();
+  assert.equal(await page.locator('.cost-table').count(), 1, 'Gas and Bottle share one table');
+  await page.getByRole('columnheader', { name: /Margin \/ unit/ }).waitFor();
+  await page.getByText('Owned bottle reused · not purchased', {exact:true}).first().waitFor();
+  await page.waitForFunction(() => document.querySelectorAll('.cost-table tbody tr').length > 0);
+  const fit = async () => assert(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 2), 'Workspace must not overflow');
+  await fit(); await page.locator('.unified-fifo-table').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${output}/desktop.png`, fullPage: true });
+  await page.evaluate(() => document.documentElement.dataset.theme = 'dark');
+  await page.screenshot({ path: `${output}/desktop-dark.png`, fullPage: true });
+  await page.evaluate(() => document.documentElement.dataset.theme = 'light');
+  await page.setViewportSize({width:393,height:852}); await fit();
+  await page.locator('.unified-fifo-table').scrollIntoViewIfNeeded();
+  assert.equal(await page.locator('.unified-fifo-table thead').evaluate(e=>getComputedStyle(e).display),'table-header-group');
+  await page.screenshot({path:`${output}/phone-lpg.png`});
+  await page.locator('.unified-fifo-table').evaluate(e=>{e.parentElement.scrollLeft=e.parentElement.scrollWidth;});
+  assert(await page.locator('.unified-fifo-table').evaluate(e=>e.parentElement.scrollLeft>0 && e.parentElement.clientWidth<document.documentElement.clientWidth),'FIFO margins must be reachable in a bounded local scroller');
+  await page.screenshot({path:`${output}/phone-lpg-margin.png`});
+  await page.setViewportSize({width:1440,height:1000});
+  await page.getByRole('button', { name: 'Empty bottles', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('.unified-fifo-table tbody') && ![...document.querySelectorAll('.unified-fifo-table tbody th')].some(e=>e.textContent==='Gas'));
+  assert.equal(await page.locator('.cost-table').count(),1);
+  await page.getByRole('combobox', { name: 'Business', exact: true }).selectOption('stove');
+  await page.locator('.product-choice').first().waitFor();
+  await page.locator('.product-choice').first().click();
+  await page.getByRole('heading', { name: 'Available stock & margins', exact: true }).waitFor();
+  await page.locator('.unified-fifo-table tbody tr').first().waitFor();
+  await page.setViewportSize({ width: 393, height: 852 }); await fit();
+  assert.equal(await page.locator('.report-table thead').first().evaluate(e => getComputedStyle(e).display), 'table-header-group');
+  await page.locator('.unified-fifo-table').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${output}/phone.png`, fullPage: true });
+  await page.route('**/rest/v1/rpc/get_business_users', async route => {
+    const response = await route.fetch(); const data = await response.json();
+    const owner = data.entries.find(u => u.role === 'OWNER'); assert(owner);
+    data.entries = [{ ...owner, user_id: 'f0050000-0000-4000-8000-000000000099', full_name: 'Permission layout fixture', email: 'layout@example.invalid', role: 'MANAGER', custom_permissions: [], permissions: [] }]; data.total = 1;
+    await route.fulfill({ response, json: data });
+  });
+  await page.route('**/rest/v1/rpc/get_business_wallet_access', route => route.fulfill({ json: [] }));
+  await page.goto('https://floral-dew-443b.khandakarsifat.workers.dev/#/users');
+  await page.getByRole('button', { name: 'Manage access', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Find a permission', exact: true }).fill('MRP');
+  await page.getByText('Set product MRP', { exact: true }).waitFor(); await fit();
+  await page.screenshot({ path: `${output}/access-phone.png` });
+  await page.setViewportSize({ width: 1440, height: 1000 }); await fit();
+  await page.screenshot({ path: `${output}/access-desktop.png` });
+  await page.evaluate(() => document.documentElement.dataset.theme = 'dark');
+  await page.screenshot({ path: `${output}/access-desktop-dark.png` });
+  await page.getByRole('checkbox',{name:/Set product MRP/}).check();
+  await page.getByRole('button',{name:'Review access changes',exact:true}).click();
+  await page.getByRole('dialog',{name:'Review account access',exact:true}).getByText('Enable: Set product MRP',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Go back',exact:true}).click();
+
+  // Intercept platform data and both destructive requests. The signed-in burner
+  // remains an ordinary owner; no real admin proof or deletion leaves the browser.
+  const target='f0050000-0000-4000-8000-000000000097';
+  const fixtureBusiness={tenant_id:target,business_name:'Deletion layout fixture',status:'active',created_at:new Date().toISOString(),users:2};
+  let queued=false;
+  await page.route('**/rest/v1/rpc/get_access_context',route=>route.fulfill({json:{...access,is_superadmin:true,role:'SUPERADMIN',tenant_id:null,business_name:null}}));
+  await page.route('**/rest/v1/rpc/get_platform_businesses',route=>route.fulfill({json:{entries:[fixtureBusiness],total:1}}));
+  await page.route('**/rest/v1/rpc/get_platform_dashboard',route=>route.fulfill({json:{businesses:1,active:1,suspended:0,users:2,database_bytes:5000,uploaded_bytes:2000,files:1}}));
+  await page.route('**/backups/v1/**',async route=>{
+    const url=route.request().url();const body=route.request().postDataJSON();
+    const job={job_id:'f0050000-0000-4000-8000-000000000098',business_id:target,business_name:fixtureBusiness.business_name,status:'queued',phase:'Waiting to start',created_at:fixtureBusiness.created_at};
+    if(url.endsWith('/jobs')) return route.fulfill({json:{entries:queued?[job]:[]}});
+    assert.equal(body.target,target);
+    if(url.endsWith('/preview'))return route.fulfill({json:{business_id:target,business_name:fixtureBusiness.business_name,tables:{'public.sales':85,'public.purchases':20},files:1,accounts:2,preserved_accounts:1,backup_ready:true,job:null}});
+    if(url.endsWith('/authorize')){assert.equal(body.action,'delete-business');return route.fulfill({json:{confirmation_token:'fixture-proof',expires_in:300}});}
+    assert(url.endsWith('/start'));assert.equal(body.confirmation,'DELETE');assert.equal(body.confirmation_token,'fixture-proof');queued=true;return route.fulfill({json:job});
+  });
+  await page.goto('https://floral-dew-443b.khandakarsifat.workers.dev/#/admin');
+  await page.getByRole('button',{name:'Delete',exact:true}).click();
+  await page.getByText('Permanent business removal',{exact:true}).waitFor();
+  await page.setViewportSize({width:393,height:852});await fit();
+  await page.screenshot({path:`${output}/delete-impact-phone.png`});
+  await page.getByRole('button',{name:'Continue to identity verification',exact:true}).click();
+  await page.getByLabel('Current password',{exact:true}).fill('fixture-password');
+  await page.getByRole('button',{name:'Verify password',exact:true}).click();
+  const deleteButton=page.getByRole('button',{name:'Delete permanently',exact:true});
+  await deleteButton.waitFor();assert(await deleteButton.isDisabled());
+  await page.getByLabel('Type DELETE to confirm',{exact:true}).fill('delete');assert(await deleteButton.isDisabled());
+  await page.getByLabel('Type DELETE to confirm',{exact:true}).fill('DELETE');assert(await deleteButton.isEnabled());
+  await page.screenshot({path:`${output}/delete-confirm-phone.png`});
+  await deleteButton.click();await page.getByRole('heading',{name:'Business deletions',exact:true}).waitFor();assert(queued);
+  assert.deepEqual(errors, []);
+  console.log('PASS published historical margins, shared calendars, LPG/Stove FIFO and mobile layout; intercepted permission review and two-step deletion flow; no business writes');
+} finally { await browser.close(); await client.auth.signOut({scope:'local'}); }

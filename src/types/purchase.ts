@@ -94,14 +94,18 @@ export interface CreatePurchasePayload extends PurchaseDraft {
   request_id: string;
 }
 
-export interface PurchaseActivity {
+interface PurchaseActivityEntry {
   activity_id: string;
-  action: string;
   actor_name: string;
   created_at: string;
-  details: Record<string, unknown>;
-  wallet_entries?: PurchaseSettlement['payments'];
 }
+
+export type PurchaseActivity = PurchaseActivityEntry & (
+  | { kind: 'activity'; message: string }
+  | { kind: 'payment' | 'refund'; amount: number; wallet_entries: Pick<PurchaseSettlement['payments'][number],
+    'transaction_id' | 'purchase_payment_id' | 'wallet_name' | 'method' | 'amount' | 'created_at' |
+    'operation_id' | 'description' | 'reference'>[] }
+);
 
 export const PURCHASE_STATUS_LABELS: Record<PurchaseStatus, string> = {
   created: 'Created', in_transit: 'In Transit', received: 'Received', cancelled: 'Cancelled',

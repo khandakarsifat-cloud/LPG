@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import { useStoveProducts } from '../../hooks/useAccounting';
 import type { BusinessCategory } from '../../types/accounting';
 import { PurchaseNumber } from '../purchases/PurchaseControls';
@@ -32,6 +33,7 @@ export const POSCart = ({
   notes,
   onChangeNotes,
 }: POSCartProps) => {
+  const {can}=useAuth();
   const { data: inventoryItems } = useInventoryBalances();
   const stoves = useStoveProducts(category === 'stove');
   const stock = category === 'stove' ? stoves.data : inventoryItems;
@@ -129,7 +131,7 @@ export const POSCart = ({
       )}
 
       <div className="pos-cart-fields">
-        <PurchaseNumber label="Discount (Tk)" money value={discount} onChange={value => onChangeDiscount(value ?? 0)} />
+        <PurchaseNumber label="Discount (Tk)" disabled={!can('sales:discount')} money value={discount} onChange={value => onChangeDiscount(value ?? 0)} />
         {category === 'lpg' && <PurchaseNumber label="Exchange Cost (Tk)" money value={exchangeFee} onChange={value => onChangeExchangeFee(value ?? 0)} />}
         <label className="pos-cart-field pos-cart-notes">
           <span>Notes</span>

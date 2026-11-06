@@ -306,17 +306,18 @@ def upload(manifest):
     return record
 
 
-def nightly(manual=False):
+def nightly(manual=False, *, lock_held=False, request_override=None):
     if not manual and read(STATE / 'core-baseline.json', {}).get('active'):
         return  # The authorized reset retains its pre-reset point until a new full baseline is verified.
     if not manual and not window():
         raise RuntimeError('Cloud access may start only from 02:00–02:14 Asia/Dhaka. Queue a backup for the next nightly window.')
     if not manual and not read(STATE / 'settings.json', {'enabled': True})['enabled']:
         return
-    with Lock(ROOT / 'deploy/.deployment.lock'):
+    from contextlib import nullcontext
+    with nullcontext() if lock_held else Lock(ROOT / 'deploy/.deployment.lock'):
         if not manual and read(STATE / 'job.json', {}).get('status') == 'queued' and (STATE / 'manual-request.json').exists():
             return  # The immediate worker owns the durable reservation.
-        request = read(STATE / 'manual-request.json', {}) if manual else {}
+        request = request_override if request_override is not None else read(STATE / 'manual-request.json', {}) if manual else {}
         started = now().isoformat()
         job = {'status': 'running', 'pid': os.getpid(), 'job_id': request.get('request_id', str(uuid.uuid4())),
                'actor': request.get('actor'), 'mode': 'manual-full' if manual else 'scheduled',
@@ -348,6 +349,7 @@ def nightly(manual=False):
             write(STATE / 'jobs.json', ([finished] + read(STATE / 'jobs.json', []))[:400])
             (STATE / 'manual-request.json').unlink(missing_ok=True)
             event('manual_full_backup_verified' if manual else 'nightly_backup_verified')
+            return result
         except Exception as error:
             failed = {**read(STATE / 'job.json'), 'status': 'failed', 'phase': 'Failed', 'failed_at': now().isoformat(),
                       'error': str(error)[:400], 'duration_seconds': round((now() - dt.datetime.fromisoformat(started)).total_seconds())}

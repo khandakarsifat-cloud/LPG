@@ -18,6 +18,35 @@ import core
 import control
 import worker
 import restore
+import confirmations
+
+
+class ConfirmationTests(unittest.TestCase):
+    def test_proof_is_hashed_bound_and_single_use(self):
+        actor = 'f0050000-0000-4000-8000-000000000001'
+        target = 'f0050000-0000-4000-8000-000000000002'
+        with tempfile.TemporaryDirectory() as folder, patch.object(confirmations, 'SECRETS', Path(folder)), patch.object(confirmations, 'password_identity', return_value=actor):
+            result = confirmations.issue(actor, 'Bearer private', 'delete-business', target, 'private-password')
+            stored = (Path(folder) / 'confirmations.json').read_text()
+            self.assertNotIn(result['confirmation_token'], stored)
+            self.assertNotIn('private-password', stored)
+            self.assertNotIn('Bearer', stored)
+            with self.assertRaises(ValueError):
+                confirmations.consume(actor, 'delete-inspection', target, result['confirmation_token'], 'DELETE')
+            with self.assertRaises(ValueError):
+                confirmations.consume(actor, 'delete-business', target, result['confirmation_token'], 'delete')
+            confirmations.consume(actor, 'delete-business', target, result['confirmation_token'], 'DELETE')
+            with self.assertRaises(ValueError):
+                confirmations.consume(actor, 'delete-business', target, result['confirmation_token'], 'DELETE')
+
+    def test_password_attempts_are_rate_limited(self):
+        actor = 'f0050000-0000-4000-8000-000000000001'
+        target = 'a' * 64
+        with tempfile.TemporaryDirectory() as folder, patch.object(confirmations, 'SECRETS', Path(folder)), patch.object(confirmations, 'password_identity', side_effect=ValueError('Denied')) as password:
+            for _ in range(6):
+                with self.assertRaises(ValueError):
+                    confirmations.issue(actor, 'Bearer private', 'restore', target, 'wrong')
+            self.assertEqual(password.call_count, 5)
 
 
 class BackupPolicyTests(unittest.TestCase):

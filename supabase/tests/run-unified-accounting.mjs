@@ -23,8 +23,10 @@ const payload = {
   security: readFileSync('supabase/tests/core-overhaul-security.sql', 'utf8'),
   rebate: readFileSync('supabase/tests/purchase-rebate.sql', 'utf8'),
   visibility: readFileSync('supabase/tests/finance-visibility-performance.sql', 'utf8'),
+  access_performance_deletion: readFileSync('supabase/tests/access-performance-deletion.sql', 'utf8'),
   lending: readFileSync('supabase/tests/lending-and-activity.sql', 'utf8'),
   action_storage: readFileSync('supabase/tests/summarized-actions.sql', 'utf8'),
+  fifo_cutover: readFileSync('supabase/tests/fifo-component-cutover.sql', 'utf8').split('-- FIFO CUTOVER BOUNDARY'),
   concurrency: existsSync(concurrencyFile) ? readFileSync(concurrencyFile, 'utf8') : '',
 };
 try {
