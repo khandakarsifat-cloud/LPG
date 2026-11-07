@@ -34,7 +34,7 @@ export function PurchaseSummary({ purchase, showNotes = true }: { purchase: Purc
         <thead><tr><th scope="col">Product</th>{purchase.business_category !== 'stove' && <th scope="col">Empties sent</th>}<th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Unit price</th><th scope="col">Amount</th></tr></thead>
         <tbody>{paging.entries.map(item => <tr key={item.purchase_item_id}>
           <td><div className="product-with-image">{item.image_url && <ProductImage path={item.image_url} name={item.product_name || item.brand_name} />}<div>{item.product_name || `${item.brand_name} ${item.size_kg} kg ${item.mouth_size ?? ''}`}<small>{purchase.business_category === 'stove' ? 'Product' : `${item.quantity} Gas + ${item.bottle_quantity} Bottle`}</small></div></div></td>
-          {purchase.business_category !== 'stove' && <td data-label="Empties sent">{item.empty_dispatched}</td>}<td data-label="Expected">{item.quantity}</td><td data-label="Received">{purchase.status === 'received' ? item.quantity : 'Pending'}</td>
+          {purchase.business_category !== 'stove' && <td data-label="Empties sent">{item.bottles_dispatched}</td>}<td data-label="Expected">{item.quantity}</td><td data-label="Received">{purchase.status === 'received' ? item.quantity : 'Pending'}</td>
           <td data-label="Unit price">{formatBDT(Number(item.unit_price))}{purchase.business_category !== 'stove' && <small>Bottle: {formatBDT(Number(item.bottle_unit_price))}</small>}</td><td data-label="Amount">{formatBDT(Number(item.line_total))}</td>
         </tr>)}</tbody>
       </table></div> : <p className="purchase-hint">Products have not been added.</p>}

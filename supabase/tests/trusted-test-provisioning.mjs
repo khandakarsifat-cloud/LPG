@@ -5,6 +5,14 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { parseEnv } from 'node:util';
 
+/** Trusted fixture inspection only; never shipped in the frontend. */
+export function executeTestSql(input) {
+ const c=parseEnv(readFileSync('deploy/.env.backend','utf8'));
+ assert.equal(c.VPS_HOST,'144.79.249.4');assert.equal(c.VPS_PROJECT_DIR,'/opt/lpg');
+ const ssh=[...(c.VPS_SSH_KEY?['-i',c.VPS_SSH_KEY]:[]),'-p',c.VPS_PORT,'-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',`${c.VPS_USER}@${c.VPS_HOST}`];
+ return execFileSync('ssh',[...ssh,'sudo -n docker exec -i lpg-db-1 psql -X -U supabase_admin -d postgres -qAt -v ON_ERROR_STOP=1'],{input,encoding:'utf8',stdio:['pipe','pipe','pipe']}).trim();
+}
+
 export async function provisionTestIdentity({email,password,businessName,ownerName='Disposable fixture owner',platform=false}) {
  assert(email.endsWith('@example.invalid'),'Fixture emails must use example.invalid');
  assert(password.length>=12,'Use a generated fixture password');

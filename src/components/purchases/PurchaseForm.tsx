@@ -71,7 +71,7 @@ export function PurchaseForm({ draft, onChange, companyId, purchase, showShipmen
               <PurchaseNumber label="Gas quantity" value={line.quantity} onChange={n => updateLine(index, { quantity: n ?? 0 })} />
             </> : <dl className="purchase-line-quantities">
               <div><dt>Gas</dt><dd>{line.quantity}</dd></div><div><dt>Additional Bottles</dt><dd>{line.bottle_quantity}</dd></div>
-              <div><dt>Empties sent</dt><dd>{saved?.empty_dispatched}</dd></div><div><dt>Filled received</dt><dd>{purchase?.status === 'received' ? line.quantity : 'Pending'}</dd></div>
+              <div><dt>Empties sent</dt><dd>{saved?.bottles_dispatched}</dd></div><div><dt>Filled received</dt><dd>{purchase?.status === 'received' ? line.quantity : 'Pending'}</dd></div>
             </dl>}
             {financialsEditable ? <>
               <PurchaseNumber label="Gas unit price (Tk)" value={line.unit_price} money onChange={n => updateLine(index, { unit_price: n ?? 0 })} />

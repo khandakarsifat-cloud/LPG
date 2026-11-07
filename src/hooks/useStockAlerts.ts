@@ -1,12 +1,14 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { stockDisplay } from '../lib/stockDisplay';
+import type { ComponentStock } from '../lib/stockDisplay';
 
 export interface StockAlert { item_id: string; name: string; business_category: string; filled_quantity: number; low_stock_threshold: number }
 export function useStockAlerts(low: boolean, search: string, page: number) {
   const { profile } = useAuth();
   return useQuery<{ total: number; entries: StockAlert[] }>({ queryKey: ['inventory', 'stock-alerts', profile?.tenant_id, low, search, page], placeholderData: keepPreviousData, refetchInterval: 30_000,
-    queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_stock_alerts', { p_only_low: low, p_search: search, p_offset: page * 20, p_limit: 20 }).abortSignal(signal); if (error) throw error; return data; },
+    queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_stock_alerts', { p_only_low: low, p_search: search, p_offset: page * 20, p_limit: 20 }).abortSignal(signal); if (error) throw error; const result = data as { total: number; entries: (Omit<StockAlert, 'filled_quantity'> & ComponentStock)[] }; return { ...result, entries: result.entries.map(stockDisplay) }; },
   });
 }
 export function useSetStockThreshold() {

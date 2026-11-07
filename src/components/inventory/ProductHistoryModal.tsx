@@ -22,7 +22,7 @@ const weekRange = (start: string, end: string) => {
 const historyFields = [
   { key: 'sold_refill', label: 'Sold refill', shortLabel: 'Refill', icon: RefreshCw, direction: 'out' },
   { key: 'sold_package', label: 'Sold package', shortLabel: 'Package', icon: Box, direction: 'out' },
-  { key: 'empty_return', label: 'Empty return', shortLabel: 'Empty', icon: RotateCcw, direction: 'in' },
+  { key: 'bottles_received', label: 'Empty return', shortLabel: 'Empty', icon: RotateCcw, direction: 'in' },
   { key: 'bought_bottles', label: 'Purchased bottles included in filled receipts', shortLabel: 'Bottles', icon: Box, direction: 'in' },
   { key: 'bought_gas', label: 'Filled cylinders received', shortLabel: 'Filled', icon: Droplets, direction: 'in' },
 ] as const;

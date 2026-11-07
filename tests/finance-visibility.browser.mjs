@@ -24,21 +24,22 @@ try{
  await login(op,secrets.owner);
  await op.goto(`${url}/#/finance`);await op.getByRole('button',{name:'Product performance & FIFO',exact:true}).click();await settled(op);
  const quantity=op.locator('.performance-table').first();await quantity.getByText('Jamuna acceptance',{exact:true}).waitFor();assert.match(await quantity.innerText(),/70/);assert.match(await quantity.innerText(),/30/);
- await op.getByRole('button',{name:'Jamuna acceptance · 12 kg · 22mm',exact:true}).click();await op.getByText(/Available: 97 filled/).waitFor();await fit(op,'Desktop product report');await op.screenshot({path:`${folder}/desktop-performance.png`});
- await op.getByRole('combobox',{name:/Selling price tier/}).selectOption('wholesale');await op.getByText(/Retail fallback/).first().waitFor();assert.match(await op.locator('.performance-table').last().innerText(),/Package margin/);
- await op.getByRole('combobox',{name:/Selling price tier/}).selectOption('retail');await op.getByText(/Available: 97 filled/).waitFor();
- await op.setViewportSize({width:393,height:852});await settled(op);await fit(op,'Android-sized FIFO');assert.equal(await quantity.locator('thead').evaluate(e=>getComputedStyle(e).display),'table-header-group');assert.equal(await quantity.locator('tbody tr').first().evaluate(e=>getComputedStyle(e).display),'table-row');await op.screenshot({path:`${folder}/phone-performance.png`});await op.locator('.performance-table').last().locator('thead').scrollIntoViewIfNeeded();await op.screenshot({path:`${folder}/phone-fifo.png`});
+ await op.locator('.product-choice').filter({hasText:'Jamuna acceptance'}).click();await op.getByText(/97 filled/).waitFor();await fit(op,'Desktop product report');await op.screenshot({path:`${folder}/desktop-performance.png`});
+ await op.getByRole('combobox',{name:/Selling price tier/}).selectOption('wholesale');await op.getByText(/Retail fallback/).first().waitFor();assert.match(await op.getByRole('region',{name:'FIFO stock costs and margins'}).innerText(),/Projected margin/);
+ await op.getByRole('combobox',{name:/Selling price tier/}).selectOption('retail');await op.getByText(/97 filled/).waitFor();
+ await op.setViewportSize({width:393,height:852});await settled(op);await fit(op,'Android-sized FIFO');assert.equal(await quantity.locator('thead').evaluate(e=>getComputedStyle(e).display),'table-header-group');assert.equal(await quantity.locator('tbody tr').first().evaluate(e=>getComputedStyle(e).display),'table-row');await op.screenshot({path:`${folder}/phone-performance.png`});await op.getByRole('region',{name:'FIFO stock costs and margins'}).locator('thead').scrollIntoViewIfNeeded();await op.screenshot({path:`${folder}/phone-fifo.png`});
  await op.setViewportSize({width:1440,height:1000});
  if(!m.permissions_at){
   await op.goto(`${url}/#/users`);const card=op.locator('.access-user-card').filter({hasText:secrets.staff.email});await card.getByRole('button',{name:'Manage access',exact:true}).click();const dialog=op.getByRole('dialog').last();
   await dialog.getByRole('checkbox',{name:/Customize this user/}).check();
-  const all=dialog.getByRole('checkbox',{name:/^View all financial entries/});await dialog.locator('details').filter({hasText:'View all financial entries'}).locator('summary').click();await all.uncheck();
+  const all=dialog.getByRole('checkbox',{name:/^View all financial entries/});await all.uncheck();
   await dialog.getByRole('checkbox',{name:/^View loans and lending/}).uncheck();
   for(const name of ['Cash Register','bKash','Nagad','Primary Bank Account'])await dialog.getByRole('checkbox',{name:`${name} Balance`,exact:true}).uncheck();
   await dialog.getByRole('checkbox',{name:'Primary Bank Account Use',exact:true}).uncheck();await dialog.getByRole('checkbox',{name:'Primary Bank Account History',exact:true}).uncheck();
   await fit(op,'Desktop wallet access editor');await op.screenshot({path:`${folder}/desktop-wallet-access.png`});
   await op.setViewportSize({width:393,height:852});await fit(op,'Android-sized wallet editor');await op.screenshot({path:`${folder}/phone-wallet-access.png`});
-  const save=op.waitForResponse(r=>r.url().endsWith('/rpc/manage_business_user'));await dialog.getByRole('button',{name:'Save access',exact:true}).click();const r=await save;assert(r.ok(),await r.text());await dialog.waitFor({state:'detached'});
+  await dialog.getByRole('button',{name:'Review access changes',exact:true}).click();
+  const save=op.waitForResponse(r=>r.url().endsWith('/rpc/manage_business_user'));await op.getByRole('dialog').last().getByRole('button',{name:'Save access',exact:true}).click();const r=await save;assert(r.ok(),await r.text());await dialog.waitFor({state:'detached'});
   m.permissions_at=new Date().toISOString();writeFileSync(file,JSON.stringify(m,null,2));
  }
  if(m.permissions_at){

@@ -4,8 +4,8 @@ do $$declare t uuid:=app_private.current_tenant_id();st uuid;a uuid;b uuid;s uui
  select type_id into st from public.stove_product_types where tenant_id=t limit 1;
  a:=(public.save_stove_product(jsonb_build_object('name','Margin fixture A','type_id',st),gen_random_uuid())->>'item_id')::uuid;
  b:=(public.save_stove_product(jsonb_build_object('name','Margin fixture B','type_id',st),gen_random_uuid())->>'item_id')::uuid;
- perform public.adjust_inventory(jsonb_build_object('item_id',a,'kind','capital','filled_quantity',4,'empty_quantity',0,'filled_unit_cost',50,'date',d-2,'reason','Actual stove cost A'),gen_random_uuid());
- perform public.adjust_inventory(jsonb_build_object('item_id',b,'kind','capital','filled_quantity',4,'empty_quantity',0,'filled_unit_cost',120,'date',d-2,'reason','Actual stove cost B'),gen_random_uuid());
+ perform public.adjust_inventory(jsonb_build_object('item_id',a,'kind','capital','unit_quantity',4,'unit_unit_cost',50,'date',d-2,'reason','Actual stove cost A'),gen_random_uuid());
+ perform public.adjust_inventory(jsonb_build_object('item_id',b,'kind','capital','unit_quantity',4,'unit_unit_cost',120,'date',d-2,'reason','Actual stove cost B'),gen_random_uuid());
  insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price) values(t,a,'retail','package',100),(t,b,'retail','package',200);
  r:=public.create_pos_sale('01790000058','Margin customer',null,null,'retail',1.01,0,'Exact discount allocation',jsonb_build_array(jsonb_build_object('item_id',a,'type','package','quantity',1,'unit_price',100),jsonb_build_object('item_id',b,'type','package','quantity',1,'unit_price',200)),p_request_id=>gen_random_uuid(),p_payments=>'[]',p_sold_on=>d-1);sid:=(r->>'sale_id')::uuid;
  r:=public.get_product_performance('stove',d-1,d-1);

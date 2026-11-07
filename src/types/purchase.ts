@@ -10,7 +10,7 @@ export interface PurchaseItem {
   size_kg: number;
   mouth_size: string | null;
   quantity: number;
-  empty_dispatched: number;
+  bottles_dispatched: number;
   unit_price: number;
   bottle_quantity: number;
   bottle_unit_price: number;

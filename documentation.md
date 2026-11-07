@@ -9,7 +9,7 @@
 | Wallets, journals, business allocations and obligations | [Finance](docs/modules/finance.md) |
 | Tabular reporting, additive business totals and historical positions | [Financial Analysis](docs/modules/financial-analysis.md) |
 | Operation-to-account/category mappings | [Financial Type Matrix](docs/modules/financial-type-matrix.md) |
-| Independent reconciliation and retained test labs | [Finance Validation](docs/modules/finance-validation.md) |
+| Independent reconciliation and current/historical test boundaries | [Finance Validation](docs/modules/finance-validation.md) |
 | Customers and Dashboard | [Customers](docs/modules/customers.md), [Dashboard](docs/modules/dashboard.md) |
 | Employees, payroll and attendance | [Employees](docs/modules/employees-and-payroll.md), [Attendance](docs/modules/attendance.md) |
 | Authorization and account administration | [Tenant Authorization](supabase/authorization.md) |
@@ -26,3 +26,5 @@ The [summarized-accounting verification record](docs/audits/summarized-accountin
 Source and forward migrations are authoritative. Current purchase rebates are manual noncash settlement and separate income; they do not restore the retired monthly/product commission engine or change product prices, inventory acquisition costs or COGS. Dated audit documents preserve their original release boundary and are not the current module contract. Keep credentials, private fixture manifests and recovery keys outside tracked documentation.
 
 Finance wallet visibility, tab/action scopes, received-quantity performance and projected FIFO margins are documented in [Finance](docs/modules/finance.md); the server-enforced permission contract is in [authorization](supabase/authorization.md). These reports preserve the additive standalone-business analysis and do not alter financial recognition.
+
+Supported current acceptance commands are listed in [the test catalog](supabase/tests/README.md); retired live-lab and capacity harnesses are not current entry points.

@@ -87,10 +87,14 @@ export const useCreatePOSSale = () => {
         p_discount_amount:     payload.discountAmount ?? 0,
         p_exchange_fee:        payload.exchangeFee ?? 0,
         p_notes:               payload.notes ?? null,
-        p_items:               payload.items,
+        p_items:               payload.items.filter(line => line.type !== 'empty_return'),
         p_customer_id:         payload.customerId ?? null,
         p_payments:            payload.payments ?? null,
-        p_bottles:             payload.bottles ?? null,
+        p_bottles:             payload.bottles ?? (payload.items.some(line => line.type === 'empty_return') ? {
+          lines: payload.items.filter(line => line.type === 'empty_return').map(line => ({
+            received_item_id: line.item_id, quantity: line.quantity,
+          })), note: '',
+        } : null),
       } : undefined);
       setHasPending(true);
       const { data, error } = await supabase.rpc('create_pos_sale', { ...pending.body, p_request_id: pending.id });

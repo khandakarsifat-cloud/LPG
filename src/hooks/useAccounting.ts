@@ -1,4 +1,5 @@
 import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
+import { stockDisplay } from '../lib/stockDisplay';
 import { useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,7 +21,7 @@ export function useAccountingHealth(filters: JournalFilters, page: number) {
 type AccountingProduct = (ItemWithBrand & { business_category: 'lpg' }) | StoveProduct;
 export function useAccountingProduct(id: string | null) {
  return useQuery<AccountingProduct>({ queryKey: ['inventory', 'analysis-product', id], enabled: Boolean(id),
-  queryFn: async ({ signal }) => { const { data, error } = await supabase.from('items').select('*,lpg_brands(brand_id,brand_name)').eq('item_id', id).limit(1).abortSignal(signal).overrideTypes<(AccountingProduct)[], { merge: false }>(); if (error) throw error; if (!data?.[0]) throw new Error('Product not found'); return data[0]; } });
+  queryFn: async ({ signal }) => { const { data, error } = await supabase.from('items').select('*,lpg_brands(brand_id,brand_name)').eq('item_id', id).limit(1).abortSignal(signal).overrideTypes<(AccountingProduct)[], { merge: false }>(); if (error) throw error; if (!data?.[0]) throw new Error('Product not found'); return stockDisplay(data[0]); } });
 }
 
 function useAccountingWrite<T extends object>(rpc: string, scope: string) {
@@ -38,7 +39,7 @@ function useAccountingWrite<T extends object>(rpc: string, scope: string) {
 export const useAccountingOperation = () => useAccountingWrite<AccountingCommand>('accounting_operation', 'accounting-operation');
 export const useInventoryAdjustment = () => useAccountingWrite<InventoryAdjustment>('adjust_inventory', 'valued-stock-adjustment');
 export const useSaveStoveProduct = () => useAccountingWrite<{ item_id?: string; name: string; type_id: string; image_url?: string | null }>('save_stove_product', 'stove-product');
-export function useStoveProducts(enabled = true) { return useQuery<StoveProduct[]>({ queryKey: ['inventory', 'stove'], enabled, refetchInterval: 30_000, queryFn: ({ signal }) => readAllRows<StoveProduct>((from, to) => supabase.from('items').select('*').eq('business_category', 'stove').order('product_name').order('item_id').range(from, to).abortSignal(signal).overrideTypes<StoveProduct[], { merge: false }>()) }); }
+export function useStoveProducts(enabled = true) { return useQuery<StoveProduct[]>({ queryKey: ['inventory', 'stove'], enabled, refetchInterval: 30_000, queryFn: async ({ signal }) => (await readAllRows<StoveProduct>((from, to) => supabase.from('items').select('*').eq('business_category', 'stove').order('product_name').order('item_id').range(from, to).abortSignal(signal).overrideTypes<StoveProduct[], { merge: false }>())).map(stockDisplay) }); }
 export function useStoveTypes() { return useQuery<StoveType[]>({ queryKey: ['inventory', 'stove-types'], queryFn: async ({ signal }) => { const { data, error } = await supabase.rpc('get_stove_product_types').abortSignal(signal); if (error) throw error; return data; } }); }
 export function useSaveStoveType() {
  const qc = useQueryClient();

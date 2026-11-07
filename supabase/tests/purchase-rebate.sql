@@ -21,10 +21,10 @@ begin
  select revision into rev from public.purchases where purchase_id=pid;
  perform public.dispatch_purchase(pid,rev);
  perform pg_temp.rebate_assert((select subtotal=30000 and payable_amount=30300 and total_cost=30900 and paid_amount=0 and payment_status='partial' from public.purchases where purchase_id=pid),'Gross costs preserved; rebate is settlement, not wallet payment');
- perform pg_temp.rebate_assert((select sum(amount)=-25300 from public.accounting_lines where tenant_id=t and account='supplier_payable'),'Rebate reduces gross supplier liability by exactly 5000');
- perform pg_temp.rebate_assert((select -sum(amount)=5000 from public.accounting_lines where tenant_id=t and account='other_income'),'Confirmed rebate income is recognized exactly once');
  select revision into rev from public.purchases where purchase_id=pid;perform public.receive_purchase(pid,rev);
- perform pg_temp.rebate_assert((select filled_value=30300 from public.inventory_costs where tenant_id=t and item_id=product),'Actual gross acquisition and labour, never rebate, determine FIFO');
+ perform pg_temp.rebate_assert((select sum(amount)=-25300 from public.accounting_lines where tenant_id=t and account='supplier_payable'),'Receipt invoice and rebate leave exactly 25300 supplier liability');
+ perform pg_temp.rebate_assert((select -sum(amount)=5000 from public.accounting_lines where tenant_id=t and account='other_income'),'Confirmed rebate income is recognized exactly once');
+ perform pg_temp.rebate_assert((select gas_value+bottle_value=30300 from public.inventory_costs where tenant_id=t and item_id=product),'Actual gross acquisition and labour, never rebate, determine FIFO');
  perform public.record_purchase_payment(pid,jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',10000)),gen_random_uuid());
  perform pg_temp.rebate_assert((public.get_purchase_settlement(pid)->>'due')::numeric=15300,'Partial wallet payment and rebate settle different portions');
  begin
@@ -65,20 +65,22 @@ begin
  r:=public.get_finance_analysis(jsonb_build_object('from',(clock_timestamp() at time zone 'Asia/Dhaka')::date,'to',(clock_timestamp() at time zone 'Asia/Dhaka')::date,'category','all'));
  perform pg_temp.rebate_assert((r->'closing'->>'cash')::numeric=74700 and (r->'closing'->>'revenue')::numeric=10600 and (r->'closing'->>'expenses')::numeric=3090,'Independent consolidated cash, sales plus rebate income and historical COGS');
  perform pg_temp.rebate_assert((r->'closing'->>'assets')::numeric=108510 and (r->'closing'->>'liabilities')::numeric=0,'Independent supplies, cash, receivable and supplier position');
- -- A real company rebate remains company credit if its purchase is cancelled.
+ -- An unreceived LPG order never recognizes an invoice or earns a new rebate.
  body:=jsonb_build_object('plant_id',plant,'vehicle_id',truck,'rebate_amount',3000,'items',jsonb_build_array(jsonb_build_object('item_id',product,'quantity',5,'bottle_quantity',5,'unit_price',1000,'bottle_unit_price',2000)));
  result:=public.create_purchase(body||jsonb_build_object('request_id',gen_random_uuid()));cancelled:=(result->>'purchase_id')::uuid;
  select revision into rev from public.purchases where purchase_id=cancelled;perform public.dispatch_purchase(cancelled,rev);
  perform public.record_purchase_payment(cancelled,jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',2000)),gen_random_uuid());
  select revision into rev from public.purchases where purchase_id=cancelled;perform public.initiate_purchase_cancellation(cancelled,rev,'CANCEL',gen_random_uuid());
- perform pg_temp.rebate_assert((public.get_purchase_settlement(cancelled)->>'company_credit')::numeric=3000 and (public.get_purchase_settlement(cancelled)->>'refund_due')::numeric=2000,'Cancellation restores company credit and refunds only actual wallet evidence');
+ perform pg_temp.rebate_assert((public.get_purchase_settlement(cancelled)->>'company_credit')::numeric=0 and (public.get_purchase_settlement(cancelled)->>'refund_due')::numeric=2000,'Unreceived cancellation creates no rebate credit and refunds only actual payments');
  select obligation_id into req from public.purchase_refund_obligations where purchase_id=cancelled;
  perform public.refund_purchase(cancelled,req,jsonb_build_array(jsonb_build_object('wallet_id',cash,'amount',2000)),gen_random_uuid());
  perform pg_temp.rebate_assert((select balance=money from public.wallets where wallet_id=cash),'Cash refund excludes the noncash rebate');
  result:=public.create_purchase(body||jsonb_build_object('request_id',gen_random_uuid(),'rebate_amount',4000));next_id:=(result->>'purchase_id')::uuid;
  select revision into rev from public.purchases where purchase_id=next_id;perform public.dispatch_purchase(next_id,rev);
- perform pg_temp.rebate_assert((select sum(income_delta)=1000 from app_private.purchase_rebate_events where purchase_id=next_id),'Reused credit is consumed before recognizing only new rebate income');
- perform pg_temp.rebate_assert((public.get_purchase_settlement(next_id)->>'company_credit')::numeric=0,'A company credit is consumed exactly once');
+ perform pg_temp.rebate_assert(not exists(select 1 from app_private.purchase_rebate_events where purchase_id=next_id),'Dispatch does not recognize a new invoice rebate');
+ select revision into rev from public.purchases where purchase_id=next_id;perform public.receive_purchase(next_id,rev);
+ perform pg_temp.rebate_assert((select sum(income_delta)=4000 from app_private.purchase_rebate_events where purchase_id=next_id),'Receipt recognizes the actual new rebate with no invented credit');
+ perform pg_temp.rebate_assert((public.get_purchase_settlement(next_id)->>'company_credit')::numeric=0,'No unused company credit is fabricated');
  for category in select unnest(array['lpg','stove','logistics','all']) loop
   r:=public.get_finance_analysis(jsonb_build_object('from',(now() at time zone 'Asia/Dhaka')::date,'to',(now() at time zone 'Asia/Dhaka')::date,'grain','day','category',category));
   perform pg_temp.rebate_assert((r->'closing'->>'assets')::numeric=(r->'closing'->>'liabilities')::numeric+(r->'closing'->>'equity')::numeric,'Each business and consolidated equation remains exact');

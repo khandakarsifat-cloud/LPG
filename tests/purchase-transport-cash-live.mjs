@@ -67,7 +67,7 @@ try {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
   m.driver = (await run('driver', 'save_employee', { p_payload: { name: 'Cash fixture driver', employee_type_name: 'Driver', business_unit: 'truck_business', phones: [{ phone: '01799000701', is_primary: true }], terms: { effective_from: today, monthly_salary: 0, is_active: true } }, p_request_id: randomUUID() })).employee_id;
   m.vehicle = (await run('vehicle', 'save_vehicle', { p_payload: { name: 'Purchase cash fixture truck', serial_no: 'CASH-FIXTURE', capacity: 100, driver_employee_id: m.driver, book_value: 1000, funding: 'capital' }, p_request_id: randomUUID() })).vehicle_id;
-  await run('empties', 'adjust_inventory', { p_payload: { item_id: m.item, kind: 'capital', filled_quantity: 0, empty_quantity: 10, empty_unit_cost: 1000, reason: 'Fixture owned empties' }, p_request_id: randomUUID() });
+  await run('empties', 'adjust_inventory', { p_payload: { item_id: m.item, kind: 'capital', bottle_quantity: 10, bottle_unit_cost: 1000, reason: 'Fixture owned empties' }, p_request_id: randomUUID() });
   m.purchase = (await run('draft', 'create_purchase', { p_payload: { request_id: randomUUID(), plant_id: m.plant, vehicle_id: m.vehicle, transport_cost: 500, labour_cost: 100, items: [] } })).purchase_id; persist();
   assert.equal((await detail(m.purchase)).subtotal, 0);
   if (!m.operations.products?.result) {
@@ -126,7 +126,7 @@ try {
   await run('receipt-dispatch', 'dispatch_purchase', { p_purchase_id: m.received_purchase, p_revision: (await detail(m.received_purchase)).revision });
   await run('receipt', 'receive_purchase', { p_purchase_id: m.received_purchase, p_revision: (await detail(m.received_purchase)).revision });
   const inventory = await rpc('get_product_inventory', { p_item_id: m.item });
-  assert.equal(inventory.valuation.filled_value, 20100);
+  assert.equal((Number(inventory.valuation.gas_value)+Number(inventory.valuation.bottle_value)), 20100);
   const t = uuid(m.tenant_id);
   const totals = JSON.parse(sql(`select json_build_object(
     'physical_cash',(select sum(balance) from public.wallets where tenant_id=${t}),

@@ -42,6 +42,9 @@ try {
     await commit('lower', 'set_purchase_rebate', async () => { await page.getByLabel('Commission rebate used (Tk)', { exact: true }).fill('4000'); await page.getByRole('button', { name: 'Save rebate', exact: true }).click(); });
     assert.equal((await checked(c.rpc('get_purchase_settlement', { p_purchase_id: m.purchase }))).due, 2000);
     await fits('Desktop rebate editor'); await page.screenshot({ path: `${folder}/desktop-rebate-correction.png` });
+    // Start the separate response-loss action from the freshly saved revision.
+    // A network response alone does not await the prior mutation's cache updates.
+    await open(m.purchase);
     await page.route(rpcURL('set_purchase_rebate'), async route => {
       m.browser.restore_request = route.request().postDataJSON(); persist();
       const response = await route.fetch(); assert.equal(response.status(), 200); await route.abort('failed');

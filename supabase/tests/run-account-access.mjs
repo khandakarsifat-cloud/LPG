@@ -11,7 +11,10 @@ const migrations=readdirSync('supabase/migrations').filter(n=>/^\d{14}_.+\.sql$/
 const tests=readFileSync('supabase/tests/account-access.sql','utf8');
 const adapt=source=>source.replaceAll('public.setup_business(', 'pg_temp.fixture_business(').replace(/set_config\('request\.jwt\.claim\.sub',([^;]*?),true\)/g,'pg_temp.fixture_identity($1)');
 const helpers=readFileSync('supabase/tests/account-access-fixtures.sql','utf8')+'\n'+adapt(readFileSync('supabase/tests/fixture-helpers.sql','utf8'));
-const regressions=['authorization-current.sql','financial-system-dimensions.sql','financial-stove-transport.sql','financial-custom-types.sql','financial-payroll.sql','commission-pairs.sql','finance-entry-directory.sql','fifo-commissions.sql','unified-opening-transits.sql','accounting-overview.sql','dashboard.sql','dashboard-stove-types.sql'].map(name=>({name,sql:helpers+'\n'+adapt(readFileSync('supabase/tests/'+name,'utf8'))}));
+const regressions=['authorization-current.sql','employees-current.sql','attendance-device-registration.sql'].map(name=>({name,sql:helpers+'\n'+adapt(readFileSync('supabase/tests/'+name,'utf8'))}));
+// Financial contract regressions run through accounting:db:test; historical
+// pre-component scenarios must never run against the latest schema.
+
 const python=`import json,os,re,subprocess,sys,tempfile,uuid
 os.umask(0o077)
 p=json.load(sys.stdin)

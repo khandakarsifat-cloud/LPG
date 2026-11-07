@@ -1,4 +1,5 @@
 import { invalidateFreshQueries } from '../lib/invalidateFreshQueries';
+import { stockDisplay, movementDisplay } from '../lib/stockDisplay';
 import { readAllRows } from '../lib/queryPages';
 import { useState } from 'react';
 import { finishRequest, hasPendingRequest, isDefiniteRejection, prepareRequest } from '../lib/pendingRequest';
@@ -26,14 +27,14 @@ export const inventoryKeys = {
 // QUERIES
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Filled and Empty are the stock display quantities. The database derives Empty from on-hand Bottle less Gas. */
+/** Only the frontend derives Filled and Empty from canonical component quantities. */
 export const useInventoryBalances = () =>
   useQuery<ItemWithBrand[]>({
     queryKey: inventoryKeys.balances,
-    queryFn: async ({ signal }) => readAllRows<ItemWithBrand>((from, to) => supabase
+    queryFn: async ({ signal }) => (await readAllRows<Omit<ItemWithBrand, 'filled_quantity' | 'empty_quantity'>>((from, to) => supabase
       .from('items').select('*, lpg_brands(brand_id, brand_name)').eq('business_category', 'lpg')
       .order('brand_id', { ascending: true }).order('item_id', { ascending: true })
-      .range(from, to).abortSignal(signal).overrideTypes<ItemWithBrand[], { merge: false }>()),
+      .range(from, to).abortSignal(signal).overrideTypes<Omit<ItemWithBrand, 'filled_quantity' | 'empty_quantity'>[], { merge: false }>())).map(stockDisplay),
     refetchInterval: 30_000,
   });
 
@@ -52,7 +53,8 @@ export const useInventoryHistory = ({ source, itemIds, page, from, to }: {
         p_offset: page * INVENTORY_HISTORY_PAGE_SIZE, p_limit: INVENTORY_HISTORY_PAGE_SIZE,
       }).abortSignal(signal);
       if (error) throw error;
-      return data;
+      const result = data as { entries: (Omit<InventoryMovement, 'filled_quantity_change' | 'empty_quantity_change'> & { saleCustomer: string | null })[]; hasMore: boolean };
+      return { ...result, entries: result.entries.map(movementDisplay) };
     },
     refetchInterval: 15_000,
   });
@@ -77,7 +79,7 @@ export const useCreateItem = () => {
         .single();
 
       if (error) throw error;
-      return data as Item;
+      return stockDisplay(data as Omit<Item, 'filled_quantity' | 'empty_quantity'>);
     },
     onSuccess: () => {
       invalidateFreshQueries(qc, { queryKey: inventoryKeys.balances });

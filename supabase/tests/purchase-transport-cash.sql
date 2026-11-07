@@ -21,8 +21,8 @@ begin
  select wallet_id into cash from public.wallets where tenant_id=t and type='cash';
  select wallet_id into bank from public.wallets where tenant_id=t and type='dealership';
  perform public.move_wallet_money(jsonb_build_object('action','adjustment','wallet_id',cash,'business','lpg','classification','capital','amount',200000,'reason','Initial business funds'),gen_random_uuid());
- perform public.adjust_inventory(jsonb_build_object('item_id',j,'kind','capital','filled_quantity',0,'empty_quantity',70,'empty_unit_cost',1200,'reason','Historical owned cylinders'),gen_random_uuid());
- perform pg_temp.assert((select empty_value=84000 from public.inventory_costs where tenant_id=t and item_id=j),'Historical empty value is independent of current price');
+ perform public.adjust_inventory(jsonb_build_object('item_id',j,'kind','capital','bottle_quantity',70,'bottle_unit_cost',1200,'reason','Historical owned cylinders'),gen_random_uuid());
+ perform pg_temp.assert((select bottle_value=84000 from public.inventory_costs where tenant_id=t and item_id=j),'Historical empty value is independent of current price');
  perform public.set_product_buying_price(jsonb_build_object('item_id',total,'price_type','bottle','is_manual',true,'price',2000,'reason','Received-brand operational reference','expected',null),gen_random_uuid());
 
  select count(*) into before_value from public.accounting_journals where tenant_id=t;
@@ -33,9 +33,9 @@ begin
  body:=jsonb_build_object('items',jsonb_build_array(jsonb_build_object('item_id',j,'quantity',100,'bottle_quantity',30,'unit_price',800,'bottle_unit_price',1600)));
  perform public.update_purchase(pid,body,rev);
  select revision into rev from public.purchases where tenant_id=t and purchase_id=pid;
- select count(*) into before_value from app_private.fifo_component_layers where tenant_id=t;
+ select count(*) into before_value from app_private.fifo_layers where tenant_id=t;
  perform public.dispatch_purchase(pid,rev);
- perform pg_temp.assert((select count(*)=before_value from app_private.fifo_component_layers where tenant_id=t),'Dispatch preserves original Gas/Bottle acquisitions');
+ perform pg_temp.assert((select count(*)=before_value from app_private.fifo_layers where tenant_id=t),'Dispatch preserves original Gas/Bottle acquisitions');
  perform pg_temp.assert((select sum(amount)=-500 from public.wallet_transactions where tenant_id=t and reference_id=pid and type='purchase_transport_payment'),'Dispatch pays transport once');
  perform pg_temp.assert((select coalesce(sum(amount),0)=0 from public.accounting_lines where tenant_id=t and account='supplier_payable'),'Dispatch recognizes no supplier invoice');
  perform pg_temp.assert((select coalesce(sum(amount),0)=0 from public.accounting_lines where tenant_id=t and account='business_allocation_equity'),'Cash transport uses no capital');

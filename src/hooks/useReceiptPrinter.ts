@@ -7,6 +7,7 @@ import type { ReceiptPrinterConfig, ReceiptPrintMethod } from '../types/printing
 import { readReceiptPrintMethod, writeReceiptPrintMethod, readBrowserPaperWidth, writeBrowserPaperWidth } from '../lib/receiptPrintPreference';
 import { printBrowserReceipt } from '../lib/browserPrint';
 import { buildSaleReceipt } from '../lib/receipt';
+import { saleDisplay } from '../lib/saleDisplay';
 import type { SaleTransaction } from './useDashboard';
 import type { SaleSettlement } from '../types/finance';
 import type { SaleBottles } from '../types/bottles';
@@ -24,7 +25,7 @@ async function loadSaleReceipt(saleId: string, signal?: AbortSignal) {
   if (error) throw error;
   const source: SavedReceiptSource | null = data;
   if (!source?.sale.sale_items?.length) throw new Error('The completed sale has no receipt items.');
-  return buildSaleReceipt(source.sale, source.settlement, source.shop_name, source.bottles, source.brands);
+  return buildSaleReceipt(saleDisplay(source.sale), source.settlement, source.shop_name, source.bottles, source.brands);
 }
 
 export function useSaleReceipt(saleId: string) {

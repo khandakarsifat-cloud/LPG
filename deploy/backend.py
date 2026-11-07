@@ -18,7 +18,7 @@ SERVICES = ['db', 'auth', 'rest', 'realtime', 'imgproxy', 'storage', 'meta', 'st
 CORE_SERVICES = set(SERVICES) - {'studio', 'meta', 'attendance-receiver', 'account-service'}
 EXCLUDED = ['frontend', 'functions', 'supavisor', 'mailpit']
 ACCOUNTING_CUTOVER = '20261105020000'
-STOCK_CUTOVERS = {'20261106023012', '20261106023014'}
+STOCK_CUTOVERS = {'20261106023012', '20261106023014', '20261106203204'}
 PURCHASE_CASH_CUTOVER = '20261106113739'
 
 

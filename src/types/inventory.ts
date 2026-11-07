@@ -23,14 +23,14 @@ export interface ProductPrice {
   effective_from: string;
 }
 
-export interface InventoryValuation { internal_transport_value: number; business_lpg_value: number; business_stove_value: number; known_value: number; filled_value: number; empty_value: number; reconstructed_products: number; lpg_value: number; stove_value: number }
+export interface InventoryValuation { internal_transport_value: number; known_value: number; gas_value: number; bottle_value: number; unit_value: number; reconstructed_products: number; lpg_value: number; stove_value: number }
 
 export interface ProductWeek {
   start_date: string;
   end_date: string;
   sold_refill: number;
   sold_package: number;
-  empty_return: number;
+  bottles_received: number;
   bought_bottles: number;
   bought_gas: number;
 }
@@ -70,6 +70,9 @@ export interface LPGBrand {
 }
 
 export interface Item {
+  gas_quantity: number;
+  bottle_quantity: number;
+  unit_quantity: number;
   low_stock_threshold: number;
   image_url?: string | null;
   tenant_id: string;
@@ -93,6 +96,10 @@ export type InventoryProductIdentity = Pick<Item, 'item_id' | 'brand_id' | 'size
 };
 
 export interface InventoryMovement {
+  gas_change: number;
+  bottle_change: number;
+  unit_change: number;
+  bottle_transit_change: number;
   tenant_id: string;
   movement_id: string;
   item_id: string;
@@ -104,7 +111,7 @@ export interface InventoryMovement {
   reference_id: string | null;
   created_by: string | null;
   created_at: string;
-  items: ({ product_name?: string | null } & Pick<Item, 'size_kg' | 'filled_quantity' | 'empty_quantity' | 'mouth_size'> & { lpg_brands: LPGBrand | null }) | null;
+  items: ({ product_name?: string | null } & Pick<Item, 'size_kg' | 'gas_quantity' | 'bottle_quantity' | 'unit_quantity' | 'mouth_size'> & { lpg_brands: LPGBrand | null }) | null;
   actor: { email: string | null } | null;
 }
 

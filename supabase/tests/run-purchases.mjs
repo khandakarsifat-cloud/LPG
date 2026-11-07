@@ -13,14 +13,8 @@ function report(name,results) {
 }
 
 if (replayIndex === -1) {
-  // Existing configured local Compose instance, migrated first. Each SQL suite
-  // uses a transaction and rolls back all fixtures. No credentials are read.
-  const output = execFileSync('docker',[
-    'compose','exec','-T','db','psql','-U','supabase_admin','-d','postgres','-v','ON_ERROR_STOP=1','-q','-t',
-  ],{ input:read('fixture-helpers.sql')+'\n'+read('purchase-wallets.sql'),encoding:'utf8',cwd:root });
-  const result=output.split('\n').find(line=>line.includes('PASS:'));
-  if(!result) throw new Error('No purchase success assertion');
-  console.log(result.trim());
+  if (!process.argv.includes('--vps')) throw new Error('Current purchase checks require --vps; historical replay requires --replay-module.');
+  execFileSync(process.execPath, ['supabase/tests/run-unified-accounting.mjs', '--vps'], { stdio: 'inherit', cwd: root });
 } else {
   // Optional verification-only PGlite install; never connects to an existing
   // database. This is a real disposable PostgreSQL engine with small Auth/role

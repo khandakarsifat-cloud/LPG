@@ -4,6 +4,7 @@ import { dhakaToday } from '../lib/businessDate';
 import { useAuth } from '../contexts/AuthContext';
 import type { DashboardActivityPage, DashboardSnapshot } from '../types/dashboard';
 import type { SaleTransaction } from '../types/sale';
+import { saleDisplay } from '../lib/saleDisplay';
 export type { SaleTransaction } from '../types/sale';
 
 export const dashboardKeys = { all: ['dashboard'] as const, stats: ['dashboard', 'stats'] as const };
@@ -29,6 +30,6 @@ export const useSaleDetails = (saleId: string | null) => useQuery<SaleTransactio
   queryFn: async ({ signal }) => {
     if (!saleId) throw new Error('No sale selected');
     const { data, error } = await supabase.rpc('get_sale_details', { p_sale_id: saleId }).abortSignal(signal);
-    if (error) throw error; return data;
+    if (error) throw error; return saleDisplay(data);
   },
 });

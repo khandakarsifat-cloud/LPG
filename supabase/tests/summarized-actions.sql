@@ -44,10 +44,10 @@ begin
    insert into public.items(tenant_id,brand_id,size_kg,mouth_size) values(t,brand,10+n+scale,'22mm') returning item_id into product;
    products:=array_append(products,product);
    insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price) values(t,product,'retail','refill',1250),(t,product,'retail','package',3000);
-   perform public.adjust_inventory(jsonb_build_object('item_id',product,'kind','capital','filled_quantity',0,'empty_quantity',2,'empty_unit_cost',1200,'reason','Original owned shells'),gen_random_uuid());
+   perform public.adjust_inventory(jsonb_build_object('item_id',product,'kind','capital','bottle_quantity',2,'bottle_unit_cost',1200,'reason','Original owned shells'),gen_random_uuid());
    lines:=lines||jsonb_build_array(jsonb_build_object('item_id',product,'quantity',4,'bottle_quantity',2,'unit_price',800,'bottle_unit_price',1600));
    goods:=goods||jsonb_build_array(jsonb_build_object('item_id',product,'type','refill','quantity',1,'unit_price',1250),
-    jsonb_build_object('item_id',product,'type','package','quantity',1,'unit_price',3000),jsonb_build_object('item_id',product,'type','empty_return','quantity',1,'unit_price',0));
+    jsonb_build_object('item_id',product,'type','package','quantity',1,'unit_price',3000));
    if n<=scale/2 then bottles:=bottles||jsonb_build_array(jsonb_build_object('received_item_id',product,'quantity',1));end if;
   end loop;
   body:=jsonb_build_object('plant_id',plant,'vehicle_id',truck,'transport_cost',100*scale,'labour_cost',50*scale,'items',lines,'request_id',gen_random_uuid());

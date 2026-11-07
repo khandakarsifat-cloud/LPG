@@ -50,7 +50,7 @@ function PurchaseDetails({ purchase, onClose }: { purchase: Purchase; onClose: (
   const busy = checking || update.isPending || dispatch.isPending || receive.isPending || operation.isPending;
   const blocked = busy || operation.hasPending;
   const dirty = JSON.stringify(draft) !== baseline;
-  const outgoing = purchase.items.reduce((sum, item) => sum + (purchase.status === 'created' && purchase.business_category !== 'stove' ? item.quantity - item.bottle_quantity : item.empty_dispatched), 0);
+  const outgoing = purchase.items.reduce((sum, item) => sum + (purchase.status === 'created' && purchase.business_category !== 'stove' ? item.quantity - item.bottle_quantity : item.bottles_dispatched), 0);
   function loadSaved() {
     const saved = purchaseDraft(purchase);
     setDraft(saved); setBaseline(JSON.stringify(saved)); setDraftRevision(purchase.revision); setError(null);

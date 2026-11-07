@@ -16,7 +16,7 @@ const site=process.env.LPG_BROWSER_BASE ?? 'https://floral-dew-443b.khandakarsif
 assert.equal(frontend.VITE_SUPABASE_URL,api);assert.equal(backend.VPS_HOST,'144.79.249.4');assert.equal(backend.VPS_PROJECT_DIR,'/opt/lpg');
 const root='.temp/summarized-actions-live';mkdirSync(root,{recursive:true});
 const pointer=`${root}/current.json`;
-let runId=existsSync(pointer)?JSON.parse(readFileSync(pointer,'utf8')).id:randomUUID();
+let runId=!process.argv.includes('--new-run')&&existsSync(pointer)?JSON.parse(readFileSync(pointer,'utf8')).id:randomUUID();
 if(existsSync(`${root}/${runId}/manifest.json`)&&JSON.parse(readFileSync(`${root}/${runId}/manifest.json`,'utf8')).cleaned_at)runId=randomUUID();
 assert.match(runId,/^[a-f0-9-]{36}$/);
 const folder=`${root}/${runId}`;mkdirSync(folder,{recursive:true});writeFileSync(pointer,JSON.stringify({id:runId}));
@@ -53,7 +53,7 @@ try{
  const other=await run('other-brand','create_lpg_brand',{p_brand_name:'Actual return company',p_description:'Disposable fixture'},0);m.other_brand=typeof other==='string'?other:other.brand_id;persist();
  for(const [key,brandId] of [['item',m.brand],['other_item',m.other_brand]])if(!m[key]){m[key]=(await checked(c.from('items').insert({tenant_id:m.tenant_id,brand_id:brandId,size_kg:12,mouth_size:'22mm'}).select('item_id').single())).item_id;persist();}
  await run('other-price','set_product_buying_price',{p_payload:{item_id:m.other_item,price_type:'bottle',price:1900,is_manual:true,expected:null,reason:'Actual returned bottle reference'},p_request_id:randomUUID()},0);
- await run('owned-bottles','adjust_inventory',{p_payload:{item_id:m.item,kind:'capital',filled_quantity:0,empty_quantity:3,empty_unit_cost:1200,reason:'Original owned shells'},p_request_id:randomUUID()},1);
+ await run('owned-bottles','adjust_inventory',{p_payload:{item_id:m.item,kind:'capital',bottle_quantity:3,bottle_unit_cost:1200,reason:'Original owned shells'},p_request_id:randomUUID()},1);
  const plant=await run('plant','create_gas_plant',{p_plant_name:'Compact fixture plant',p_brand_id:m.brand,p_location:'Dhaka'},0);m.plant=typeof plant==='string'?plant:plant.plant_id;
  m.driver=(await run('driver','save_employee',{p_payload:{name:'Compact fixture driver',employee_type_name:'Driver',business_unit:'truck_business',phones:[{phone:'01799000666',is_primary:true}],terms:{effective_from:today,monthly_salary:0,is_active:true}},p_request_id:randomUUID()},0)).employee_id;
  m.truck=(await run('truck','save_vehicle',{p_payload:{name:'Compact fixture truck',serial_no:'COMPACT-EVENT',capacity:100,driver_employee_id:m.driver,book_value:100000,funding:'capital'},p_request_id:randomUUID()},1)).vehicle_id;persist();
@@ -63,7 +63,7 @@ try{
  await run('receipt','receive_purchase',{p_purchase_id:m.purchase,p_revision:(await purchase()).revision},1);
  await run('supplier-payment','record_purchase_payment',{p_purchase_id:m.purchase,p_payments:[{wallet_id:m.cash,amount:1000},{wallet_id:m.bank,amount:1000}],p_request_id:randomUUID()},1);
  if(!m.price_setup){sql(`insert into public.price_books(tenant_id,item_id,customer_tier,price_type,price) values(${uid(m.tenant_id)},${uid(m.item)},'retail','refill',1250),(${uid(m.tenant_id)},${uid(m.item)},'retail','package',3000);`);m.price_setup=true;persist();}
- const saleArgs={p_customer_phone:'01799000555',p_customer_name:'Compact buyer',p_customer_shop_name:null,p_customer_address:null,p_customer_tier:'retail',p_discount_amount:0,p_exchange_fee:0,p_notes:'Compact checkout fixture',p_items:[{item_id:m.item,type:'refill',quantity:1,unit_price:1250},{item_id:m.item,type:'package',quantity:1,unit_price:3000},{item_id:m.item,type:'empty_return',quantity:1,unit_price:0}],p_request_id:randomUUID(),p_payments:[{wallet_id:m.cash,amount:1000},{wallet_id:m.bank,amount:1000}],p_bottles:{lines:[],note:'Return later'}};
+ const saleArgs={p_customer_phone:'01799000555',p_customer_name:'Compact buyer',p_customer_shop_name:null,p_customer_address:null,p_customer_tier:'retail',p_discount_amount:0,p_exchange_fee:0,p_notes:'Compact checkout fixture',p_items:[{item_id:m.item,type:'refill',quantity:1,unit_price:1250},{item_id:m.item,type:'package',quantity:1,unit_price:3000}],p_request_id:randomUUID(),p_payments:[{wallet_id:m.cash,amount:1000},{wallet_id:m.bank,amount:1000}],p_bottles:{lines:[],note:'Return later'}};
  m.sale=(await run('checkout','create_pos_sale',saleArgs,1)).sale_id;persist();
  const count=headers();await checked(c.rpc('create_pos_sale',m.events.checkout.args));assert.equal(headers(),count,'Exact checkout retry');
  await run('partial','collect_sale_payment',{p_sale_id:m.sale,p_payments:[{wallet_id:m.bank,amount:500}],p_request_id:randomUUID()},1);
@@ -79,9 +79,9 @@ try{
  const activity=await checked(c.rpc('get_accounting_breakdown',{p_filters:filters,p_group:'all',p_side:'closing',p_mode:'history',p_offset:0,p_limit:100}));
  assert.equal(activity.total,4);const checkout=activity.entries.find(e=>e.description==='New sale');assert(checkout);assert.equal(checkout.line_count,7);assert.equal(checkout.amount,4250);
  const evidence=await checked(c.rpc('get_journal_lines',{p_filters:filters,p_journal_id:checkout.journal_id}));assert.equal(evidence.total,7);
- // Refill and Package are two FIFO issues: each takes Tk 16.67 of transport,
- // preserving the original sequential remainder rather than recosting qty=2.
- const cogs=evidence.entries.filter(e=>e.account_code==='cogs');assert.equal(cogs.length,1);assert.equal(cogs[0].amount,2850.01);assert.equal(cogs[0].consolidated_amount,2816.67);
+ // Independent Gas issues each cost 808.33 externally plus 16.67 transport;
+ // Package also issues an original Bottle at 1200. Refill Bottle becomes a claim.
+ const cogs=evidence.entries.filter(e=>e.account_code==='cogs');assert.equal(cogs.length,1);assert.equal(cogs[0].amount,2850);assert.equal(cogs[0].consolidated_amount,2816.66);
  assert.equal(sql(`select coalesce(sum(amount),0) from public.accounting_lines where tenant_id=${uid(m.tenant_id)} and account='bottle_receivable' and entity_id=${uid(m.sale)};`),'0.00');
  const reconciliation=JSON.parse(sql(`select jsonb_build_object('cash',(select sum(balance) from public.wallets where tenant_id=${uid(m.tenant_id)}),'journal_cash',(select sum(amount) from public.accounting_lines where tenant_id=${uid(m.tenant_id)} and account='cash'),'bad_journals',(select count(*) from(select journal_id,business_category from public.accounting_lines where tenant_id=${uid(m.tenant_id)} group by 1,2 having sum(amount)<>0)x),'inventory',(select sum(remaining_value+remaining_internal_value) from app_private.fifo_layers where tenant_id=${uid(m.tenant_id)}),'journal_inventory',(select sum(amount) from public.accounting_lines where tenant_id=${uid(m.tenant_id)} and account='inventory_lpg'));`));
  assert.equal(reconciliation.cash,reconciliation.journal_cash);assert.equal(reconciliation.inventory,reconciliation.journal_inventory);assert.equal(reconciliation.bad_journals,0);

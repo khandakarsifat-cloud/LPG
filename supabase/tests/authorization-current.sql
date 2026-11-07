@@ -20,6 +20,9 @@ do $$declare t uuid;other_t uuid;b uuid;i uuid;begin
  insert into current_auth_fixture values(t,i,b,other_t);
  insert into public.user_profiles(user_id,tenant_id,full_name,email) values('fc030000-0000-4000-8000-000000000001',t,'Fixture manager','current-manager@example.invalid');
  insert into public.user_roles(tenant_id,user_id,role_id) select t,'fc030000-0000-4000-8000-000000000001',role_id from public.roles where tenant_id=t and name='MANAGER';
+ -- Buying-reference overrides are a capability, not an OWNER-only action.
+ delete from public.role_permissions p using public.roles r where p.tenant_id=t and r.tenant_id=t
+  and p.role_id=r.role_id and r.name='MANAGER' and p.permission_id='inventory:buying_prices';
 end $$;
 grant select on current_auth_fixture to authenticated,anon;
 set local role authenticated;
@@ -35,7 +38,7 @@ end $$;
 select pg_temp.expect_current_error('select * from app_private.fifo_layers','permission denied');
 select pg_temp.expect_current_error('select app_private.rebuild_fifo_set(gen_random_uuid(),array[gen_random_uuid()])','permission denied');
 select set_config('request.jwt.claim.sub','fc030000-0000-4000-8000-000000000001',true);
-select pg_temp.expect_current_error(format('select public.set_product_buying_price(%L::jsonb,gen_random_uuid())',jsonb_build_object('item_id',item,'price_type','gas','is_manual',true,'price',60,'expected',null,'reason','Manager denied')),'owner') from current_auth_fixture;
+select pg_temp.expect_current_error(format('select public.set_product_buying_price(%L::jsonb,gen_random_uuid())',jsonb_build_object('item_id',item,'price_type','gas','is_manual',true,'price',60,'expected',null,'reason','Manager lacks override capability')),'permission|access|authoriz') from current_auth_fixture;
 select set_config('request.jwt.claim.sub','fc020000-0000-4000-8000-000000000001',true);
 select pg_temp.assert_current((public.get_buying_price_history(item)->>'total')::integer=0,'Other business cannot read product buying history') from current_auth_fixture;
 select pg_temp.assert_current((select count(*)=0 from public.items where item_id=(select item from current_auth_fixture)),'Other business cannot read the product');
